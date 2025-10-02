@@ -1,9 +1,9 @@
-```
+
 """
 Validation Script 7: H2O Full Ab-Initio Calculation
 ===================================================
 
-A challenging end-to-end validation of the Kanad framework by performing
+A hallenging end-to-end validation of the Kanad framework by performing
 a full Hartree-Fock calculation on the water molecule (H2O) and comparing
 the ground state energy to a known, high-quality reference value.
 
@@ -169,4 +169,3 @@ def run_validation():
 
 if __name__ == "__main__":
     run_validation()
-```

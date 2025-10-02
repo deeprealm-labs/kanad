@@ -159,6 +159,7 @@ class SCFSolver:
                 P = P_new
 
             # Compute electronic energy
+            # Standard RHF energy formula: E_elec = 0.5 * Tr[P(H + F)]
             E_elec = 0.5 * np.sum(P * (self.h_core + F))
             E_total = E_elec + self.nuclear_repulsion
 

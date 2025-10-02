@@ -211,6 +211,7 @@ class IonicBond(BaseBond):
             'electronegativity_difference': delta_en,
             'charge_transfer': charge_transfer,
             'ionic_character': ionic_character,
+            'covalent_character': 1.0 - ionic_character,  # Complementary
             'coulomb_energy': coulomb_energy,
             'bond_length': self.get_bond_length(),
             'entanglement_type': 'minimal (charge transfer only)',

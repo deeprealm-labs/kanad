@@ -195,6 +195,23 @@ class BasisSet:
                 (0.38038900, 0.39195739),
             ],
         },
+        'F': {
+            's': [
+                (166.6791300, 0.15432897),
+                (30.3608120, 0.53532814),
+                (8.21682070, 0.44463454),
+            ],
+            's_valence': [
+                (6.46480320, -0.09996723),
+                (1.50228120, 0.39951283),
+                (0.48858850, 0.70011547),
+            ],
+            'p': [
+                (6.46480320, 0.15591627),
+                (1.50228120, 0.60768372),
+                (0.48858850, 0.39195739),
+            ],
+        },
     }
 
     def __init__(self, basis_name: str = 'sto-3g'):
@@ -275,12 +292,16 @@ class BasisSet:
 
         # Add p orbitals (px, py, pz)
         if 'p' in basis_data:
+            # Normalization fix for Cartesian p orbitals
+            # STO-3G coefficients need 1/√2 factor for proper normalization
+            p_norm_factor = 1.0 / np.sqrt(2.0)
+
             # px orbital
             px_primitives = []
             for exp, coeff in basis_data['p']:
                 prim = GaussianPrimitive(
                     exponent=exp,
-                    coefficient=coeff,
+                    coefficient=coeff * p_norm_factor,
                     angular_momentum=(1, 0, 0),  # px
                     center=position
                 )
@@ -294,7 +315,7 @@ class BasisSet:
             for exp, coeff in basis_data['p']:
                 prim = GaussianPrimitive(
                     exponent=exp,
-                    coefficient=coeff,
+                    coefficient=coeff * p_norm_factor,
                     angular_momentum=(0, 1, 0),  # py
                     center=position
                 )
@@ -308,7 +329,7 @@ class BasisSet:
             for exp, coeff in basis_data['p']:
                 prim = GaussianPrimitive(
                     exponent=exp,
-                    coefficient=coeff,
+                    coefficient=coeff * p_norm_factor,
                     angular_momentum=(0, 0, 1),  # pz
                     center=position
                 )

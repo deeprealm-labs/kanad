@@ -228,15 +228,17 @@ class IonicHamiltonian(MolecularHamiltonian):
 
     def compute_energy(self, density_matrix: np.ndarray) -> float:
         """
-        Compute total energy from density matrix.
+        Compute electronic energy from density matrix.
 
-        E = Σ_ij P_ij h_ij + ½ Σ_ijkl P_ij P_kl [(ij|kl) - ½(ik|jl)] + E_nn
+        E = Σ_ij P_ij h_ij + ½ Σ_ijkl P_ij P_kl [(ij|kl) - ½(ik|jl)]
+
+        Note: Does NOT include nuclear repulsion. Caller should add it.
 
         Args:
             density_matrix: One-particle density matrix
 
         Returns:
-            Total electronic energy (Hartree)
+            Electronic energy only (Hartree)
         """
         # One-electron contribution
         E_core = np.sum(density_matrix * self.h_core)
@@ -252,10 +254,10 @@ class IonicHamiltonian(MolecularHamiltonian):
                         # Exchange (with factor for closed-shell)
                         E_ee -= 0.25 * density_matrix[i, k] * density_matrix[j, l] * self.eri[i, j, k, l]
 
-        # Total energy
-        E_total = E_core + E_ee + self.nuclear_repulsion
+        # Electronic energy only (nuclear repulsion added by caller)
+        E_electronic = E_core + E_ee
 
-        return E_total
+        return E_electronic
 
     def compute_charge_transfer(self, density_matrix: np.ndarray) -> np.ndarray:
         """
@@ -312,3 +314,53 @@ class IonicHamiltonian(MolecularHamiltonian):
         lumo_energy = eigenvalues[n_occ]
 
         return -lumo_energy
+
+    def solve_scf(
+        self,
+        max_iterations: int = 100,
+        conv_tol: float = 1e-6,
+        **kwargs
+    ) -> tuple:
+        """
+        Solve for ground state using simple mean-field approximation.
+
+        For ionic systems, we use a simplified tight-binding approach:
+        - Occupy lowest energy orbitals
+        - No iterative SCF (already at mean-field level)
+
+        Args:
+            max_iterations: Not used (for compatibility)
+            conv_tol: Not used (for compatibility)
+            **kwargs: Additional arguments (ignored)
+
+        Returns:
+            Tuple of (density_matrix, energy)
+        """
+        # Build simple density matrix: occupy n_electrons lowest orbitals
+        # For simplicity, use aufbau principle on site energies
+        site_energies = np.diag(self.h_core)
+        sorted_indices = np.argsort(site_energies)
+
+        density_matrix = np.zeros((self.n_orbitals, self.n_orbitals))
+
+        # Fill electrons (simplified: one electron per site for ionic bonding)
+        # In reality, ionic bonds have charge-separated states
+        n_sites = self.n_orbitals
+        n_electrons_to_place = min(self.n_electrons, 2 * n_sites)  # Max 2 per site
+
+        electrons_placed = 0
+        for idx in sorted_indices:
+            if electrons_placed >= n_electrons_to_place:
+                break
+            # Place up to 2 electrons per site
+            electrons_this_site = min(2, n_electrons_to_place - electrons_placed)
+            density_matrix[idx, idx] = electrons_this_site
+            electrons_placed += electrons_this_site
+
+        # Compute energy
+        energy = self.compute_energy(density_matrix)
+
+        # Add nuclear repulsion
+        total_energy = energy + self.nuclear_repulsion
+
+        return density_matrix, total_energy
