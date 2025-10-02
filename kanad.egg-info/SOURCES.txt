@@ -21,6 +21,7 @@ kanad/bonds/ionic_bond.py
 kanad/bonds/metallic_bond.py
 kanad/core/__init__.py
 kanad/core/atom.py
+kanad/core/scf_solver.py
 kanad/core/constants/__init__.py
 kanad/core/constants/atomic_data.py
 kanad/core/constants/conversion_factors.py
@@ -71,4 +72,11 @@ kanad/tests/unit/test_integrals.py
 kanad/tests/unit/test_mappers.py
 kanad/tests/unit/test_representations.py
 kanad/tests/unit/test_vqe.py
+kanad/tests/validation/01_h2_covalent_bond.py
+kanad/tests/validation/02_nacl_ionic_bond.py
+kanad/tests/validation/03_metallic_sodium_chain.py
+kanad/tests/validation/04_bond_comparison.py
+kanad/tests/validation/05_ansatz_comparison.py
+kanad/tests/validation/06_complete_workflow.py
+kanad/tests/validation/07_h2o_full_ci_comparison.py
 kanad/tests/validation/__init__.py

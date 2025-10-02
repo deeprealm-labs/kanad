@@ -6,7 +6,6 @@ pytest-cov>=4.1.0
 
 # Quantum computing
 qiskit>=0.45.0
-qiskit-nature>=0.7.0
 qiskit-aer>=0.13.0
 
 # Chemistry
