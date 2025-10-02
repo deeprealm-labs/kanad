@@ -131,7 +131,12 @@ class OverlapIntegrals:
         """
         Compute overlap between two contracted Gaussian functions.
 
-        S = Σᵢⱼ cᵢ cⱼ ⟨φᵢ|φⱼ⟩
+        S = Σᵢⱼ cᵢ cⱼ Nᵢ Nⱼ ⟨gᵢ|gⱼ⟩
+
+        where:
+        - cᵢ, cⱼ are contraction coefficients
+        - Nᵢ, Nⱼ are normalization constants for primitives
+        - ⟨gᵢ|gⱼ⟩ is the unnormalized Gaussian overlap integral
 
         Args:
             cgf_a: First contracted Gaussian
@@ -144,8 +149,12 @@ class OverlapIntegrals:
 
         for prim_a in cgf_a.primitives:
             for prim_b in cgf_b.primitives:
+                # Overlap of normalized primitives:
+                # ⟨φ_a|φ_b⟩ = N_a × N_b × ⟨g_a|g_b⟩
                 overlap += (prim_a.coefficient *
                            prim_b.coefficient *
+                           prim_a._normalization_constant() *
+                           prim_b._normalization_constant() *
                            OverlapIntegrals.overlap_primitive(prim_a, prim_b))
 
         return overlap

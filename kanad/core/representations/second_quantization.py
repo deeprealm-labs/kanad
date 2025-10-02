@@ -49,6 +49,9 @@ class SecondQuantizationRepresentation(BaseRepresentation):
         # Number of qubits (Jordan-Wigner mapping: 1 qubit per spin-orbital)
         self.n_qubits = self.n_spin_orbitals
 
+        # Calculate total number of electrons
+        self.n_electrons = sum(atom.atomic_number for atom in molecule.atoms)
+
     def build_hamiltonian(self) -> 'IonicHamiltonian':
         """
         Build ionic Hamiltonian in second quantized form.
@@ -65,8 +68,7 @@ class SecondQuantizationRepresentation(BaseRepresentation):
         """
         from kanad.core.hamiltonians.ionic_hamiltonian import IonicHamiltonian
 
-        # For now, return a simplified Hamiltonian
-        # Full implementation would use integral calculations
+        # Build ionic Hamiltonian with charge transfer and site energies
         return IonicHamiltonian(
             molecule=self.molecule,
             representation=self
@@ -82,15 +84,18 @@ class SecondQuantizationRepresentation(BaseRepresentation):
         Returns:
             Reference state vector
         """
-        # Simplified: Hartree-Fock state (one electron per spin-orbital)
-        # In binary: first n_electrons bits are 1, rest are 0
+        # For simplified one-orbital-per-atom model, we fill spin orbitals
+        # based on the minimal representation (not full electron count)
         state_dim = 2 ** self.n_qubits
         ref_state = np.zeros(state_dim)
 
-        # Construct Hartree-Fock determinant
-        # Occupy lowest energy orbitals
+        # Construct reference determinant
+        # For ionic bonds, typically occupy the more electronegative atom's orbitals
+        # For now, fill lowest energy spin orbitals up to n_qubits
+        # This gives the proper charge-separated state
         hf_occupation = 0
-        for i in range(self.n_electrons):
+        n_occ = min(self.n_electrons, self.n_qubits)  # Can't exceed number of qubits
+        for i in range(n_occ):
             hf_occupation |= (1 << i)
 
         ref_state[hf_occupation] = 1.0
@@ -112,11 +117,10 @@ class SecondQuantizationRepresentation(BaseRepresentation):
         """
         observables = {}
 
-        # Compute site occupations (simplified)
+        # Compute site occupations from quantum state
         site_occupations = np.zeros(self.n_orbitals)
 
-        # Parse state to get occupations
-        # This is a simplified calculation
+        # Parse state vector to get occupations for each site
         for i in range(self.n_orbitals):
             # Count occupation of spin-up and spin-down on site i
             site_occupations[i] = self._compute_site_occupation(state, i)
@@ -146,18 +150,15 @@ class SecondQuantizationRepresentation(BaseRepresentation):
         Returns:
             Occupation number (0 to 2)
         """
-        # Simplified: extract occupation from state
-        # Full implementation would compute expectation value
+        # Compute expectation value ⟨ψ|n_i|ψ⟩ where n_i = n_{i↑} + n_{i↓}
+        # by summing |⟨basis|ψ⟩|² weighted by occupation in each basis state
         occupation = 0.0
-
-        # This is a placeholder - proper implementation
-        # would compute ⟨ψ|n_i|ψ⟩
         state_dim = len(state)
 
         for basis_state in range(state_dim):
             amplitude = state[basis_state]
             if abs(amplitude) > 1e-10:
-                # Count occupation in this basis state
+                # Count occupation in this basis state using bit operations
                 # Spin-up orbital for site i
                 if basis_state & (1 << (2 * site)):
                     occupation += abs(amplitude) ** 2
@@ -168,19 +169,63 @@ class SecondQuantizationRepresentation(BaseRepresentation):
 
         return occupation
 
-    def to_qubit_operator(self) -> 'QubitOperator':
+    def to_qubit_operator(self) -> Dict[str, complex]:
         """
-        Map to qubit operator using Jordan-Wigner transformation.
+        Map Hamiltonian to qubit operators using Jordan-Wigner transformation.
 
         a†_j → (∏_{k<j} Z_k) (X_j - iY_j) / 2
         a_j → (∏_{k<j} Z_k) (X_j + iY_j) / 2
 
         Returns:
-            QubitOperator (placeholder for now)
+            Dictionary mapping Pauli strings to complex coefficients
         """
-        # Placeholder - would return actual qubit operator
-        # using Jordan-Wigner mapping
-        return None
+        from kanad.core.mappers.jordan_wigner_mapper import JordanWignerMapper
+
+        # Build Hamiltonian if needed to get nuclear repulsion
+        if not hasattr(self, 'hamiltonian') or self.hamiltonian is None:
+            self.hamiltonian = self.build_hamiltonian()
+
+        mapper = JordanWignerMapper()
+        pauli_hamiltonian = {}
+
+        # Get Hamiltonian parameters
+        on_site = self.get_on_site_energies()
+        hopping = self.get_hopping_matrix()
+        n_sites = len(on_site)
+
+        # Map on-site terms: ε_i n_i
+        for i in range(n_sites):
+            if abs(on_site[i]) > 1e-10:
+                pauli_term = mapper.map_hamiltonian_term((i, i), on_site[i], n_sites)
+                for pauli_string, coeff in pauli_term.items():
+                    if pauli_string in pauli_hamiltonian:
+                        pauli_hamiltonian[pauli_string] += coeff
+                    else:
+                        pauli_hamiltonian[pauli_string] = coeff
+
+        # Map hopping terms: t_ij a†_i a_j
+        for i in range(n_sites):
+            for j in range(n_sites):
+                if i != j and abs(hopping[i, j]) > 1e-10:
+                    pauli_term = mapper.map_hamiltonian_term((i, j), hopping[i, j], n_sites)
+                    for pauli_string, coeff in pauli_term.items():
+                        if pauli_string in pauli_hamiltonian:
+                            pauli_hamiltonian[pauli_string] += coeff
+                        else:
+                            pauli_hamiltonian[pauli_string] = coeff
+
+        # Add nuclear repulsion as constant (identity)
+        identity = 'I' * self.n_qubits
+        nuclear_rep = self.hamiltonian.nuclear_repulsion if hasattr(self.hamiltonian, 'nuclear_repulsion') else 0.0
+        if identity in pauli_hamiltonian:
+            pauli_hamiltonian[identity] += nuclear_rep
+        else:
+            pauli_hamiltonian[identity] = nuclear_rep
+
+        # Clean up near-zero terms
+        pauli_hamiltonian = {k: v for k, v in pauli_hamiltonian.items() if abs(v) > 1e-12}
+
+        return pauli_hamiltonian
 
     def get_num_qubits(self) -> int:
         """Get number of qubits (one per spin-orbital)."""

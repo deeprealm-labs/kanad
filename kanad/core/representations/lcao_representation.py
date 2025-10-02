@@ -280,10 +280,10 @@ class LCAORepresentation(BaseRepresentation):
         """
         observables = {}
 
-        # Compute bond orders (simplified)
+        # Compute bond orders from MO occupations
+        # Bond order = (n_bonding - n_antibonding) / 2
         bond_orders = []
         for bonding_idx, antibonding_idx in self.mo_pairs:
-            # Bond order = (n_bonding - n_antibonding) / 2
             n_bonding = self._compute_orbital_occupation(state, bonding_idx)
             n_antibonding = self._compute_orbital_occupation(state, antibonding_idx)
             bond_order = (n_bonding - n_antibonding) / 2
@@ -294,8 +294,11 @@ class LCAORepresentation(BaseRepresentation):
         return observables
 
     def _compute_orbital_occupation(self, state: np.ndarray, orbital: int) -> float:
-        """Compute occupation of a molecular orbital."""
-        # Simplified calculation
+        """
+        Compute occupation number for a molecular orbital.
+
+        Returns expectation value ⟨n_orbital⟩ from quantum state.
+        """
         occupation = 0.0
 
         for basis_state in range(len(state)):
@@ -309,20 +312,72 @@ class LCAORepresentation(BaseRepresentation):
 
         return occupation
 
-    def to_qubit_operator(self) -> 'QubitOperator':
+    def to_qubit_operator(self) -> Dict[str, complex]:
         """
-        Map to qubit operator using hybrid orbital mapper.
+        Map Hamiltonian to qubit operators using hybrid orbital mapper.
 
         Uses paired qubit encoding for bonding/antibonding orbitals.
+        Returns Hamiltonian as dictionary of Pauli strings to coefficients.
 
         Returns:
-            QubitOperator (placeholder)
+            Dictionary mapping Pauli strings to complex coefficients
+            e.g., {'IIZZ': 0.5, 'XXII': -0.2, ...}
         """
-        return None
+        from kanad.core.mappers.hybrid_orbital_mapper import HybridOrbitalMapper
+
+        # Build Hamiltonian if not already built
+        if not hasattr(self, 'hamiltonian') or self.hamiltonian is None:
+            self.hamiltonian = self.build_hamiltonian()
+
+        # Get MO pairs for mapping
+        mo_pairs = self.get_mo_pairs()
+
+        # Create mapper
+        mapper = HybridOrbitalMapper(mo_pairs)
+
+        # Map Hamiltonian to Pauli operators
+        pauli_hamiltonian = {}
+
+        # One-body terms: h_ij a†_i a_j
+        h_core = self.hamiltonian.h_core
+        n_orbitals = len(h_core)
+
+        for i in range(n_orbitals):
+            for j in range(n_orbitals):
+                if abs(h_core[i, j]) > 1e-10:
+                    # Map this term using the mapper
+                    pauli_term = mapper.map_hamiltonian_term((i, j), h_core[i, j], n_orbitals)
+                    # Merge into total Hamiltonian
+                    for pauli_string, coeff in pauli_term.items():
+                        if pauli_string in pauli_hamiltonian:
+                            pauli_hamiltonian[pauli_string] += coeff
+                        else:
+                            pauli_hamiltonian[pauli_string] = coeff
+
+        # Add nuclear repulsion as constant term (identity operator)
+        identity = 'I' * self.n_qubits
+        if identity in pauli_hamiltonian:
+            pauli_hamiltonian[identity] += self.hamiltonian.nuclear_repulsion
+        else:
+            pauli_hamiltonian[identity] = self.hamiltonian.nuclear_repulsion
+
+        # Clean up near-zero terms
+        pauli_hamiltonian = {k: v for k, v in pauli_hamiltonian.items() if abs(v) > 1e-12}
+
+        return pauli_hamiltonian
 
     def get_num_qubits(self) -> int:
         """Get number of qubits."""
         return self.n_qubits
+
+    def get_mo_pairs(self) -> List[Tuple[int, int]]:
+        """
+        Get molecular orbital pairs (bonding/antibonding).
+
+        Returns:
+            List of (bonding_idx, antibonding_idx) tuples
+        """
+        return self.mo_pairs
 
     def get_bonding_antibonding_split(self, bond_idx: int) -> Dict[str, float]:
         """
@@ -336,11 +391,34 @@ class LCAORepresentation(BaseRepresentation):
         Returns:
             Dictionary with energies and splitting
         """
-        # Placeholder - would compute from Hamiltonian eigenvalues
+        # Get molecular orbital energies from Hamiltonian
+        if not hasattr(self, 'hamiltonian') or self.hamiltonian is None:
+            # If Hamiltonian not yet built, build it
+            self.hamiltonian = self.build_hamiltonian()
+
+        # Get MO energies by diagonalizing Fock matrix
+        if hasattr(self.hamiltonian, 'mo_energies') and self.hamiltonian.mo_energies is not None:
+            mo_energies = self.hamiltonian.mo_energies
+        else:
+            # Compute from core Hamiltonian if no SCF has been run
+            # This gives approximate MO energies
+            from scipy.linalg import eigh
+            mo_energies, _ = eigh(self.hamiltonian.h_core, self.hamiltonian.S)
+
+        # For a simple bond, bonding is lowest energy, antibonding is next
+        if bond_idx >= len(self.mo_pairs):
+            raise ValueError(f"Bond index {bond_idx} out of range (max {len(self.mo_pairs)-1})")
+
+        bonding_idx, antibonding_idx = self.mo_pairs[bond_idx]
+
+        bonding_energy = float(mo_energies[bonding_idx])
+        antibonding_energy = float(mo_energies[antibonding_idx])
+        splitting = antibonding_energy - bonding_energy
+
         return {
-            'bonding_energy': -1.0,
-            'antibonding_energy': 1.0,
-            'splitting': 2.0
+            'bonding_energy': bonding_energy,
+            'antibonding_energy': antibonding_energy,
+            'splitting': splitting
         }
 
     def __repr__(self) -> str:

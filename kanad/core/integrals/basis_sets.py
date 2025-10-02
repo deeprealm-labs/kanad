@@ -68,28 +68,42 @@ class GaussianPrimitive:
         """
         Compute normalization constant for Gaussian primitive.
 
-        N = (2α/π)^(3/4) * (4α)^(l/2) / sqrt[(2l-1)!!]
+        For a 3D Cartesian Gaussian:
+        φ(r) = N × x^lx × y^ly × z^lz × exp(-α|r-R|²)
 
-        where l = lx + ly + lz
+        Normalization:
+        N = (2α/π)^(3/4) × [(8α)^lx / (2lx-1)!!]^(1/2)
+                         × [(8α)^ly / (2ly-1)!!]^(1/2)
+                         × [(8α)^lz / (2lz-1)!!]^(1/2)
+
+        Note: The (2α/π)^(3/4) factor appears ONCE for the 3D Gaussian,
+        not once per dimension.
         """
         α = self.exponent
         lx, ly, lz = self.angular_momentum
+        from scipy.special import factorial2
 
-        # Component-wise normalization
-        norm_x = self._1d_normalization(α, lx)
-        norm_y = self._1d_normalization(α, ly)
-        norm_z = self._1d_normalization(α, lz)
+        # 3D Gaussian base normalization (appears once)
+        base_norm = (2 * α / np.pi) ** 0.75
 
-        return norm_x * norm_y * norm_z
+        # Angular momentum normalization for each component
+        # For each direction: [(8α)^l / (2l-1)!!]^(1/2)
+        norm_x = np.sqrt((8 * α) ** lx / (factorial2(2 * lx - 1, exact=True) if lx > 0 else 1))
+        norm_y = np.sqrt((8 * α) ** ly / (factorial2(2 * ly - 1, exact=True) if ly > 0 else 1))
+        norm_z = np.sqrt((8 * α) ** lz / (factorial2(2 * lz - 1, exact=True) if lz > 0 else 1))
+
+        return base_norm * norm_x * norm_y * norm_z
 
     @staticmethod
     def _1d_normalization(α: float, l: int) -> float:
-        """1D normalization factor."""
+        """
+        DEPRECATED: This method had incorrect normalization.
+        Use _normalization_constant() instead.
+        """
+        # Kept for backwards compatibility but should not be used
         from scipy.special import factorial2
-
         numerator = (2 * α / np.pi) ** 0.75 * (4 * α) ** (l / 2)
         denominator = np.sqrt(factorial2(2 * l - 1, exact=True) if l > 0 else 1)
-
         return numerator / denominator
 
 
@@ -209,9 +223,18 @@ class BasisSet:
                 raise NotImplementedError(f"Basis set '{self.basis_name}' not implemented yet")
 
     def _add_sto3g_functions(self, atom: 'Atom') -> None:
-        """Add STO-3G basis functions for an atom."""
+        """
+        Add STO-3G basis functions for an atom.
+
+        IMPORTANT: STO-3G exponents are in atomic units (bohr^-2).
+        Atom positions are in Angstroms, so we convert to Bohr here.
+        """
+        from kanad.core.constants.conversion_factors import ConversionFactors
+
         symbol = atom.symbol
-        position = atom.position
+        # Convert position from Angstroms to Bohr (atomic units)
+        position_angstrom = atom.position
+        position = position_angstrom * ConversionFactors.ANGSTROM_TO_BOHR
 
         if symbol not in self.STO3G_DATA:
             raise ValueError(f"STO-3G basis not available for element '{symbol}'")

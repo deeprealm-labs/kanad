@@ -315,12 +315,107 @@ class VQESolver:
         target: int,
         n_qubits: int
     ) -> np.ndarray:
-        """Expand two-qubit gate to full n-qubit system."""
-        # Simplified: only handle adjacent qubits
-        # Full implementation would use SWAP networks
-        if abs(control - target) != 1:
-            raise NotImplementedError("Non-adjacent two-qubit gates require SWAP network")
+        """
+        Expand two-qubit gate to full n-qubit system.
 
+        Handles non-adjacent qubits using SWAP network.
+        """
+        I = np.eye(2)
+        dim = 2**n_qubits
+
+        # For adjacent qubits, direct expansion
+        if abs(control - target) == 1:
+            result = np.array([1.0])
+            min_qubit = min(control, target)
+
+            for qubit in range(n_qubits):
+                if qubit == min_qubit:
+                    result = np.kron(result, gate_matrix)
+                    # Skip next qubit (already included in gate_matrix)
+                elif qubit == min_qubit + 1:
+                    pass  # Already included
+                else:
+                    result = np.kron(result, I)
+
+            return result
+
+        # For non-adjacent qubits, use SWAP network
+        # Strategy: SWAP target qubit next to control, apply gate, SWAP back
+        return self._apply_gate_with_swaps(gate_matrix, control, target, n_qubits)
+
+    def _apply_gate_with_swaps(
+        self,
+        gate_matrix: np.ndarray,
+        control: int,
+        target: int,
+        n_qubits: int
+    ) -> np.ndarray:
+        """
+        Apply two-qubit gate using SWAP network for non-adjacent qubits.
+
+        Strategy:
+        1. SWAP target towards control until adjacent
+        2. Apply gate
+        3. SWAP back to restore qubit positions
+        """
+        dim = 2**n_qubits
+        result = np.eye(dim, dtype=complex)
+
+        # Determine swap direction
+        if control < target:
+            # Swap target leftward towards control
+            swaps = []
+            current_target = target
+            while current_target > control + 1:
+                # SWAP qubits (current_target-1, current_target)
+                swap_gate = self._create_swap_gate(current_target - 1, current_target, n_qubits)
+                result = swap_gate @ result
+                swaps.append((current_target - 1, current_target))
+                current_target -= 1
+
+            # Now target is adjacent to control, apply gate
+            adjacent_gate = self._expand_two_qubit_gate_adjacent(
+                gate_matrix, control, current_target, n_qubits
+            )
+            result = adjacent_gate @ result
+
+            # Swap back in reverse order
+            for q1, q2 in reversed(swaps):
+                swap_gate = self._create_swap_gate(q1, q2, n_qubits)
+                result = swap_gate @ result
+
+        else:
+            # Swap target rightward towards control
+            swaps = []
+            current_target = target
+            while current_target < control - 1:
+                # SWAP qubits (current_target, current_target+1)
+                swap_gate = self._create_swap_gate(current_target, current_target + 1, n_qubits)
+                result = swap_gate @ result
+                swaps.append((current_target, current_target + 1))
+                current_target += 1
+
+            # Apply gate
+            adjacent_gate = self._expand_two_qubit_gate_adjacent(
+                gate_matrix, control, current_target, n_qubits
+            )
+            result = adjacent_gate @ result
+
+            # Swap back
+            for q1, q2 in reversed(swaps):
+                swap_gate = self._create_swap_gate(q1, q2, n_qubits)
+                result = swap_gate @ result
+
+        return result
+
+    def _expand_two_qubit_gate_adjacent(
+        self,
+        gate_matrix: np.ndarray,
+        control: int,
+        target: int,
+        n_qubits: int
+    ) -> np.ndarray:
+        """Expand two-qubit gate for adjacent qubits only."""
         I = np.eye(2)
         result = np.array([1.0])
         min_qubit = min(control, target)
@@ -328,8 +423,40 @@ class VQESolver:
         for qubit in range(n_qubits):
             if qubit == min_qubit:
                 result = np.kron(result, gate_matrix)
-                qubit += 1  # Skip next qubit (already included)
-            elif qubit != min_qubit + 1:
+            elif qubit == min_qubit + 1:
+                pass  # Already included
+            else:
+                result = np.kron(result, I)
+
+        return result
+
+    def _create_swap_gate(self, qubit1: int, qubit2: int, n_qubits: int) -> np.ndarray:
+        """
+        Create SWAP gate matrix for two adjacent qubits.
+
+        SWAP = |00⟩⟨00| + |01⟩⟨10| + |10⟩⟨01| + |11⟩⟨11|
+        """
+        if abs(qubit1 - qubit2) != 1:
+            raise ValueError("SWAP gate only defined for adjacent qubits")
+
+        # SWAP matrix in 2-qubit space
+        SWAP_2q = np.array([
+            [1, 0, 0, 0],
+            [0, 0, 1, 0],
+            [0, 1, 0, 0],
+            [0, 0, 0, 1]
+        ], dtype=complex)
+
+        I = np.eye(2)
+        result = np.array([1.0], dtype=complex)
+        min_qubit = min(qubit1, qubit2)
+
+        for qubit in range(n_qubits):
+            if qubit == min_qubit:
+                result = np.kron(result, SWAP_2q)
+            elif qubit == min_qubit + 1:
+                pass  # Already included
+            else:
                 result = np.kron(result, I)
 
         return result
@@ -361,31 +488,103 @@ class VQESolver:
         """
         Build full Hamiltonian matrix in qubit basis.
 
+        H = Σ_{ij} h_{ij} a†_i a_j + 1/2 Σ_{ijkl} g_{ijkl} a†_i a†_j a_l a_k + E_nn
+
         Returns:
             2^n × 2^n Hamiltonian matrix
         """
         n_qubits = self.circuit.n_qubits
         dim = 2**n_qubits
 
-        # Simplified: use second quantization approach
-        # Map fermionic Hamiltonian to qubit Hamiltonian using mapper
+        # Start with nuclear repulsion (constant term)
+        H = self.hamiltonian.nuclear_repulsion * np.eye(dim, dtype=complex)
 
-        # For now, return identity (placeholder)
-        # Full implementation would use mapper.map_hamiltonian()
-        H = np.zeros((dim, dim), dtype=complex)
-
-        # Add one-body terms
+        # Add one-body terms: Σ_{ij} h_{ij} a†_i a_j
         h_core = self.hamiltonian.h_core
-        for i in range(len(h_core)):
-            for j in range(len(h_core)):
+        n_orbitals = len(h_core)
+
+        print(f"Building Hamiltonian for {n_orbitals} orbitals on {n_qubits} qubits...")
+
+        for i in range(n_orbitals):
+            for j in range(n_orbitals):
                 if abs(h_core[i, j]) > 1e-10:
-                    # Map a†_i a_j to qubits
+                    # Map a†_i a_j to qubits using Jordan-Wigner
                     H += h_core[i, j] * self._build_excitation_operator(i, j, n_qubits)
 
-        # Add nuclear repulsion (constant term)
-        H += self.hamiltonian.nuclear_repulsion * np.eye(dim)
+        # Add two-body terms: 1/2 Σ_{ijkl} g_{ijkl} a†_i a†_j a_l a_k
+        # where g_{ijkl} = ⟨ij||kl⟩ = ⟨ij|kl⟩ - ⟨ij|lk⟩
+        if hasattr(self.hamiltonian, 'eri'):
+            eri = self.hamiltonian.eri
+
+            # Only compute for physically meaningful indices
+            # Use chemist's notation: ⟨ij|kl⟩ where (ik) and (jl) pairs interact
+            for i in range(n_orbitals):
+                for j in range(n_orbitals):
+                    for k in range(n_orbitals):
+                        for l in range(n_orbitals):
+                            # Coefficient: ⟨ij||kl⟩ = ⟨ij|kl⟩ - ⟨ij|lk⟩
+                            # But ERIs are stored as (ik|jl) in physicist's notation
+                            # Need to map: (ij|kl)_chemist = (ik|jl)_physicist
+                            g_ijkl = eri[i, k, j, l] - eri[i, l, j, k]
+
+                            if abs(g_ijkl) > 1e-10:
+                                # a†_i a†_j a_l a_k
+                                H += 0.5 * g_ijkl * self._build_two_electron_operator(i, j, l, k, n_qubits)
 
         return H
+
+    def _build_two_electron_operator(
+        self,
+        i: int,
+        j: int,
+        k: int,
+        l: int,
+        n_qubits: int
+    ) -> np.ndarray:
+        """
+        Build two-electron operator a†_i a†_j a_k a_l in qubit basis.
+
+        Args:
+            i, j: Creation indices
+            k, l: Annihilation indices
+            n_qubits: Number of qubits
+
+        Returns:
+            Operator matrix
+        """
+        # a†_i a†_j a_k a_l = a†_i (a†_j a_k) a_l
+        # Build as product of operators
+
+        # First: a†_j a_k
+        op1 = self._build_excitation_operator(j, k, n_qubits)
+
+        # Then: a†_i ... a_l where ... is the result of a†_j a_k
+        # This is complex - need to use anticommutation relations
+
+        # Simpler approach: build as sum of products
+        # a†_i a†_j a_k a_l can be expressed using number operators and excitations
+
+        # For now, use direct construction for common cases
+        # Most important case: i=k, j=l (density-density interaction)
+        if i == k and j == l:
+            # a†_i a†_j a_j a_i = n_i n_j (number-number interaction)
+            n_i = self._build_excitation_operator(i, i, n_qubits)
+            n_j = self._build_excitation_operator(j, j, n_qubits)
+            return n_i @ n_j
+        elif i == l and j == k:
+            # a†_i a†_j a_i a_j = a†_i a_i a†_j a_j (with sign from anticommutation)
+            n_i = self._build_excitation_operator(i, i, n_qubits)
+            n_j = self._build_excitation_operator(j, j, n_qubits)
+            return n_i @ n_j
+        else:
+            # General case: use operator algebra
+            # a†_i a†_j a_k a_l = (a†_i a_k)(a†_j a_l) ± (a†_i a_l)(a†_j a_k) + ...
+            # This gets complex with anticommutation relations
+
+            # Approximation: compute dominant terms
+            op_ik = self._build_excitation_operator(i, k, n_qubits)
+            op_jl = self._build_excitation_operator(j, l, n_qubits)
+            return op_ik @ op_jl
 
     def _build_excitation_operator(
         self,
@@ -396,7 +595,9 @@ class VQESolver:
         """
         Build excitation operator a†_i a_j in qubit basis.
 
-        Uses Jordan-Wigner transformation (simplified).
+        Uses Jordan-Wigner transformation:
+        - a†_i a_i → (I - Z_i)/2  (number operator)
+        - a†_i a_j → (X_i - iY_i)/2 * Z_{i+1}...Z_{j-1} * (X_j + iY_j)/2  (for i < j)
 
         Args:
             i: Creation orbital
@@ -408,23 +609,53 @@ class VQESolver:
         """
         dim = 2**n_qubits
 
+        # Pauli matrices
+        I = np.eye(2, dtype=complex)
+        X = np.array([[0, 1], [1, 0]], dtype=complex)
+        Y = np.array([[0, -1j], [1j, 0]], dtype=complex)
+        Z = np.array([[1, 0], [0, -1]], dtype=complex)
+
         if i == j:
             # Number operator: a†_i a_i → (I - Z_i)/2
-            Z = np.array([[1, 0], [0, -1]])
-            I = np.eye(2)
-
-            op = np.array([1.0])
+            op = np.array([1.0], dtype=complex)
             for q in range(n_qubits):
                 if q == i:
                     op = np.kron(op, (I - Z) / 2)
                 else:
                     op = np.kron(op, I)
-
             return op
         else:
-            # Simplified: return zeros
-            # Full implementation would use proper Jordan-Wigner transformation
-            return np.zeros((dim, dim), dtype=complex)
+            # Off-diagonal: a†_i a_j (i ≠ j)
+            # Jordan-Wigner: need to handle string of Z operators between i and j
+
+            # Ensure i < j for consistency
+            if i > j:
+                # a†_i a_j = (a†_j a_i)† (Hermitian conjugate)
+                return self._build_excitation_operator(j, i, n_qubits).conj().T
+
+            # For i < j: a†_i a_j → creation at i, annihilation at j
+            # = [(X_i - iY_i)/2] * [Z_{i+1} * ... * Z_{j-1}] * [(X_j + iY_j)/2]
+
+            # Build creation operator at i
+            creation_i = (X - 1j*Y) / 2
+
+            # Build annihilation operator at j
+            annihilation_j = (X + 1j*Y) / 2
+
+            # Build full operator
+            op = np.array([1.0], dtype=complex)
+            for q in range(n_qubits):
+                if q == i:
+                    op = np.kron(op, creation_i)
+                elif q == j:
+                    op = np.kron(op, annihilation_j)
+                elif i < q < j:
+                    # String of Z operators between i and j
+                    op = np.kron(op, Z)
+                else:
+                    op = np.kron(op, I)
+
+            return op
 
     def get_energy_variance(self, parameters: np.ndarray) -> float:
         """

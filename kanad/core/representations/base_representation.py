@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Optional
 import numpy as np
 
 
+
 class BaseRepresentation(ABC):
     """
     Abstract base class for quantum representations of bonding.

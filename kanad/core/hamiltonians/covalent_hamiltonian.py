@@ -67,18 +67,25 @@ class CovalentHamiltonian(MolecularHamiltonian):
 
     def _compute_nuclear_repulsion(self) -> float:
         """
-        Compute nuclear-nuclear repulsion energy.
+        Compute nuclear-nuclear repulsion energy in atomic units.
 
         E_nn = Σ_{i<j} Z_i Z_j / |R_i - R_j|
+
+        Returns:
+            Nuclear repulsion energy in Hartree
         """
+        from kanad.core.constants.conversion_factors import ConversionFactors
+
         energy = 0.0
         for i in range(len(self.atoms)):
             for j in range(i + 1, len(self.atoms)):
                 Z_i = self.atoms[i].atomic_number
                 Z_j = self.atoms[j].atomic_number
-                r_ij = self.atoms[i].distance_to(self.atoms[j])
-                if r_ij > 1e-10:
-                    energy += Z_i * Z_j / r_ij
+                r_ij_angstrom = self.atoms[i].distance_to(self.atoms[j])
+                if r_ij_angstrom > 1e-10:
+                    # Convert distance to Bohr for atomic units
+                    r_ij_bohr = r_ij_angstrom * ConversionFactors.ANGSTROM_TO_BOHR
+                    energy += Z_i * Z_j / r_ij_bohr
 
         return energy
 
@@ -147,21 +154,111 @@ class CovalentHamiltonian(MolecularHamiltonian):
 
         return E_total
 
-    def compute_molecular_orbitals(self) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_molecular_orbitals(self, use_hf=True) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Compute molecular orbitals by solving generalized eigenvalue problem.
+        Compute molecular orbitals.
 
-        H C = S C E
+        If use_hf=True (default), solves Hartree-Fock equations self-consistently.
+        If use_hf=False, just diagonalizes core Hamiltonian (for testing).
 
         Returns:
-            (energies, mo_coefficients)
+            (mo_energies, mo_coefficients)
         """
+        if use_hf:
+            energies, coeffs, converged, iterations = self._solve_hartree_fock()
+            return energies, coeffs
+        else:
+            # Just diagonalize core Hamiltonian (not physically meaningful for energies)
+            from scipy.linalg import eigh
+            energies, coefficients = eigh(self.h_core, self.S)
+            return energies, coefficients
+
+    def solve_scf(
+        self,
+        max_iterations=100,
+        conv_tol=1e-8,
+        use_diis=True,
+        level_shift=0.0,
+        damping_factor=0.0
+    ) -> Tuple[np.ndarray, float]:
+        """
+        Solve Hartree-Fock self-consistently and return density matrix and energy.
+
+        This is the public interface for SCF calculations.
+
+        Args:
+            max_iterations: Maximum SCF iterations
+            conv_tol: Convergence tolerance for energy
+            use_diis: Use DIIS convergence acceleration
+            level_shift: Level shift for virtual orbitals (Ha) - helps difficult convergence
+            damping_factor: Density damping (0-1) - helps oscillatory convergence
+
+        Returns:
+            (density_matrix, total_energy)
+        """
+        from kanad.core.scf_solver import SCFSolver
+
+        # Create SCF solver
+        solver = SCFSolver(
+            h_core=self.h_core,
+            S=self.S,
+            eri=self.eri,
+            n_electrons=self.n_electrons,
+            nuclear_repulsion=self.nuclear_repulsion
+        )
+
+        # Solve SCF
+        density_matrix, mo_energies, total_energy, converged, iterations = solver.solve(
+            max_iterations=max_iterations,
+            energy_tol=conv_tol,
+            use_diis=use_diis,
+            level_shift=level_shift,
+            damping_factor=damping_factor
+        )
+
+        # Store convergence info for bond classes to access
+        self._scf_converged = converged
+        self._scf_iterations = iterations
+        self._mo_energies = mo_energies
+
+        return density_matrix, total_energy
+
+    def _solve_hartree_fock(self, max_iter=100, conv_tol=1e-8, use_diis=True) -> Tuple[np.ndarray, np.ndarray, bool, int]:
+        """
+        Solve Hartree-Fock equations self-consistently.
+
+        Restricted Hartree-Fock for closed-shell systems.
+
+        Returns:
+            (mo_energies, mo_coefficients, converged, iterations)
+        """
+        from kanad.core.scf_solver import SCFSolver
+
+        # Create SCF solver
+        solver = SCFSolver(
+            h_core=self.h_core,
+            S=self.S,
+            eri=self.eri,
+            n_electrons=self.n_electrons,
+            nuclear_repulsion=self.nuclear_repulsion
+        )
+
+        # Solve SCF
+        density_matrix, mo_energies, total_energy, converged, iterations = solver.solve(
+            max_iterations=max_iter,
+            energy_tol=conv_tol,
+            use_diis=use_diis
+        )
+
+        # Compute MO coefficients from final diagonalization
         from scipy.linalg import eigh
+        F = solver._build_fock_matrix(density_matrix)
+        mo_energies, C = eigh(F, self.S)
 
-        # Solve generalized eigenvalue problem
-        energies, coefficients = eigh(self.h_core, self.S)
+        if not converged:
+            print(f"Warning: HF did not converge in {max_iter} iterations")
 
-        return energies, coefficients
+        return mo_energies, C, converged, iterations
 
     def get_bonding_antibonding_split(self) -> Dict[str, float]:
         """

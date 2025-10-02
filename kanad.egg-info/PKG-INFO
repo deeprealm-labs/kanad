@@ -1,0 +1,116 @@
+Metadata-Version: 2.4
+Name: kanad
+Version: 0.1.0
+Summary: Governance-Driven Multi-Representation Quantum Chemistry Framework
+Author: Kanad Framework Team
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: scipy>=1.10.0
+Requires-Dist: qiskit>=0.45.0
+Requires-Dist: qiskit-nature>=0.7.0
+Requires-Dist: qiskit-aer>=0.13.0
+Requires-Dist: pyscf>=2.3.0
+Requires-Dist: matplotlib>=3.7.0
+Requires-Dist: plotly>=5.17.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: mypy>=1.5.0; extra == "dev"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Kanad: Governance-Driven Multi-Representation Quantum Chemistry Framework
+
+A quantum chemistry framework that enables creation of molecules with different bonding types, where bonding is governed by protocols with bonding representatives.
+
+## Overview
+
+Kanad allows researchers to explore new patterns in matter through protocol-based quantum simulation. Each bonding type (ionic, covalent, metallic) has its own:
+
+- **Representation**: How the quantum state is encoded (localized, hybrid orbitals, k-space)
+- **Governance Protocol**: Rules that dictate valid operators and circuit topology
+- **Hamiltonian**: Physics-based energy operator specific to bonding character
+- **Mapper**: Custom fermionic-to-qubit mapping optimized for each bond type
+
+## Key Innovation
+
+Instead of using a one-size-fits-all approach, Kanad recognizes that different bonding types require fundamentally different quantum representations:
+
+- **Ionic Bonding**: Localized electron transfer, minimal entanglement
+- **Covalent Bonding**: Orbital hybridization, paired entanglement
+- **Metallic Bonding**: Delocalized electrons, collective entanglement
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+## Quick Start
+
+```python
+from kanad import BondFactory
+
+# Create an ionic bond (auto-detected from electronegativity)
+bond = BondFactory.create_bond('Na', 'Cl')
+result = bond.compute_energy(method='VQE')
+print(f"Bond energy: {result['energy']} Hartree")
+print(f"Charge transfer: {result['bond_analysis']['charge_transfer']}")
+
+# Create a covalent bond
+h2 = BondFactory.create_bond('H', 'H', bond_type='covalent')
+h2_result = h2.compute_energy()
+h2.visualize_orbitals()
+
+# Create a metallic system
+fe_lattice = BondFactory.create_molecule(
+    atoms=['Fe'] * 8,
+    geometry='bcc_lattice'
+)
+fe_result = fe_lattice.analyze()
+fe_lattice.visualize_bands()
+```
+
+## Project Status
+
+Currently implementing Phase 1: Core Architecture
+
+- [x] Physical constants and atomic data
+- [x] Unit conversions
+- [ ] Integral computation engine
+- [ ] Representation layer
+- [ ] Governance protocols
+- [ ] Hamiltonian builders
+- [ ] Custom mappers
+- [ ] Energy estimation tools
+- [ ] Bond factory interface
+- [ ] Testing framework
+
+## Development
+
+Run tests:
+```bash
+pytest kanad/tests/ -v
+```
+
+## License
+
+MIT License

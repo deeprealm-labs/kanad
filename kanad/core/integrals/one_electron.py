@@ -59,13 +59,19 @@ class OneElectronIntegrals:
         cgf_a: ContractedGaussian,
         cgf_b: ContractedGaussian
     ) -> float:
-        """Compute kinetic integral between contracted Gaussians."""
+        """
+        Compute kinetic integral between contracted Gaussians.
+
+        T = Σᵢⱼ cᵢ cⱼ Nᵢ Nⱼ ⟨gᵢ|-½∇²|gⱼ⟩
+        """
         kinetic = 0.0
 
         for prim_a in cgf_a.primitives:
             for prim_b in cgf_b.primitives:
                 kinetic += (prim_a.coefficient *
                            prim_b.coefficient *
+                           prim_a._normalization_constant() *
+                           prim_b._normalization_constant() *
                            self._kinetic_primitive(prim_a, prim_b))
 
         return kinetic
@@ -92,11 +98,15 @@ class OneElectronIntegrals:
         if la == ma == na == lb == mb == nb == 0:
             A = prim_a.center
             B = prim_b.center
-            AB = np.linalg.norm(A - B)
+            AB_squared = np.dot(A - B, A - B)
 
-            # Kinetic energy: T = (3αβ/(α+β) - 2αβ²R²/(α+β)) × S
+            # Kinetic energy for s-type Gaussians:
+            # T = (αβ/(α+β)) × [3 - 2αβR²/(α+β)] × S
+            # Reference: Szabo & Ostlund, eq. (A.11)
             γ = α + β
-            T = (3 * α * β / γ - 2 * α * β**2 * AB**2 / γ) * S_ab
+            prefactor = α * β / γ
+            term = 3 - 2 * α * β * AB_squared / γ
+            T = prefactor * term * S_ab
             return T
         else:
             # Simplified for p-orbitals
@@ -128,7 +138,11 @@ class OneElectronIntegrals:
         cgf_a: ContractedGaussian,
         cgf_b: ContractedGaussian
     ) -> float:
-        """Compute nuclear attraction between contracted Gaussians."""
+        """
+        Compute nuclear attraction between contracted Gaussians.
+
+        V = Σᵢⱼ cᵢ cⱼ Nᵢ Nⱼ Σ_A ⟨gᵢ|-Z_A/r_A|gⱼ⟩
+        """
         nuclear = 0.0
 
         for prim_a in cgf_a.primitives:
@@ -136,6 +150,8 @@ class OneElectronIntegrals:
                 for atom in self.atoms:
                     nuclear += (prim_a.coefficient *
                                prim_b.coefficient *
+                               prim_a._normalization_constant() *
+                               prim_b._normalization_constant() *
                                self._nuclear_primitive(prim_a, prim_b, atom))
 
         return nuclear
@@ -152,12 +168,18 @@ class OneElectronIntegrals:
         V_A = -Z_A ⟨φ_a|1/|r-R_A||φ_b⟩
 
         Uses Boys function for analytical evaluation.
+
+        IMPORTANT: Atom position must be converted to Bohr to match
+        basis function centers (which are already in Bohr).
         """
+        from kanad.core.constants.conversion_factors import ConversionFactors
+
         α = prim_a.exponent
         β = prim_b.exponent
-        A = prim_a.center
-        B = prim_b.center
-        C = atom.position
+        A = prim_a.center  # Already in Bohr (from basis set building)
+        B = prim_b.center  # Already in Bohr
+        # Convert atom position from Angstrom to Bohr
+        C = atom.position * ConversionFactors.ANGSTROM_TO_BOHR
         Z = atom.atomic_number
 
         # Gaussian product
@@ -178,7 +200,7 @@ class OneElectronIntegrals:
         la, ma, na = prim_a.angular_momentum
         lb, mb, nb = prim_b.angular_momentum
 
-        # Simplified - assume coefficients include normalization
+        # Note: Normalization is handled in _nuclear_contracted
         if la == ma == na == lb == mb == nb == 0:
             # Both are s-orbitals
             return prefactor * F0

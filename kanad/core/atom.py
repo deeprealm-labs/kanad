@@ -58,6 +58,21 @@ class Atom:
         """Get number of valence electrons."""
         return self.properties.valence_electrons
 
+    @property
+    def electronegativity(self) -> float:
+        """Get Pauling electronegativity."""
+        return self.properties.electronegativity
+
+    @property
+    def covalent_radius(self) -> float:
+        """Get covalent radius in Angstroms."""
+        return self.properties.covalent_radius
+
+    @property
+    def is_metal(self) -> bool:
+        """Check if atom is a metal."""
+        return self.properties.is_metal
+
     def distance_to(self, other: 'Atom') -> float:
         """
         Calculate distance to another atom in Angstroms.
@@ -69,10 +84,6 @@ class Atom:
             Distance in Angstroms
         """
         return np.linalg.norm(self.position - other.position)
-
-    def is_metal(self) -> bool:
-        """Check if atom is a metal."""
-        return self.properties.is_metal
 
     def __repr__(self) -> str:
         """String representation."""

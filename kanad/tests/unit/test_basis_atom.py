@@ -23,7 +23,7 @@ class TestAtom:
         assert h.atomic_number == 1
         assert h.n_electrons == 1
         assert h.n_valence == 1
-        assert h.is_metal() is False
+        assert h.is_metal is False
 
     def test_atom_with_position(self):
         """Test atom with specified position."""
@@ -54,8 +54,8 @@ class TestAtom:
         na = Atom('Na')
         cl = Atom('Cl')
 
-        assert na.is_metal() is True
-        assert cl.is_metal() is False
+        assert na.is_metal is True
+        assert cl.is_metal is False
 
 
 class TestGaussianPrimitive:
