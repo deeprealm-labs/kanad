@@ -28,9 +28,9 @@ setup(
     install_requires=[
         "numpy>=1.24.0",
         "scipy>=1.10.0",
-        "qiskit>=0.45.0",
-        "qiskit-nature>=0.7.0",
-        "qiskit-aer>=0.13.0",
+        "qiskit>=2.2.0",
+        "qiskit-aer>=0.15.0",
+        "qiskit-ibm-runtime>=0.30.0",
         "pyscf>=2.3.0",
         "matplotlib>=3.7.0",
         "plotly>=5.17.0",

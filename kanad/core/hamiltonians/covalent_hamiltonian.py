@@ -6,6 +6,9 @@ Models covalent bonding via hybrid orbitals and molecular orbital formation.
 
 from typing import List, Dict, Tuple, Optional
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 from kanad.core.hamiltonians.molecular_hamiltonian import MolecularHamiltonian
 from kanad.core.atom import Atom
 from kanad.core.integrals.basis_sets import BasisSet
@@ -256,7 +259,7 @@ class CovalentHamiltonian(MolecularHamiltonian):
         mo_energies, C = eigh(F, self.S)
 
         if not converged:
-            print(f"Warning: HF did not converge in {max_iter} iterations")
+            logger.warning(f"HF did not converge in {max_iter} iterations")
 
         return mo_energies, C, converged, iterations
 

@@ -129,18 +129,38 @@ class UCCAnsatz(BaseAnsatz):
 
     def _hartree_fock_state(self) -> List[int]:
         """
-        Generate Hartree-Fock reference state.
+        Generate Hartree-Fock reference state for spin orbitals.
 
-        Fills lowest n_electrons/2 orbitals (closed shell).
+        For spin orbitals with alpha/beta separation:
+        - Qubits 0..n_orbitals-1: spin-up (alpha)
+        - Qubits n_orbitals..2*n_orbitals-1: spin-down (beta)
+
+        Fills electrons in lowest spatial orbitals with spin pairing.
 
         Returns:
-            Occupation list [1,1,0,0,...]
+            Occupation list for spin orbitals
         """
         state = [0] * self.n_qubits
-        n_occ = self.n_electrons // 2
+        n_spatial_orbitals = self.n_qubits // 2
+        n_electrons = self.n_electrons
 
-        for i in range(n_occ):
-            state[i] = 1
+        # For closed-shell: fill spatial orbitals from bottom, alternating spins
+        # Assuming even number of electrons (closed shell)
+        if n_electrons % 2 == 0:
+            n_pairs = n_electrons // 2
+            for i in range(n_pairs):
+                # Fill spin-up (alpha)
+                state[i] = 1
+                # Fill spin-down (beta) in corresponding spatial orbital
+                state[i + n_spatial_orbitals] = 1
+        else:
+            # Open-shell: fill pairs, then add unpaired electron to spin-up
+            n_pairs = n_electrons // 2
+            for i in range(n_pairs):
+                state[i] = 1
+                state[i + n_spatial_orbitals] = 1
+            # Unpaired electron in next spin-up orbital
+            state[n_pairs] = 1
 
         return state
 

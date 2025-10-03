@@ -16,9 +16,9 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: numpy>=1.24.0
 Requires-Dist: scipy>=1.10.0
-Requires-Dist: qiskit>=0.45.0
-Requires-Dist: qiskit-nature>=0.7.0
-Requires-Dist: qiskit-aer>=0.13.0
+Requires-Dist: qiskit>=2.2.0
+Requires-Dist: qiskit-aer>=0.15.0
+Requires-Dist: qiskit-ibm-runtime>=0.30.0
 Requires-Dist: pyscf>=2.3.0
 Requires-Dist: matplotlib>=3.7.0
 Requires-Dist: plotly>=5.17.0

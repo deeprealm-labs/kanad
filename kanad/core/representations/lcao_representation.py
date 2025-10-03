@@ -14,6 +14,9 @@ Physical picture:
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
+import logging
+
+logger = logging.getLogger(__name__)
 from kanad.core.representations.base_representation import BaseRepresentation, Molecule
 
 
@@ -324,42 +327,63 @@ class LCAORepresentation(BaseRepresentation):
             e.g., {'IIZZ': 0.5, 'XXII': -0.2, ...}
         """
         from kanad.core.mappers.hybrid_orbital_mapper import HybridOrbitalMapper
+        from kanad.core.mappers.jordan_wigner_mapper import JordanWignerMapper
 
         # Build Hamiltonian if not already built
         if not hasattr(self, 'hamiltonian') or self.hamiltonian is None:
             self.hamiltonian = self.build_hamiltonian()
 
-        # Get MO pairs for mapping
-        mo_pairs = self.get_mo_pairs()
+        # For covalent bonds, use FULL molecular Hamiltonian with two-electron terms
+        # Use JordanWignerMapper with PauliConverter for complete transformation
+        from kanad.core.hamiltonians.pauli_converter import PauliConverter
 
-        # Create mapper
-        mapper = HybridOrbitalMapper(mo_pairs)
+        jw_mapper = JordanWignerMapper()
 
-        # Map Hamiltonian to Pauli operators
-        pauli_hamiltonian = {}
+        # Convert full Hamiltonian (including two-electron terms) to Pauli
+        try:
+            from qiskit.quantum_info import SparsePauliOp
+            sparse_pauli = PauliConverter.to_sparse_pauli_op(self.hamiltonian, jw_mapper)
 
-        # One-body terms: h_ij a†_i a_j
-        h_core = self.hamiltonian.h_core
-        n_orbitals = len(h_core)
+            # Convert to dictionary format
+            pauli_hamiltonian = {}
+            for pauli, coeff in zip(sparse_pauli.paulis, sparse_pauli.coeffs):
+                pauli_hamiltonian[str(pauli)] = complex(coeff)
 
-        for i in range(n_orbitals):
-            for j in range(n_orbitals):
-                if abs(h_core[i, j]) > 1e-10:
-                    # Map this term using the mapper
-                    pauli_term = mapper.map_hamiltonian_term((i, j), h_core[i, j], n_orbitals)
-                    # Merge into total Hamiltonian
-                    for pauli_string, coeff in pauli_term.items():
-                        if pauli_string in pauli_hamiltonian:
-                            pauli_hamiltonian[pauli_string] += coeff
-                        else:
-                            pauli_hamiltonian[pauli_string] = coeff
+        except Exception as e:
+            # Fallback to one-body only if full conversion fails
+            logger.warning(f"Full Hamiltonian conversion failed ({e}), using one-body terms only")
 
-        # Add nuclear repulsion as constant term (identity operator)
-        identity = 'I' * self.n_qubits
-        if identity in pauli_hamiltonian:
-            pauli_hamiltonian[identity] += self.hamiltonian.nuclear_repulsion
-        else:
-            pauli_hamiltonian[identity] = self.hamiltonian.nuclear_repulsion
+            # Get MO pairs for mapping
+            mo_pairs = self.get_mo_pairs()
+
+            # Create mapper
+            mapper = HybridOrbitalMapper(mo_pairs)
+
+            # Map Hamiltonian to Pauli operators
+            pauli_hamiltonian = {}
+
+            # One-body terms: h_ij a†_i a_j
+            h_core = self.hamiltonian.h_core
+            n_orbitals = len(h_core)
+
+            for i in range(n_orbitals):
+                for j in range(n_orbitals):
+                    if abs(h_core[i, j]) > 1e-10:
+                        # Map this term using the mapper
+                        pauli_term = mapper.map_hamiltonian_term((i, j), h_core[i, j], n_orbitals)
+                        # Merge into total Hamiltonian
+                        for pauli_string, coeff in pauli_term.items():
+                            if pauli_string in pauli_hamiltonian:
+                                pauli_hamiltonian[pauli_string] += coeff
+                            else:
+                                pauli_hamiltonian[pauli_string] = coeff
+
+            # Add nuclear repulsion as constant term (identity operator)
+            identity = 'I' * self.n_qubits
+            if identity in pauli_hamiltonian:
+                pauli_hamiltonian[identity] += self.hamiltonian.nuclear_repulsion
+            else:
+                pauli_hamiltonian[identity] = self.hamiltonian.nuclear_repulsion
 
         # Clean up near-zero terms
         pauli_hamiltonian = {k: v for k, v in pauli_hamiltonian.items() if abs(v) > 1e-12}

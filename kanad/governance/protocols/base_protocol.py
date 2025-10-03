@@ -10,6 +10,9 @@ from typing import List, Dict, Any, Optional, Callable
 from enum import Enum
 from dataclasses import dataclass
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class BondingType(Enum):
@@ -53,7 +56,7 @@ class GovernanceRule:
         try:
             return self.condition(state, context)
         except Exception as e:
-            print(f"Warning: Rule '{self.name}' condition failed: {e}")
+            logger.warning(f"Rule '{self.name}' condition failed: {e}")
             return False
 
     def execute(self, state: Any, context: Dict) -> Any:
@@ -70,7 +73,7 @@ class GovernanceRule:
         try:
             return self.action(state, context)
         except Exception as e:
-            print(f"Error: Rule '{self.name}' execution failed: {e}")
+            logger.error(f"Rule '{self.name}' execution failed: {e}")
             return state
 
 

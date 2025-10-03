@@ -162,6 +162,64 @@ class JordanWignerMapper(BaseMapper):
 
         return ''.join(pauli)
 
+    def map_creation_operator(self, orbital: int, n_orbitals: int) -> Dict[str, complex]:
+        """
+        Map creation operator a†_i to Pauli operators.
+
+        a†_i = (X_i - iY_i)/2 ⊗ Z_string
+
+        Args:
+            orbital: Orbital index
+            n_orbitals: Total orbitals
+
+        Returns:
+            Pauli operator dictionary
+        """
+        # Z string for orbitals before this one
+        z_indices = list(range(orbital))
+
+        # Build X and Y strings
+        x_string = self._build_single_pauli_string('X', orbital, z_indices, n_orbitals)
+        y_string = self._build_single_pauli_string('Y', orbital, z_indices, n_orbitals)
+
+        return {
+            x_string: 0.5,
+            y_string: -0.5j
+        }
+
+    def map_annihilation_operator(self, orbital: int, n_orbitals: int) -> Dict[str, complex]:
+        """
+        Map annihilation operator a_i to Pauli operators.
+
+        a_i = (X_i + iY_i)/2 ⊗ Z_string
+
+        Args:
+            orbital: Orbital index
+            n_orbitals: Total orbitals
+
+        Returns:
+            Pauli operator dictionary
+        """
+        # Z string for orbitals before this one
+        z_indices = list(range(orbital))
+
+        # Build X and Y strings
+        x_string = self._build_single_pauli_string('X', orbital, z_indices, n_orbitals)
+        y_string = self._build_single_pauli_string('Y', orbital, z_indices, n_orbitals)
+
+        return {
+            x_string: 0.5,
+            y_string: 0.5j
+        }
+
+    def _build_single_pauli_string(self, pauli: str, idx: int, z_indices: List[int], n_orbitals: int) -> str:
+        """Build Pauli string with given Pauli at idx and Z's at z_indices."""
+        pauli_list = ['I'] * n_orbitals
+        pauli_list[idx] = pauli
+        for z_idx in z_indices:
+            pauli_list[z_idx] = 'Z'
+        return ''.join(pauli_list)
+
     def map_double_excitation(
         self,
         orb_from_1: int,
@@ -171,26 +229,31 @@ class JordanWignerMapper(BaseMapper):
         n_orbitals: int
     ) -> Dict[str, complex]:
         """
-        Map double excitation operator a†_i a†_j a_l a_k.
+        Map double excitation operator a†_i a†_k a_l a_j.
 
-        This is used for two-electron integrals in Hamiltonians.
+        Called from pauli_converter as: map_double_excitation(j, l, i, k)
+        This represents: a†_i a†_k a_l a_j
+
+        Uses excitation operator pairs: (a†_i a_j)(a†_k a_l)
 
         Args:
-            orb_from_1: First annihilation orbital (k)
-            orb_from_2: Second annihilation orbital (l)
-            orb_to_1: First creation orbital (i)
-            orb_to_2: Second creation orbital (j)
+            orb_from_1: j (first annihilation)
+            orb_from_2: l (second annihilation)
+            orb_to_1: i (first creation)
+            orb_to_2: k (second creation)
             n_orbitals: Total orbitals
 
         Returns:
             Pauli operator dictionary
         """
-        # This is complex - for now use product of single excitations
-        # More efficient implementations exist
-        exc1 = self.map_excitation_operator(orb_from_1, orb_to_1, n_orbitals)
-        exc2 = self.map_excitation_operator(orb_from_2, orb_to_2, n_orbitals)
+        j, l, i, k = orb_from_1, orb_from_2, orb_to_1, orb_to_2
 
-        return self.pauli_string_multiply(exc1, exc2)
+        # Map as product of two single excitations
+        # a†_i a†_k a_l a_j ≈ (a†_i a_j)(a†_k a_l)
+        exc_ij = self.map_excitation_operator(j, i, n_orbitals)
+        exc_kl = self.map_excitation_operator(l, k, n_orbitals)
+
+        return self.pauli_string_multiply(exc_ij, exc_kl)
 
     def __repr__(self) -> str:
         """String representation."""

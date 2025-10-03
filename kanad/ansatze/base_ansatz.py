@@ -144,6 +144,106 @@ class QuantumCircuit:
         for param, value in zip(self.parameters, values):
             param.value = value
 
+    def to_qiskit(self):
+        """
+        Convert custom circuit to Qiskit QuantumCircuit.
+
+        Returns:
+            qiskit.QuantumCircuit compatible with Qiskit 2.x
+
+        Raises:
+            ImportError: If Qiskit is not installed
+        """
+        try:
+            from qiskit import QuantumCircuit as QiskitCircuit
+            from qiskit.circuit import Parameter as QiskitParameter
+        except ImportError:
+            raise ImportError(
+                "Qiskit not installed. Install with: pip install qiskit>=2.0"
+            )
+
+        # Create Qiskit circuit
+        qc = QiskitCircuit(self.n_qubits)
+
+        # Map custom parameters to Qiskit parameters
+        param_map = {}
+        for param in self.parameters:
+            qiskit_param = QiskitParameter(param.name)
+            param_map[param] = qiskit_param
+
+        # Convert gates
+        for gate in self.gates:
+            gate_type = gate['type']
+            qubits = gate['qubits']
+            params = gate.get('params', [])
+
+            # Convert parameter values to Qiskit parameters
+            qiskit_params = []
+            for p in params:
+                if isinstance(p, Parameter):
+                    qiskit_params.append(param_map[p])
+                else:
+                    qiskit_params.append(p)
+
+            # Map gate types
+            if gate_type == 'barrier':
+                qc.barrier()
+            elif gate_type == 'h':
+                qc.h(qubits[0])
+            elif gate_type == 'x':
+                qc.x(qubits[0])
+            elif gate_type == 'y':
+                qc.y(qubits[0])
+            elif gate_type == 'z':
+                qc.z(qubits[0])
+            elif gate_type == 'rx':
+                qc.rx(qiskit_params[0], qubits[0])
+            elif gate_type == 'ry':
+                qc.ry(qiskit_params[0], qubits[0])
+            elif gate_type == 'rz':
+                qc.rz(qiskit_params[0], qubits[0])
+            elif gate_type == 'cx' or gate_type == 'cnot':
+                qc.cx(qubits[0], qubits[1])
+            elif gate_type == 'cz':
+                qc.cz(qubits[0], qubits[1])
+            elif gate_type == 'swap':
+                qc.swap(qubits[0], qubits[1])
+            elif gate_type == 'rxx':
+                qc.rxx(qiskit_params[0], qubits[0], qubits[1])
+            elif gate_type == 'ryy':
+                qc.ryy(qiskit_params[0], qubits[0], qubits[1])
+            elif gate_type == 'rzz':
+                qc.rzz(qiskit_params[0], qubits[0], qubits[1])
+            else:
+                raise ValueError(f"Unsupported gate type for Qiskit conversion: {gate_type}")
+
+        return qc
+
+    def assign_parameters_for_qiskit(self, qiskit_circuit, values: np.ndarray):
+        """
+        Assign parameter values to a Qiskit circuit.
+
+        Args:
+            qiskit_circuit: Qiskit QuantumCircuit with parameters
+            values: Parameter values array
+
+        Returns:
+            Qiskit circuit with bound parameters
+        """
+        if len(values) != len(self.parameters):
+            raise ValueError(f"Expected {len(self.parameters)} values, got {len(values)}")
+
+        # Create parameter binding dictionary
+        param_dict = {}
+        for i, param in enumerate(self.parameters):
+            # Find matching Qiskit parameter by name
+            for qiskit_param in qiskit_circuit.parameters:
+                if qiskit_param.name == param.name:
+                    param_dict[qiskit_param] = values[i]
+                    break
+
+        return qiskit_circuit.assign_parameters(param_dict)
+
     def __repr__(self) -> str:
         return f"QuantumCircuit(n_qubits={self.n_qubits}, depth={self.depth}, parameters={len(self.parameters)})"
 

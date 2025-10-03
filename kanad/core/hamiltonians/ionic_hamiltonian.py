@@ -61,15 +61,22 @@ class IonicHamiltonian(MolecularHamiltonian):
         Compute nuclear-nuclear repulsion energy.
 
         E_nn = Σ_{i<j} Z_i Z_j / |R_i - R_j|
+
+        NOTE: distance_to() returns Angstroms, but we need atomic units (Bohr)
+        Conversion: 1 Angstrom = 1.88973 Bohr
         """
+        from kanad.core.constants.conversion_factors import ConversionFactors
+
         energy = 0.0
         for i in range(len(self.atoms)):
             for j in range(i + 1, len(self.atoms)):
                 Z_i = self.atoms[i].atomic_number
                 Z_j = self.atoms[j].atomic_number
-                r_ij = self.atoms[i].distance_to(self.atoms[j])
-                if r_ij > 1e-10:  # Avoid division by zero
-                    energy += Z_i * Z_j / r_ij
+                r_ij_angstrom = self.atoms[i].distance_to(self.atoms[j])
+                r_ij_bohr = r_ij_angstrom * ConversionFactors.ANGSTROM_TO_BOHR
+
+                if r_ij_bohr > 1e-10:  # Avoid division by zero
+                    energy += Z_i * Z_j / r_ij_bohr
 
         return energy
 

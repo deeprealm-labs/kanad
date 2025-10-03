@@ -6,6 +6,9 @@ Models orbital hybridization and electron sharing between atoms.
 
 from typing import Dict, Any, Optional
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 from kanad.bonds.base_bond import BaseBond
 from kanad.core.atom import Atom
@@ -127,7 +130,7 @@ class CovalentBond(BaseBond):
             # If didn't converge, try again with level shift and damping
             converged = getattr(self.hamiltonian, '_scf_converged', False)
             if not converged:
-                print(f"  Standard SCF did not converge, retrying with level shift and damping...")
+                logger.warning("Standard SCF did not converge, retrying with level shift and damping...")
                 density_matrix, hf_energy = self.hamiltonian.solve_scf(
                     max_iterations=max_iterations,
                     conv_tol=1e-7,
@@ -137,7 +140,9 @@ class CovalentBond(BaseBond):
                 )
                 converged = getattr(self.hamiltonian, '_scf_converged', False)
 
-            result['energy'] = hf_energy
+            # Convert energy from Hartree to eV for consistency
+            from kanad.core.constants.conversion_factors import ConversionFactors
+            result['energy'] = hf_energy * ConversionFactors.HARTREE_TO_EV
             result['method'] = 'Hartree-Fock'
 
             # Get convergence info from Hamiltonian
@@ -147,7 +152,7 @@ class CovalentBond(BaseBond):
 
             # Get molecular orbitals
             mo_energies, mo_coeffs = self.hamiltonian.compute_molecular_orbitals()
-            result['mo_energies'] = mo_energies
+            result['mo_energies'] = mo_energies * ConversionFactors.HARTREE_TO_EV  # Convert MO energies too
             result['mo_coefficients'] = mo_coeffs
 
         elif method.upper() == 'VQE':
@@ -177,27 +182,33 @@ class CovalentBond(BaseBond):
             # Solve
             vqe_result = vqe.solve()
 
-            result['energy'] = vqe_result['energy']
+            # Convert energy from Hartree to eV for consistency
+            from kanad.core.constants.conversion_factors import ConversionFactors
+
+            result['energy'] = vqe_result['energy'] * ConversionFactors.HARTREE_TO_EV
             result['method'] = 'VQE (Covalent Governance)'
             result['converged'] = vqe_result['converged']
             result['iterations'] = vqe_result['iterations']
             result['parameters'] = vqe_result['parameters']
-            result['energy_history'] = vqe_result['energy_history']
+            result['energy_history'] = vqe_result['energy_history'] * ConversionFactors.HARTREE_TO_EV
 
             # Compute HF for comparison
             _, hf_energy = self.hamiltonian.solve_scf(max_iterations=50)
-            result['hf_energy'] = hf_energy
-            result['correlation_energy'] = result['energy'] - hf_energy
+            result['hf_energy'] = hf_energy * ConversionFactors.HARTREE_TO_EV
+            result['correlation_energy'] = (vqe_result['energy'] - hf_energy) * ConversionFactors.HARTREE_TO_EV
 
         elif method.upper() == 'EXACT':
             # Exact diagonalization
+            from kanad.core.constants.conversion_factors import ConversionFactors
+
             H_matrix = self.hamiltonian.to_matrix()
             eigenvalues, eigenvectors = np.linalg.eigh(H_matrix)
 
-            result['energy'] = eigenvalues[0]
+            # Convert energy from Hartree to eV for consistency
+            result['energy'] = eigenvalues[0] * ConversionFactors.HARTREE_TO_EV
             result['method'] = 'Exact'
             result['converged'] = True
-            result['eigenvalues'] = eigenvalues
+            result['eigenvalues'] = eigenvalues * ConversionFactors.HARTREE_TO_EV
             result['ground_state'] = eigenvectors[:, 0]
 
         else:

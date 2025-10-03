@@ -9,7 +9,11 @@ VQE is a hybrid quantum-classical algorithm that combines:
 
 from typing import Optional, Callable, Dict, List, Tuple
 import numpy as np
+import warnings
+import logging
 from scipy.optimize import minimize
+
+logger = logging.getLogger(__name__)
 
 from kanad.ansatze.base_ansatz import BaseAnsatz
 from kanad.core.hamiltonians.molecular_hamiltonian import MolecularHamiltonian
@@ -32,9 +36,12 @@ class VQESolver:
         hamiltonian: MolecularHamiltonian,
         ansatz: BaseAnsatz,
         mapper: BaseMapper,
+        backend: str = 'classical',
         optimizer: str = 'SLSQP',
         max_iterations: int = 1000,
-        convergence_threshold: float = 1e-6
+        convergence_threshold: float = 1e-6,
+        shots: int = 1024,
+        **backend_options
     ):
         """
         Initialize VQE solver.
@@ -43,25 +50,142 @@ class VQESolver:
             hamiltonian: Molecular Hamiltonian
             ansatz: Variational ansatz
             mapper: Fermionic-to-qubit mapper
+            backend: Execution backend
+                - 'classical': NumPy statevector simulation (exact, fast)
+                - 'aer_simulator': Qiskit Aer QASM simulator (shot-based)
+                - 'aer_simulator_statevector': Qiskit Aer statevector (exact)
+                - 'cuquantum_statevector': GPU-accelerated statevector (NVIDIA)
+                - 'cuquantum_tensornet': GPU tensor network simulation (NVIDIA)
+                - 'ibm_*': IBM Quantum hardware (requires credentials)
             optimizer: Classical optimizer ('SLSQP', 'COBYLA', 'L-BFGS-B')
             max_iterations: Maximum optimization iterations
             convergence_threshold: Energy convergence threshold (Hartree)
+            shots: Number of measurement shots (for hardware/qasm backends)
+            **backend_options: Additional backend-specific options
         """
         self.hamiltonian = hamiltonian
         self.ansatz = ansatz
         self.mapper = mapper
+        self.backend_type = backend
         self.optimizer = optimizer
         self.max_iterations = max_iterations
         self.convergence_threshold = convergence_threshold
+        self.shots = shots
 
         # Build circuit
         self.circuit = ansatz.build_circuit()
         self.n_parameters = self.circuit.get_num_parameters()
 
+        # Initialize backend-specific components
+        if backend == 'classical':
+            self._use_qiskit = False
+            self._use_cuquantum = False
+            self.qiskit_backend = None
+            self.pauli_hamiltonian = None
+            logger.info("Using classical NumPy simulation (exact statevector)")
+        elif backend.startswith('cuquantum'):
+            self._use_qiskit = True  # cuQuantum uses Qiskit interface
+            self._use_cuquantum = True
+            self._initialize_cuquantum_backend(backend, backend_options)
+        else:
+            self._use_qiskit = True
+            self._use_cuquantum = False
+            self._initialize_qiskit_backend(backend, backend_options)
+
         # Optimization history
         self.energy_history: List[float] = []
         self.parameter_history: List[np.ndarray] = []
         self.iteration_count = 0
+
+    def _initialize_qiskit_backend(self, backend_name: str, backend_options: dict):
+        """Initialize Qiskit backend and convert Hamiltonian."""
+        try:
+            from kanad.backends.qiskit_backend import QiskitBackend
+            from kanad.core.hamiltonians.pauli_converter import PauliConverter
+        except ImportError as e:
+            raise ImportError(
+                f"Failed to import Qiskit components: {e}\n"
+                "Install: pip install qiskit qiskit-aer"
+            )
+
+        # Initialize backend
+        logger.info(f"Initializing Qiskit backend: {backend_name}")
+        self.qiskit_backend = QiskitBackend(
+            backend_name=backend_name,
+            shots=self.shots,
+            **backend_options
+        )
+
+        # Convert Hamiltonian to Pauli operators
+        logger.info("Converting Hamiltonian to Pauli operators...")
+        self.pauli_hamiltonian = PauliConverter.to_sparse_pauli_op(
+            self.hamiltonian,
+            self.mapper
+        )
+
+        num_terms = len(self.pauli_hamiltonian)
+        logger.info(f"Hamiltonian converted: {num_terms} Pauli terms")
+
+        # Get Estimator primitive
+        self._estimator = self.qiskit_backend.get_estimator()
+
+        # Convert circuit to Qiskit format (cached)
+        self._qiskit_circuit = self.circuit.to_qiskit()
+        logger.info(f"Circuit converted: {self._qiskit_circuit.num_qubits} qubits, "
+                   f"{self._qiskit_circuit.depth()} depth")
+
+    def _initialize_cuquantum_backend(self, backend_name: str, backend_options: dict):
+        """Initialize cuQuantum GPU backend."""
+        try:
+            from kanad.backends.cuquantum_backend import CuQuantumBackend
+            from kanad.core.hamiltonians.pauli_converter import PauliConverter
+        except ImportError as e:
+            raise ImportError(
+                f"Failed to import cuQuantum components: {e}\n"
+                "Install: pip install cuquantum-python cupy-cuda11x qiskit-aer-gpu"
+            )
+
+        # Determine simulation method
+        if 'statevector' in backend_name:
+            simulation_method = 'statevector'
+        elif 'tensornet' in backend_name:
+            simulation_method = 'tensornet'
+        else:
+            simulation_method = 'statevector'  # Default
+
+        # Initialize cuQuantum backend
+        logger.info(f"Initializing cuQuantum backend: {backend_name}")
+        self.qiskit_backend = CuQuantumBackend(
+            backend_name=backend_name,
+            simulation_method=simulation_method,
+            **backend_options
+        )
+
+        # Convert Hamiltonian to Pauli operators
+        logger.info("Converting Hamiltonian to Pauli operators...")
+        self.pauli_hamiltonian = PauliConverter.to_sparse_pauli_op(
+            self.hamiltonian,
+            self.mapper
+        )
+
+        num_terms = len(self.pauli_hamiltonian)
+        logger.info(f"Hamiltonian converted: {num_terms} Pauli terms")
+
+        # Get Estimator primitive (GPU-accelerated)
+        self._estimator = self.qiskit_backend.get_estimator()
+
+        # Convert circuit to Qiskit format (cached)
+        self._qiskit_circuit = self.circuit.to_qiskit()
+        logger.info(f"Circuit converted: {self._qiskit_circuit.num_qubits} qubits, "
+                   f"{self._qiskit_circuit.depth()} depth")
+
+        # Estimate GPU capabilities
+        max_qubits = self.qiskit_backend.estimate_max_qubits()
+        if self._qiskit_circuit.num_qubits > max_qubits:
+            warnings.warn(
+                f"Circuit has {self._qiskit_circuit.num_qubits} qubits but "
+                f"GPU can handle ~{max_qubits} qubits. May run out of memory!"
+            )
 
     def solve(
         self,
@@ -130,6 +254,51 @@ class VQESolver:
         Compute energy expectation value for given parameters.
 
         E(θ) = ⟨ψ(θ)|H|ψ(θ)⟩
+
+        Args:
+            parameters: Ansatz parameters
+
+        Returns:
+            Energy expectation value (Hartree)
+        """
+        if self._use_qiskit:
+            return self._compute_energy_qiskit(parameters)
+        else:
+            return self._compute_energy_classical(parameters)
+
+    def _compute_energy_qiskit(self, parameters: np.ndarray) -> float:
+        """
+        Compute energy using Qiskit Estimator primitive.
+
+        Uses shot-based measurement for hardware/QASM backends,
+        or exact statevector for Aer statevector.
+
+        Args:
+            parameters: Ansatz parameters
+
+        Returns:
+            Energy expectation value (Hartree)
+        """
+        # Assign parameters to Qiskit circuit
+        bound_circuit = self.circuit.assign_parameters_for_qiskit(
+            self._qiskit_circuit,
+            parameters
+        )
+
+        # Run Estimator primitive (Aer V1 API)
+        job = self._estimator.run([bound_circuit], [self.pauli_hamiltonian])
+        result = job.result()
+
+        # Extract energy value
+        energy = result.values[0]
+
+        return float(energy)
+
+    def _compute_energy_classical(self, parameters: np.ndarray) -> float:
+        """
+        Compute energy using classical NumPy simulation.
+
+        This is the original implementation - exact statevector simulation.
 
         Args:
             parameters: Ansatz parameters
@@ -503,7 +672,7 @@ class VQESolver:
         h_core = self.hamiltonian.h_core
         n_orbitals = len(h_core)
 
-        print(f"Building Hamiltonian for {n_orbitals} orbitals on {n_qubits} qubits...")
+        logger.debug(f"Building Hamiltonian for {n_orbitals} orbitals on {n_qubits} qubits...")
 
         for i in range(n_orbitals):
             for j in range(n_orbitals):
@@ -679,5 +848,8 @@ class VQESolver:
         return E2 - E**2
 
     def __repr__(self) -> str:
+        backend_info = f"backend='{self.backend_type}'"
+        if self._use_qiskit and self.shots:
+            backend_info += f", shots={self.shots}"
         return (f"VQESolver(ansatz={self.ansatz.__class__.__name__}, "
-                f"optimizer={self.optimizer}, n_params={self.n_parameters})")
+                f"{backend_info}, optimizer={self.optimizer}, n_params={self.n_parameters})")

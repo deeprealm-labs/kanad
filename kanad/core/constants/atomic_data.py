@@ -63,20 +63,36 @@ class PeriodicTable:
         'Cl': AtomicProperties('Cl', 17, 35.45, 1.02, 1.75, 3.16, 7, 12.968, 3.617, (-1, 1, 3, 5, 7), False, 17, 3),
         'Ar': AtomicProperties('Ar', 18, 39.948, 1.06, 1.88, 0.00, 8, 15.760, 0.00, (0,), False, 18, 3),
 
-        # Period 4 - Selected elements
+        # Period 4 - Transition metals and selected elements
         'K': AtomicProperties('K', 19, 39.098, 2.03, 2.75, 0.82, 1, 4.341, 0.501, (1,), True, 1, 4),
         'Ca': AtomicProperties('Ca', 20, 40.078, 1.76, 2.31, 1.00, 2, 6.113, 0.025, (2,), True, 2, 4),
+        'Sc': AtomicProperties('Sc', 21, 44.956, 1.70, 2.11, 1.36, 3, 6.561, 0.188, (3,), True, 3, 4),
+        'Ti': AtomicProperties('Ti', 22, 47.867, 1.60, 2.07, 1.54, 4, 6.828, 0.084, (2, 3, 4), True, 4, 4),
+        'V': AtomicProperties('V', 23, 50.942, 1.53, 2.05, 1.63, 5, 6.746, 0.525, (2, 3, 4, 5), True, 5, 4),
+        'Cr': AtomicProperties('Cr', 24, 51.996, 1.39, 2.05, 1.66, 6, 6.767, 0.666, (2, 3, 6), True, 6, 4),
+        'Mn': AtomicProperties('Mn', 25, 54.938, 1.39, 2.05, 1.55, 7, 7.434, 0.00, (2, 3, 4, 7), True, 7, 4),
         'Fe': AtomicProperties('Fe', 26, 55.845, 1.32, 2.04, 1.83, 8, 7.902, 0.163, (2, 3), True, 8, 4),
+        'Co': AtomicProperties('Co', 27, 58.933, 1.26, 2.00, 1.88, 9, 7.881, 0.661, (2, 3), True, 9, 4),
+        'Ni': AtomicProperties('Ni', 28, 58.693, 1.24, 1.63, 1.91, 10, 7.640, 1.156, (2, 3), True, 10, 4),
         'Cu': AtomicProperties('Cu', 29, 63.546, 1.32, 1.40, 1.90, 11, 7.726, 1.228, (1, 2), True, 11, 4),
         'Zn': AtomicProperties('Zn', 30, 65.38, 1.22, 1.39, 1.65, 12, 9.394, 0.00, (2,), True, 12, 4),
+        'Ga': AtomicProperties('Ga', 31, 69.723, 1.22, 1.87, 1.81, 3, 5.999, 0.300, (3,), True, 13, 4),
+        'As': AtomicProperties('As', 33, 74.922, 1.19, 1.85, 2.18, 5, 9.815, 0.810, (-3, 3, 5), False, 15, 4),
         'Br': AtomicProperties('Br', 35, 79.904, 1.20, 1.85, 2.96, 7, 11.814, 3.365, (-1, 1, 3, 5), False, 17, 4),
 
         # Period 5 - Selected elements
+        'Rb': AtomicProperties('Rb', 37, 85.468, 2.20, 3.03, 0.82, 1, 4.177, 0.486, (1,), True, 1, 5),
+        'Sr': AtomicProperties('Sr', 38, 87.62, 1.95, 2.49, 0.95, 2, 5.695, 0.048, (2,), True, 2, 5),
         'Ag': AtomicProperties('Ag', 47, 107.87, 1.45, 1.72, 1.93, 11, 7.576, 1.302, (1,), True, 11, 5),
+        'Cd': AtomicProperties('Cd', 48, 112.41, 1.44, 1.58, 1.69, 12, 8.994, 0.00, (2,), True, 12, 5),
         'I': AtomicProperties('I', 53, 126.90, 1.39, 1.98, 2.66, 7, 10.451, 3.059, (-1, 1, 3, 5, 7), False, 17, 5),
 
         # Period 6 - Selected elements
+        'Cs': AtomicProperties('Cs', 55, 132.91, 2.44, 3.43, 0.79, 1, 3.894, 0.472, (1,), True, 1, 6),
+        'Ba': AtomicProperties('Ba', 56, 137.33, 2.15, 2.68, 0.89, 2, 5.212, 0.145, (2,), True, 2, 6),
+        'Pt': AtomicProperties('Pt', 78, 195.08, 1.36, 1.75, 2.28, 10, 9.000, 2.128, (2, 4), True, 10, 6),
         'Au': AtomicProperties('Au', 79, 196.97, 1.36, 1.66, 2.54, 11, 9.226, 2.309, (1, 3), True, 11, 6),
+        'Hg': AtomicProperties('Hg', 80, 200.59, 1.32, 1.55, 2.00, 12, 10.438, 0.00, (1, 2), True, 12, 6),
     }
 
     @classmethod

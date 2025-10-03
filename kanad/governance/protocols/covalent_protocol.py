@@ -18,6 +18,9 @@ Circuit requirements:
 
 from typing import List, Dict, Any, Tuple
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 from kanad.governance.protocols.base_protocol import (
     BaseGovernanceProtocol,
     BondingType,
@@ -347,8 +350,8 @@ class CovalentGovernanceProtocol(BaseGovernanceProtocol):
         max_degree = state.max_entanglement_degree()
 
         if max_degree > 3:
-            print(f"Warning: High entanglement degree ({max_degree}). "
-                  f"Covalent bonding should have paired entanglement only.")
+            logger.warning(f"High entanglement degree ({max_degree}). "
+                          f"Covalent bonding should have paired entanglement only.")
 
         state.metadata['paired_entanglement'] = True
 

@@ -17,6 +17,9 @@ Circuit requirements:
 
 from typing import List, Dict, Any
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 from kanad.governance.protocols.base_protocol import (
     BaseGovernanceProtocol,
     BondingType,
@@ -193,11 +196,11 @@ class IonicGovernanceProtocol(BaseGovernanceProtocol):
                 if abs(qubits[0] - qubits[1]) <= 1:  # Nearest neighbor
                     allowed_gates.append(gate)
                 else:
-                    print(f"Removed long-range gate: {gate}")
+                    logger.debug(f"Removed long-range gate: {gate}")
 
             # Remove multi-qubit gates
             else:
-                print(f"Removed multi-qubit gate: {gate}")
+                logger.debug(f"Removed multi-qubit gate: {gate}")
 
         # Update circuit
         circuit.gates = allowed_gates
@@ -230,8 +233,8 @@ class IonicGovernanceProtocol(BaseGovernanceProtocol):
 
         max_degree = state.max_entanglement_degree()
         if max_degree > 2:
-            print(f"Warning: High entanglement degree ({max_degree}). "
-                  f"Ionic systems should have sparse connectivity.")
+            logger.warning(f"High entanglement degree ({max_degree}). "
+                          f"Ionic systems should have sparse connectivity.")
 
         state.metadata['sparse'] = state.is_sparse()
         return state
