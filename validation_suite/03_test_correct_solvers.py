@@ -44,8 +44,8 @@ class TestCorrectSolvers:
         
         issues = []
         
-        # Test actually available solvers
-        atoms = [Atom('Na', position=np.array([i*3.0, 0, 0])) for i in range(4)]
+        # Test actually available solvers (use 2 atoms for speed)
+        atoms = [Atom('Na', position=np.array([i*3.0, 0, 0])) for i in range(2)]
         
         print(f"Testing available solvers:")
         

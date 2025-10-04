@@ -206,7 +206,7 @@ class VibrationalSolver:
         mass_matrix = np.zeros(n_coords)
 
         for i in range(self.n_atoms):
-            mass = self.molecule.atoms[i].mass
+            mass = self.molecule.atoms[i].atomic_mass
             mass_matrix[3*i:3*i+3] = mass
 
         # Build mass-weighted Hessian

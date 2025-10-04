@@ -214,6 +214,225 @@ class ExcitedStatesSolver:
             'iterations': result.nfev
         }
 
+    def _build_manybody_hamiltonian(self) -> np.ndarray:
+        """
+        Build full many-body Hamiltonian matrix in Fock space.
+
+        Same implementation as QPE solver - constructs full second-quantized
+        Hamiltonian from h_core and eri using Slater-Condon rules.
+        """
+        from itertools import combinations
+
+        n_orbitals = self.hamiltonian.n_orbitals
+        n_electrons = self.hamiltonian.n_electrons
+        h_core = self.hamiltonian.h_core
+        eri = self.hamiltonian.eri
+
+        # Build Slater determinant basis
+        n_alpha = n_electrons // 2
+        n_beta = n_electrons - n_alpha
+
+        alpha_configs = list(combinations(range(n_orbitals), n_alpha))
+        beta_configs = list(combinations(range(n_orbitals), n_beta))
+        n_configs = len(alpha_configs) * len(beta_configs)
+
+        H_matrix = np.zeros((n_configs, n_configs))
+
+        # Build Hamiltonian matrix
+        for i, (alpha_i, beta_i) in enumerate([(a, b) for a in alpha_configs for b in beta_configs]):
+            for j, (alpha_j, beta_j) in enumerate([(a, b) for a in alpha_configs for b in beta_configs]):
+                if i <= j:
+                    H_ij = self._compute_hamiltonian_element(
+                        alpha_i, beta_i, alpha_j, beta_j, h_core, eri
+                    )
+                    H_matrix[i, j] = H_ij
+                    if i != j:
+                        H_matrix[j, i] = H_ij
+
+        return H_matrix
+
+    def _compute_hamiltonian_element(
+        self,
+        alpha_i: Tuple[int, ...],
+        beta_i: Tuple[int, ...],
+        alpha_j: Tuple[int, ...],
+        beta_j: Tuple[int, ...],
+        h_core: np.ndarray,
+        eri: np.ndarray
+    ) -> float:
+        """Compute Hamiltonian matrix element using Slater-Condon rules."""
+        alpha_i_set = set(alpha_i)
+        alpha_j_set = set(alpha_j)
+        beta_i_set = set(beta_i)
+        beta_j_set = set(beta_j)
+
+        alpha_diff = len(alpha_i_set.symmetric_difference(alpha_j_set))
+        beta_diff = len(beta_i_set.symmetric_difference(beta_j_set))
+        total_diff = alpha_diff + beta_diff
+
+        if total_diff == 0:
+            return self._diagonal_element(alpha_i, beta_i, h_core, eri)
+        elif total_diff == 2:
+            return self._single_excitation_element(
+                alpha_i, beta_i, alpha_j, beta_j, h_core, eri
+            )
+        elif total_diff == 4:
+            return self._double_excitation_element(
+                alpha_i, beta_i, alpha_j, beta_j, eri
+            )
+        else:
+            return 0.0
+
+    def _diagonal_element(
+        self,
+        alpha: Tuple[int, ...],
+        beta: Tuple[int, ...],
+        h_core: np.ndarray,
+        eri: np.ndarray
+    ) -> float:
+        """Diagonal Hamiltonian element."""
+        energy = 0.0
+
+        # One-electron terms
+        for p in alpha:
+            energy += h_core[p, p]
+        for p in beta:
+            energy += h_core[p, p]
+
+        # Two-electron terms
+        for p in alpha:
+            for q in alpha:
+                if p != q:
+                    energy += 0.5 * (eri[p, p, q, q] - eri[p, q, q, p])
+
+        for p in beta:
+            for q in beta:
+                if p != q:
+                    energy += 0.5 * (eri[p, p, q, q] - eri[p, q, q, p])
+
+        for p in alpha:
+            for q in beta:
+                energy += eri[p, p, q, q]
+
+        return energy
+
+    def _single_excitation_element(
+        self,
+        alpha_i: Tuple[int, ...],
+        beta_i: Tuple[int, ...],
+        alpha_j: Tuple[int, ...],
+        beta_j: Tuple[int, ...],
+        h_core: np.ndarray,
+        eri: np.ndarray
+    ) -> float:
+        """Single excitation Hamiltonian element."""
+        alpha_i_set = set(alpha_i)
+        alpha_j_set = set(alpha_j)
+        beta_i_set = set(beta_i)
+        beta_j_set = set(beta_j)
+
+        if alpha_i_set != alpha_j_set:
+            removed = list(alpha_i_set - alpha_j_set)[0]
+            added = list(alpha_j_set - alpha_i_set)[0]
+            spin_orbs = alpha_i
+            other_spin = beta_i
+        else:
+            removed = list(beta_i_set - beta_j_set)[0]
+            added = list(beta_j_set - beta_i_set)[0]
+            spin_orbs = beta_i
+            other_spin = alpha_i
+
+        # One-electron term
+        element = h_core[removed, added]
+
+        # Two-electron terms
+        for q in spin_orbs:
+            if q != removed:
+                element += eri[removed, q, added, q] - eri[removed, q, q, added]
+
+        for q in other_spin:
+            element += eri[removed, q, added, q]
+
+        # Phase factor
+        phase = self._compute_phase(removed, added, spin_orbs)
+
+        return phase * element
+
+    def _double_excitation_element(
+        self,
+        alpha_i: Tuple[int, ...],
+        beta_i: Tuple[int, ...],
+        alpha_j: Tuple[int, ...],
+        beta_j: Tuple[int, ...],
+        eri: np.ndarray
+    ) -> float:
+        """Double excitation Hamiltonian element."""
+        alpha_i_set = set(alpha_i)
+        alpha_j_set = set(alpha_j)
+        beta_i_set = set(beta_i)
+        beta_j_set = set(beta_j)
+
+        alpha_diff = alpha_i_set.symmetric_difference(alpha_j_set)
+        beta_diff = beta_i_set.symmetric_difference(beta_j_set)
+
+        if len(alpha_diff) == 4:
+            removed = sorted(alpha_i_set - alpha_j_set)
+            added = sorted(alpha_j_set - alpha_i_set)
+            element = eri[removed[0], removed[1], added[0], added[1]] - \
+                     eri[removed[0], removed[1], added[1], added[0]]
+            phase = self._compute_double_phase(removed, added, alpha_i)
+            return phase * element
+
+        elif len(beta_diff) == 4:
+            removed = sorted(beta_i_set - beta_j_set)
+            added = sorted(beta_j_set - beta_i_set)
+            element = eri[removed[0], removed[1], added[0], added[1]] - \
+                     eri[removed[0], removed[1], added[1], added[0]]
+            phase = self._compute_double_phase(removed, added, beta_i)
+            return phase * element
+
+        else:
+            alpha_removed = list(alpha_i_set - alpha_j_set)[0]
+            alpha_added = list(alpha_j_set - alpha_i_set)[0]
+            beta_removed = list(beta_i_set - beta_j_set)[0]
+            beta_added = list(beta_j_set - beta_i_set)[0]
+
+            element = eri[alpha_removed, beta_removed, alpha_added, beta_added]
+            phase_alpha = self._compute_phase(alpha_removed, alpha_added, alpha_i)
+            phase_beta = self._compute_phase(beta_removed, beta_added, beta_i)
+
+            return phase_alpha * phase_beta * element
+
+    def _compute_phase(self, p: int, q: int, orbitals: Tuple[int, ...]) -> int:
+        """Compute phase factor for single excitation."""
+        orb_list = sorted(orbitals)
+        p_idx = orb_list.index(p) if p in orb_list else -1
+        q_idx = len([o for o in orb_list if o < q])
+
+        if p_idx == -1:
+            return 1
+
+        n_between = abs(q_idx - p_idx) - 1
+        return (-1) ** n_between
+
+    def _compute_double_phase(
+        self,
+        removed: List[int],
+        added: List[int],
+        orbitals: Tuple[int, ...]
+    ) -> int:
+        """Compute phase factor for double excitation."""
+        phase1 = self._compute_phase(removed[0], added[0], orbitals)
+
+        orb_list = list(orbitals)
+        orb_list.remove(removed[0])
+        orb_list.append(added[0])
+        orb_list = tuple(sorted(orb_list))
+
+        phase2 = self._compute_phase(removed[1], added[1], orb_list)
+
+        return phase1 * phase2
+
     def _compute_energy(self, parameters: np.ndarray) -> float:
         """Compute energy expectation value for given parameters."""
         # Simplified classical simulation
@@ -222,8 +441,8 @@ class ExcitedStatesSolver:
         # Build parameterized state
         state_vector = self._build_state_vector(parameters)
 
-        # Compute ⟨ψ|H|ψ⟩
-        H_matrix = self.hamiltonian.to_matrix()
+        # Compute ⟨ψ|H|ψ⟩ using many-body Hamiltonian
+        H_matrix = self._build_manybody_hamiltonian()
         energy = np.real(np.dot(np.conj(state_vector), np.dot(H_matrix, state_vector)))
 
         return energy
@@ -237,22 +456,38 @@ class ExcitedStatesSolver:
         return overlap
 
     def _build_state_vector(self, parameters: np.ndarray) -> np.ndarray:
-        """Build state vector from parameters (classical simulation)."""
-        n_qubits = self.circuit.num_qubits  # Fixed: use property instead of method
-        state_dim = 2**n_qubits
+        """Build state vector from parameters in Slater determinant basis."""
+        from itertools import combinations
 
-        # Start with HF reference state
-        state = np.zeros(state_dim, dtype=complex)
+        n_orbitals = self.hamiltonian.n_orbitals
         n_electrons = self.hamiltonian.n_electrons
-        hf_index = (1 << n_electrons) - 1  # |11...100...0⟩
-        state[hf_index] = 1.0
 
-        # Apply parametrized gates (simplified)
+        # Build Slater determinant basis (same as Hamiltonian)
+        n_alpha = n_electrons // 2
+        n_beta = n_electrons - n_alpha
+
+        alpha_configs = list(combinations(range(n_orbitals), n_alpha))
+        beta_configs = list(combinations(range(n_orbitals), n_beta))
+        n_configs = len(alpha_configs) * len(beta_configs)
+
+        # Start with HF reference state (first configuration)
+        state = np.zeros(n_configs, dtype=complex)
+        state[0] = 1.0
+
+        # Apply parameter rotations (simplified)
         # In production, would simulate full quantum circuit
         for i, param in enumerate(parameters):
-            # Simplified rotation
-            rotation = np.exp(1j * param * 0.1)
-            state *= rotation
+            if i < n_configs - 1:
+                # Mix with excited configurations
+                angle = param * 0.1
+                c = np.cos(angle)
+                s = np.sin(angle)
+
+                # Apply rotation between ground and excited state i+1
+                new_state_0 = c * state[0] - s * state[i+1]
+                new_state_i = s * state[0] + c * state[i+1]
+                state[0] = new_state_0
+                state[i+1] = new_state_i
 
         # Normalize
         state /= np.linalg.norm(state)

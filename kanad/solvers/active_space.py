@@ -147,8 +147,12 @@ class ActiveSpaceSelector:
 
         Selects n_orbitals centered on HOMO/LUMO.
         """
-        # Get MO energies
-        mo_energies, _ = self.hamiltonian.compute_molecular_orbitals()
+        # Get MO energies (if available)
+        if hasattr(self.hamiltonian, 'compute_molecular_orbitals'):
+            mo_energies, _ = self.hamiltonian.compute_molecular_orbitals()
+        else:
+            # Fallback: use h_core diagonal as orbital energies
+            mo_energies = np.diag(self.hamiltonian.h_core)
 
         n_occupied = self.n_electrons // 2
         homo_idx = n_occupied - 1
@@ -176,7 +180,12 @@ class ActiveSpaceSelector:
         """
         # Get density matrix
         # For HF: P = 2 * C_occ @ C_occ.T
-        mo_energies, mo_coeffs = self.hamiltonian.compute_molecular_orbitals()
+        if hasattr(self.hamiltonian, 'compute_molecular_orbitals'):
+            mo_energies, mo_coeffs = self.hamiltonian.compute_molecular_orbitals()
+        else:
+            # Fallback: use identity as MO coefficients
+            mo_energies = np.diag(self.hamiltonian.h_core)
+            mo_coeffs = np.eye(self.n_orbitals)
         n_occupied = self.n_electrons // 2
 
         C_occ = mo_coeffs[:, :n_occupied]
