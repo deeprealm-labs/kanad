@@ -22,7 +22,6 @@ sys.path.insert(0, '/home/mk/deeprealm/kanad')
 
 from kanad.core.atom import Atom
 from kanad.bonds.covalent_bond import CovalentBond
-from kanad.core.molecule import Molecule
 
 class TestCorrectCovalentBonding:
     """Scientific test using CORRECT API calls for covalent bonding."""
