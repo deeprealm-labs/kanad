@@ -26,3 +26,8 @@ plotly>=5.17.0
 dataclasses-json>=0.6.0
 typing-extensions>=4.8.0
 
+# Web API Server
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+
