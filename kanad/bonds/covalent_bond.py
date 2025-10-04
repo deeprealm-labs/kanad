@@ -43,7 +43,8 @@ class CovalentBond(BaseBond):
         atom_2: Atom,
         distance: Optional[float] = None,
         hybridization: str = 'sp3',
-        bond_order: int = 1
+        bond_order: int = 1,
+        basis: str = 'sto-3g'
     ):
         """
         Initialize covalent bond.
@@ -54,12 +55,14 @@ class CovalentBond(BaseBond):
             distance: Bond distance in Angstroms (optional)
             hybridization: Hybridization type ('sp', 'sp2', 'sp3')
             bond_order: Bond order (1=single, 2=double, 3=triple)
+            basis: Basis set name ('sto-3g', '6-31g', etc.)
         """
         super().__init__([atom_1, atom_2], 'covalent', distance)
 
         self.atom_1 = atom_1
         self.atom_2 = atom_2
         self.bond_order = bond_order
+        self.basis = basis
 
         # Create molecule
         self.molecule = Molecule([atom_1, atom_2])
@@ -78,7 +81,7 @@ class CovalentBond(BaseBond):
         self.hamiltonian = CovalentHamiltonian(
             self.molecule,
             self.representation,
-            basis_name='sto-3g'
+            basis_name=basis
         )
 
         # Governance protocol

@@ -48,7 +48,7 @@ class MetallicBond(BaseBond):
         atoms: List[Atom],
         lattice_type: str = '1d_chain',
         hopping_parameter: Optional[float] = None,
-        hubbard_u: float = 0.0,
+        hubbard_u: float = 2.0,  # Default 2 eV (typical for metals, needed for VQE)
         temperature: Optional[float] = None,
         periodic: bool = True
     ):
@@ -226,21 +226,40 @@ class MetallicBond(BaseBond):
             self.hamiltonian, self.mapper, use_qiskit_nature=False
         )
 
-        # Run VQE (simplified - would use actual VQE solver)
-        # For now, return exact result
-        H_matrix = qubit_op.to_matrix()
-        eigenvalues = np.linalg.eigvalsh(H_matrix)
-        ground_state_energy = eigenvalues[0]
+        # Run REAL VQE with actual quantum circuit execution
+        from kanad.solvers.vqe_solver import VQESolver
+        from kanad.ansatze.hardware_efficient_ansatz import EfficientSU2Ansatz
+
+        # Create hardware-efficient ansatz (suitable for metallic systems)
+        # EfficientSU2 provides good expressivity for delocalized electrons
+        metallic_ansatz = EfficientSU2Ansatz(
+            n_qubits=n_qubits,
+            n_electrons=self.molecule.n_electrons,
+            n_layers=n_layers,
+            entanglement=entanglement if entanglement in ['linear', 'full', 'circular'] else 'full'
+        )
+
+        # Create VQE solver with real quantum circuit execution
+        vqe = VQESolver(
+            hamiltonian=self.hamiltonian,
+            ansatz=metallic_ansatz,
+            mapper=self.mapper,
+            max_iterations=max_iter
+        )
+
+        # Solve with real variational optimization
+        vqe_result = vqe.solve()
 
         return {
-            'energy': ground_state_energy,
-            'method': 'VQE (exact diagonalization)',
-            'converged': True,
+            'energy': vqe_result['energy'],
+            'method': 'VQE (Metallic Governance)',
+            'converged': vqe_result['converged'],
+            'iterations': vqe_result['iterations'],
             'n_qubits': n_qubits,
             'n_layers': n_layers,
             'entanglement': entanglement,
-            'iterations': 0,  # Exact diagonalization, no iterations
-            'band_energies': eigenvalues
+            'parameters': vqe_result.get('parameters', None),
+            'energy_history': vqe_result.get('energy_history', [])
         }
 
     def analyze(self, energy_data: Optional[Dict] = None) -> Dict[str, Any]:
