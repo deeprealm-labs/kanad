@@ -117,14 +117,191 @@ class CovalentHamiltonian(MolecularHamiltonian):
         # Overlap matrix (for analysis)
         self.S = OverlapIntegrals.build_overlap_matrix(self.basis.basis_functions)
 
-    def to_matrix(self) -> np.ndarray:
+    def to_matrix(self, n_qubits: Optional[int] = None) -> np.ndarray:
         """
-        Convert to matrix form (one-body part only).
+        Build full many-body Hamiltonian matrix in Fock space.
+
+        This constructs the complete second-quantized Hamiltonian:
+        H = Σ_{ij} h_{ij} a†_i a_j + 1/2 Σ_{ijkl} g_{ijkl} a†_i a†_j a_l a_k + E_nn
+
+        Args:
+            n_qubits: Number of qubits (spin orbitals). If None, uses 2 * n_orbitals
 
         Returns:
-            Core Hamiltonian matrix
+            Full Hamiltonian matrix in computational basis (2^n × 2^n)
         """
-        return self.h_core.copy()
+        if n_qubits is None:
+            n_qubits = 2 * self.n_orbitals  # Each orbital has 2 spin states
+
+        dim = 2 ** n_qubits
+
+        # Start with nuclear repulsion (constant term, identity matrix)
+        H = self.nuclear_repulsion * np.eye(dim, dtype=complex)
+
+        logger.debug(f"Building full Hamiltonian: {self.n_orbitals} orbitals → {n_qubits} qubits → {dim}x{dim} matrix")
+
+        # Add one-body terms: Σ_{ij} h_{ij} a†_i a_j
+        # Need to account for spin: each spatial orbital has alpha and beta spin
+        for i in range(self.n_orbitals):
+            for j in range(self.n_orbitals):
+                if abs(self.h_core[i, j]) > 1e-12:
+                    # Alpha spin (even indices: 0, 2, 4, ...)
+                    H += self.h_core[i, j] * self._jordan_wigner_excitation(2*i, 2*j, n_qubits)
+                    # Beta spin (odd indices: 1, 3, 5, ...)
+                    H += self.h_core[i, j] * self._jordan_wigner_excitation(2*i+1, 2*j+1, n_qubits)
+
+        # Add two-body terms: 1/2 Σ_{ijkl} g_{ijkl} a†_i a†_j a_l a_k
+        # where g_{ijkl} = ⟨ij||kl⟩ (antisymmetrized two-electron integral)
+        if hasattr(self, 'eri') and self.eri is not None:
+            for i in range(self.n_orbitals):
+                for j in range(self.n_orbitals):
+                    for k in range(self.n_orbitals):
+                        for l in range(self.n_orbitals):
+                            # Get ERI value
+                            eri_val = self.eri[i, k, j, l]
+
+                            if abs(eri_val) > 1e-12:
+                                # Add all spin combinations
+                                # Alpha-alpha
+                                H += 0.5 * eri_val * self._jordan_wigner_two_body(2*i, 2*j, 2*l, 2*k, n_qubits)
+                                # Alpha-beta
+                                H += 0.5 * eri_val * self._jordan_wigner_two_body(2*i, 2*j+1, 2*l+1, 2*k, n_qubits)
+                                # Beta-alpha
+                                H += 0.5 * eri_val * self._jordan_wigner_two_body(2*i+1, 2*j, 2*l, 2*k+1, n_qubits)
+                                # Beta-beta
+                                H += 0.5 * eri_val * self._jordan_wigner_two_body(2*i+1, 2*j+1, 2*l+1, 2*k+1, n_qubits)
+
+        return H
+
+    def _jordan_wigner_excitation(self, i: int, j: int, n_qubits: int) -> np.ndarray:
+        """
+        Build Jordan-Wigner mapped excitation operator a†_i a_j.
+
+        Jordan-Wigner transformation:
+        a†_i = (⊗_{k<i} Z_k) ⊗ σ+_i
+        a_j  = (⊗_{k<j} Z_k) ⊗ σ-_j
+
+        where σ+ = (X - iY)/2, σ- = (X + iY)/2
+
+        Args:
+            i: Creation index
+            j: Annihilation index
+            n_qubits: Total number of qubits
+
+        Returns:
+            Operator matrix (2^n × 2^n)
+        """
+        dim = 2 ** n_qubits
+        result = np.zeros((dim, dim), dtype=complex)
+
+        # Pauli matrices
+        I = np.eye(2, dtype=complex)
+        X = np.array([[0, 1], [1, 0]], dtype=complex)
+        Y = np.array([[0, -1j], [1j, 0]], dtype=complex)
+        Z = np.array([[1, 0], [0, -1]], dtype=complex)
+
+        sigma_plus = (X - 1j * Y) / 2   # Raising operator
+        sigma_minus = (X + 1j * Y) / 2  # Lowering operator
+
+        # Build operator for each computational basis state
+        # More efficient: use tensor products
+
+        # If i == j: number operator n_i = a†_i a_i
+        if i == j:
+            # Build number operator using Kronecker products
+            # n_i = I ⊗ I ⊗ ... ⊗ (I-Z)/2 ⊗ ... ⊗ I
+            op = np.array([[1.0]], dtype=complex)  # Start with scalar 1
+            for qubit in range(n_qubits):
+                if qubit == i:
+                    # Number operator at position i: n = (I - Z)/2
+                    op = np.kron(op, (I - Z) / 2)
+                else:
+                    op = np.kron(op, I)
+            return op
+
+        # General case: a†_i a_j with i ≠ j
+        # Build using direct matrix construction
+        for basis_idx in range(dim):
+            # Convert to binary representation (qubit occupation)
+            bits = [(basis_idx >> k) & 1 for k in range(n_qubits)]
+
+            # Apply a_j (annihilation at j)
+            if bits[j] == 0:
+                continue  # Can't annihilate an empty orbital
+
+            new_bits = bits.copy()
+            new_bits[j] = 0
+
+            # Jordan-Wigner string: count fermions to the right of j
+            sign_j = (-1) ** sum(bits[:j])
+
+            # Apply a†_i (creation at i)
+            if new_bits[i] == 1:
+                continue  # Can't create in occupied orbital
+
+            new_bits[i] = 1
+
+            # Jordan-Wigner string: count fermions to the right of i
+            sign_i = (-1) ** sum(new_bits[:i])
+
+            # Convert back to basis index
+            new_idx = sum(bit << k for k, bit in enumerate(new_bits))
+
+            # Add matrix element
+            result[new_idx, basis_idx] += sign_i * sign_j
+
+        return result
+
+    def _jordan_wigner_two_body(self, i: int, j: int, k: int, l: int, n_qubits: int) -> np.ndarray:
+        """
+        Build Jordan-Wigner mapped two-body operator a†_i a†_j a_k a_l.
+
+        Args:
+            i, j: Creation indices
+            k, l: Annihilation indices
+            n_qubits: Total number of qubits
+
+        Returns:
+            Operator matrix (2^n × 2^n)
+        """
+        dim = 2 ** n_qubits
+        result = np.zeros((dim, dim), dtype=complex)
+
+        # Direct construction in Fock space
+        for basis_idx in range(dim):
+            # Convert to binary (qubit occupation numbers)
+            bits = [(basis_idx >> q) & 1 for q in range(n_qubits)]
+
+            # Apply a_l
+            if bits[l] == 0:
+                continue
+            new_bits = bits.copy()
+            new_bits[l] = 0
+            sign = (-1) ** sum(bits[:l])
+
+            # Apply a_k
+            if new_bits[k] == 0:
+                continue
+            new_bits[k] = 0
+            sign *= (-1) ** sum(new_bits[:k])
+
+            # Apply a†_j
+            if new_bits[j] == 1:
+                continue
+            new_bits[j] = 1
+            sign *= (-1) ** sum(new_bits[:j])
+
+            # Apply a†_i
+            if new_bits[i] == 1:
+                continue
+            new_bits[i] = 1
+            sign *= (-1) ** sum(new_bits[:i])
+
+            # Convert back to index
+            new_idx = sum(bit << q for q, bit in enumerate(new_bits))
+            result[new_idx, basis_idx] += sign
+
+        return result
 
     def compute_energy(self, density_matrix: np.ndarray) -> float:
         """

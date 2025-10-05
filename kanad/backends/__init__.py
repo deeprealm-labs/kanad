@@ -9,6 +9,7 @@ Provides interfaces for executing quantum circuits on:
 """
 
 from kanad.backends.qiskit_backend import QiskitBackend
+from kanad.backends.ibm_runtime_backend import IBMRuntimeBackend
 from kanad.backends.cuquantum_backend import (
     CuQuantumBackend,
     check_cuquantum_available,
@@ -17,6 +18,7 @@ from kanad.backends.cuquantum_backend import (
 
 __all__ = [
     'QiskitBackend',
+    'IBMRuntimeBackend',
     'CuQuantumBackend',
     'check_cuquantum_available',
     'get_gpu_info',
