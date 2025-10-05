@@ -1,13 +1,18 @@
 """
-Ionic Hamiltonian for electron transfer systems.
+Ionic Hamiltonian for electron transfer systems with governance protocol integration.
 
 Models ionic bonding where electrons are transferred from donor to acceptor atoms.
+Integrates IonicGovernanceProtocol to ensure physical correctness.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import numpy as np
+import logging
 from kanad.core.hamiltonians.molecular_hamiltonian import MolecularHamiltonian
 from kanad.core.atom import Atom
+from kanad.governance.protocols.ionic_protocol import IonicGovernanceProtocol
+
+logger = logging.getLogger(__name__)
 
 
 class IonicHamiltonian(MolecularHamiltonian):
@@ -31,18 +36,28 @@ class IonicHamiltonian(MolecularHamiltonian):
     def __init__(
         self,
         molecule: 'Molecule',
-        representation: 'SecondQuantizationRepresentation'
+        representation: 'SecondQuantizationRepresentation',
+        use_governance: bool = True
     ):
         """
-        Initialize ionic Hamiltonian.
+        Initialize ionic Hamiltonian with governance protocol.
 
         Args:
             molecule: Molecule object with atoms
             representation: Second quantization representation
+            use_governance: Enable governance protocol validation (default: True)
         """
         self.molecule = molecule
         self.representation = representation
         self.atoms = molecule.atoms
+        self.use_governance = use_governance
+
+        # Initialize governance protocol
+        if use_governance:
+            self.governance_protocol = IonicGovernanceProtocol()
+            logger.info("✓ Ionic governance protocol initialized")
+        else:
+            self.governance_protocol = None
 
         # Compute nuclear repulsion
         nuclear_rep = self._compute_nuclear_repulsion()
@@ -53,7 +68,7 @@ class IonicHamiltonian(MolecularHamiltonian):
             nuclear_repulsion=nuclear_rep
         )
 
-        # Build Hamiltonian
+        # Build Hamiltonian with governance validation
         self._build_hamiltonian()
 
     def _compute_nuclear_repulsion(self) -> float:
@@ -110,12 +125,15 @@ class IonicHamiltonian(MolecularHamiltonian):
 
     def _compute_transfer_integral(self, i: int, j: int) -> float:
         """
-        Compute transfer integral between sites i and j.
+        Compute transfer integral between sites i and j using governance protocol.
 
         For ionic bonding:
             t_ij ∝ exp(-r_ij / λ)
 
         where λ is the decay length (≈ 1-2 Bohr for ionic bonds).
+
+        Governance enforcement: Transfer integrals should be SMALL for ionic bonds
+        (< 0.1 Hartree ~ 2.7 eV) to maintain localized character.
 
         Args:
             i: Site index
@@ -126,14 +144,21 @@ class IonicHamiltonian(MolecularHamiltonian):
         """
         r_ij = self.atoms[i].distance_to(self.atoms[j])
 
-        # Decay length for ionic bonding (in Bohr)
-        lambda_decay = 1.5
+        # Use governance protocol's transfer integral estimate if available
+        if self.use_governance and self.governance_protocol:
+            t_ij = self.governance_protocol.get_transfer_integral_estimate(r_ij)
 
-        # Prefactor (typical ionic transfer integral scale)
-        t_0 = 0.05  # ~1.4 eV in Hartree units
-
-        # Exponential decay
-        t_ij = t_0 * np.exp(-r_ij / lambda_decay)
+            # Validate: Ionic bonds should have WEAK transfer (t < 0.1 Ha)
+            if t_ij > 0.1:
+                logger.warning(
+                    f"Large transfer integral ({t_ij:.4f} Ha) for ionic bond "
+                    f"between sites {i}-{j}. This may indicate covalent character."
+                )
+        else:
+            # Fallback: Standard exponential decay
+            lambda_decay = 1.5  # Decay length in Bohr
+            t_0 = 0.05  # ~1.4 eV in Hartree units
+            t_ij = t_0 * np.exp(-r_ij / lambda_decay)
 
         return t_ij
 
@@ -439,3 +464,128 @@ class IonicHamiltonian(MolecularHamiltonian):
                         fock[i, j] -= 0.5 * density_matrix[k, l] * self.eri[i, k, j, l]
 
         return fock
+
+    def validate_with_governance(self) -> dict[str, Any]:
+        """
+        Validate Hamiltonian using governance protocol.
+
+        Returns:
+            Dictionary with validation results
+        """
+        if not self.use_governance or not self.governance_protocol:
+            return {'governance_enabled': False}
+
+        validation = {
+            'governance_enabled': True,
+            'bonding_type': 'ionic',
+            'checks': []
+        }
+
+        # Check 1: Transfer integrals are small (localized)
+        max_transfer = 0.0
+        for i in range(self.n_orbitals):
+            for j in range(i + 1, self.n_orbitals):
+                t_ij = abs(self.h_core[i, j])
+                max_transfer = max(max_transfer, t_ij)
+
+        validation['max_transfer_integral'] = max_transfer
+        # Ionic: < 0.1 Ha (pure ionic like NaCl)
+        # Polar covalent: 0.1-0.5 Ha (like LiH) - still acceptable
+        # Covalent: > 0.5 Ha
+        if max_transfer < 0.1:
+            validation['checks'].append({
+                'name': 'weak_transfer',
+                'passed': True,
+                'message': f'Transfer integrals small ({max_transfer:.4f} Ha) - pure ionic ✓'
+            })
+        elif max_transfer < 0.5:
+            validation['checks'].append({
+                'name': 'weak_transfer',
+                'passed': True,  # Accept polar covalent
+                'message': f'Transfer integrals moderate ({max_transfer:.4f} Ha) - polar covalent/ionic ✓'
+            })
+        else:
+            validation['checks'].append({
+                'name': 'weak_transfer',
+                'passed': False,
+                'message': f'Transfer integrals too large ({max_transfer:.4f} Ha) - predominantly covalent'
+            })
+
+        # Check 2: On-site energies reflect electronegativity difference
+        site_energies = np.diag(self.h_core)
+        energy_spread = np.max(site_energies) - np.min(site_energies)
+
+        validation['energy_spread'] = energy_spread
+        if energy_spread > 0.1:  # Significant electronegativity difference
+            validation['checks'].append({
+                'name': 'electronegativity_difference',
+                'passed': True,
+                'message': f'Large energy spread ({energy_spread:.4f} Ha) indicates ionic character ✓'
+            })
+        else:
+            validation['checks'].append({
+                'name': 'electronegativity_difference',
+                'passed': False,
+                'message': f'Small energy spread ({energy_spread:.4f} Ha) - weak ionic character'
+            })
+
+        # Check 3: Hubbard U is large (strong correlation)
+        avg_U = np.mean([self.eri[i, i, i, i] for i in range(self.n_orbitals)])
+
+        validation['average_hubbard_u'] = avg_U
+        if avg_U > 0.2:  # > 5 eV
+            validation['checks'].append({
+                'name': 'large_hubbard_u',
+                'passed': True,
+                'message': f'Large Hubbard U ({avg_U:.4f} Ha ~ {avg_U * 27.211:.1f} eV) ✓'
+            })
+        else:
+            validation['checks'].append({
+                'name': 'large_hubbard_u',
+                'passed': False,
+                'message': f'Small Hubbard U ({avg_U:.4f} Ha)'
+            })
+
+        # Overall assessment
+        all_passed = all(check['passed'] for check in validation['checks'])
+        validation['all_checks_passed'] = all_passed
+
+        if all_passed:
+            logger.info("✓ Ionic Hamiltonian passed all governance checks")
+        else:
+            logger.warning("⚠ Some ionic governance checks failed - review bonding character")
+
+        return validation
+
+    def get_governance_aware_ansatz(self, ansatz_type: str = 'governance'):
+        """
+        Get governance-aware ansatz for this Hamiltonian.
+
+        Args:
+            ansatz_type: Type of ansatz ('governance', 'ucc', or 'hardware_efficient')
+
+        Returns:
+            Ansatz object configured for ionic bonding
+        """
+        if ansatz_type == 'governance' and self.governance_protocol:
+            from kanad.ansatze.governance_aware_ansatz import IonicGovernanceAnsatz
+            return IonicGovernanceAnsatz(
+                hamiltonian=self,
+                n_qubits=2 * self.n_orbitals,
+                governance_protocol=self.governance_protocol
+            )
+        elif ansatz_type == 'ucc':
+            from kanad.ansatze.ucc_ansatz import UCCAnsatz
+            return UCCAnsatz(
+                hamiltonian=self,
+                excitations='SD'  # Singles and doubles
+            )
+        elif ansatz_type == 'hardware_efficient':
+            from kanad.ansatze.hardware_efficient_ansatz import HardwareEfficientAnsatz
+            return HardwareEfficientAnsatz(
+                n_qubits=2 * self.n_orbitals,
+                depth=3,
+                entanglement='linear'  # Linear for ionic (sparse connectivity)
+            )
+        else:
+            raise ValueError(f"Unknown ansatz type: {ansatz_type}")

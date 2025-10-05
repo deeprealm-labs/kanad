@@ -351,7 +351,7 @@ class QPESolver:
             return 0.0
 
     def _diagonal_element(
-        self, alpha_occ: tuple, beta_occ: tuple, h_core: np.ndarray, eri: np.ndarray
+        self, alpha_occ: tuple, beta_occ: tuple, h_core: np.ndarray, eri: Optional[np.ndarray]
     ) -> float:
         """Diagonal Hamiltonian element."""
         H_ii = 0.0
@@ -362,23 +362,24 @@ class QPESolver:
         for p in beta_occ:
             H_ii += h_core[p, p]
 
-        # Two-electron contribution
-        # Alpha-alpha repulsion
-        for p in alpha_occ:
-            for q in alpha_occ:
-                if p != q:
-                    H_ii += 0.5 * (eri[p, q, p, q] - eri[p, q, q, p])
+        # Two-electron contribution (skip if eri is None)
+        if eri is not None:
+            # Alpha-alpha repulsion
+            for p in alpha_occ:
+                for q in alpha_occ:
+                    if p != q:
+                        H_ii += 0.5 * (eri[p, q, p, q] - eri[p, q, q, p])
 
-        # Beta-beta repulsion
-        for p in beta_occ:
-            for q in beta_occ:
-                if p != q:
-                    H_ii += 0.5 * (eri[p, q, p, q] - eri[p, q, q, p])
+            # Beta-beta repulsion
+            for p in beta_occ:
+                for q in beta_occ:
+                    if p != q:
+                        H_ii += 0.5 * (eri[p, q, p, q] - eri[p, q, q, p])
 
-        # Alpha-beta repulsion (no exchange)
-        for p in alpha_occ:
-            for q in beta_occ:
-                H_ii += eri[p, q, p, q]
+            # Alpha-beta repulsion (no exchange)
+            for p in alpha_occ:
+                for q in beta_occ:
+                    H_ii += eri[p, q, p, q]
 
         return H_ii
 
@@ -386,7 +387,7 @@ class QPESolver:
         self,
         alpha_i: tuple, beta_i: tuple,
         alpha_j: tuple, beta_j: tuple,
-        h_core: np.ndarray, eri: np.ndarray
+        h_core: np.ndarray, eri: Optional[np.ndarray]
     ) -> float:
         """Single excitation matrix element."""
         # Determine which spin and orbitals are involved
@@ -403,10 +404,11 @@ class QPESolver:
             occ_beta = list(beta_i)  # Beta orbitals
 
             H_ij = h_core[p, q]
-            for r in occ:
-                H_ij += eri[p, r, q, r] - eri[p, r, r, q]
-            for r in occ_beta:
-                H_ij += eri[p, r, q, r]
+            if eri is not None:
+                for r in occ:
+                    H_ij += eri[p, r, q, r] - eri[p, r, r, q]
+                for r in occ_beta:
+                    H_ij += eri[p, r, q, r]
         else:
             # Beta excitation
             p = list(beta_i_set - beta_j_set)[0]
@@ -415,10 +417,11 @@ class QPESolver:
             occ_alpha = list(alpha_i)
 
             H_ij = h_core[p, q]
-            for r in occ:
-                H_ij += eri[p, r, q, r] - eri[p, r, r, q]
-            for r in occ_alpha:
-                H_ij += eri[p, r, q, r]
+            if eri is not None:
+                for r in occ:
+                    H_ij += eri[p, r, q, r] - eri[p, r, r, q]
+                for r in occ_alpha:
+                    H_ij += eri[p, r, q, r]
 
         # Apply phase factor from anticommutation
         # (Simplified - full implementation would track permutations)
@@ -428,7 +431,7 @@ class QPESolver:
         self,
         alpha_i: tuple, beta_i: tuple,
         alpha_j: tuple, beta_j: tuple,
-        eri: np.ndarray
+        eri: Optional[np.ndarray]
     ) -> float:
         """Double excitation matrix element."""
         alpha_i_set = set(alpha_i)
@@ -444,21 +447,21 @@ class QPESolver:
             added = list(alpha_j_set - alpha_i_set)
             p, q = removed[0], removed[1]
             r, s = added[0], added[1]
-            return eri[p, q, r, s] - eri[p, q, s, r]
+            return 0.0 if eri is None else (eri[p, q, r, s] - eri[p, q, s, r])
         elif n_diff_alpha == 0:
             # Beta-beta double excitation
             removed = list(beta_i_set - beta_j_set)
             added = list(beta_j_set - beta_i_set)
             p, q = removed[0], removed[1]
             r, s = added[0], added[1]
-            return eri[p, q, r, s] - eri[p, q, s, r]
+            return 0.0 if eri is None else (eri[p, q, r, s] - eri[p, q, s, r])
         else:
             # Alpha-beta excitation
             alpha_removed = list(alpha_i_set - alpha_j_set)[0]
             alpha_added = list(alpha_j_set - alpha_i_set)[0]
             beta_removed = list(beta_i_set - beta_j_set)[0]
             beta_added = list(beta_j_set - beta_i_set)[0]
-            return eri[alpha_removed, beta_removed, alpha_added, beta_added]
+            return 0.0 if eri is None else eri[alpha_removed, beta_removed, alpha_added, beta_added]
 
     def _phase_to_energy(self, phase: float) -> float:
         """
