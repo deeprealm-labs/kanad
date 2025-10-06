@@ -1,3 +1,0 @@
-"""
-Kanad API Server Module
-"""

@@ -39,14 +39,27 @@ from kanad.ansatze.governance_aware_ansatz import (
 
 # Solvers
 from kanad.solvers.vqe_solver import VQESolver
-from kanad.solvers.qpe_solver import QPESolver
 from kanad.solvers.sqd_solver import SQDSolver
-from kanad.solvers.fci_solver import FCISolver
+try:
+    from kanad.solvers.excited_states_solver import ExcitedStatesSolver
+except ImportError:
+    ExcitedStatesSolver = None
 
-# Backends
-from kanad.backends.qiskit_backend import QiskitBackend
-from kanad.backends.ibm import IBMRuntimeBackend, IBMVQESolver, IBMQPESolver, IBMSQDSolver
-from kanad.backends.bluequbit import BlueQubitBackend
+# Backends (optional - may not be installed)
+try:
+    from kanad.backends.qiskit_backend import QiskitBackend
+except ImportError:
+    QiskitBackend = None
+
+try:
+    from kanad.backends.ibm import IBMRuntimeBackend, IBMVQESolver, IBMQPESolver, IBMSQDSolver
+except ImportError:
+    IBMRuntimeBackend = IBMVQESolver = IBMQPESolver = IBMSQDSolver = None
+
+try:
+    from kanad.backends.bluequbit import BlueQubitBackend
+except ImportError:
+    BlueQubitBackend = None
 
 # Governance
 from kanad.governance.protocols.base_protocol import BaseGovernanceProtocol, BondingType, GovernanceRule
@@ -80,9 +93,8 @@ __all__ = [
 
     # Solvers
     'VQESolver',
-    'QPESolver',
     'SQDSolver',
-    'FCISolver',
+    'ExcitedStatesSolver',
 
     # Backends
     'QiskitBackend',

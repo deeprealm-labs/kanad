@@ -87,10 +87,10 @@ class GaussianPrimitive:
         base_norm = (2 * α / np.pi) ** 0.75
 
         # Angular momentum normalization for each component
-        # For each direction: [(8α)^l / (2l-1)!!]^(1/2)
-        norm_x = np.sqrt((8 * α) ** lx / (factorial2(2 * lx - 1, exact=True) if lx > 0 else 1))
-        norm_y = np.sqrt((8 * α) ** ly / (factorial2(2 * ly - 1, exact=True) if ly > 0 else 1))
-        norm_z = np.sqrt((8 * α) ** lz / (factorial2(2 * lz - 1, exact=True) if lz > 0 else 1))
+        # For each direction: [(4α)^l / (2l-1)!!]^(1/2)
+        norm_x = np.sqrt((4 * α) ** lx / (factorial2(2 * lx - 1, exact=True) if lx > 0 else 1))
+        norm_y = np.sqrt((4 * α) ** ly / (factorial2(2 * ly - 1, exact=True) if ly > 0 else 1))
+        norm_z = np.sqrt((4 * α) ** lz / (factorial2(2 * lz - 1, exact=True) if lz > 0 else 1))
 
         return base_norm * norm_x * norm_y * norm_z
 
@@ -704,16 +704,12 @@ class BasisSet:
 
         # Add p orbitals (px, py, pz)
         if 'p' in basis_data:
-            # Normalization fix for Cartesian p orbitals
-            # STO-3G coefficients need 1/√2 factor for proper normalization
-            p_norm_factor = 1.0 / np.sqrt(2.0)
-
             # px orbital
             px_primitives = []
             for exp, coeff in basis_data['p']:
                 prim = GaussianPrimitive(
                     exponent=exp,
-                    coefficient=coeff * p_norm_factor,
+                    coefficient=coeff,  # Use coefficient as-is (normalization handled by _normalization_constant)
                     angular_momentum=(1, 0, 0),  # px
                     center=position
                 )
@@ -727,7 +723,7 @@ class BasisSet:
             for exp, coeff in basis_data['p']:
                 prim = GaussianPrimitive(
                     exponent=exp,
-                    coefficient=coeff * p_norm_factor,
+                    coefficient=coeff,  # Use coefficient as-is
                     angular_momentum=(0, 1, 0),  # py
                     center=position
                 )
@@ -741,7 +737,7 @@ class BasisSet:
             for exp, coeff in basis_data['p']:
                 prim = GaussianPrimitive(
                     exponent=exp,
-                    coefficient=coeff * p_norm_factor,
+                    coefficient=coeff,  # Use coefficient as-is
                     angular_momentum=(0, 0, 1),  # pz
                     center=position
                 )
@@ -768,14 +764,12 @@ class BasisSet:
 
         # Add valence p orbitals (for period 3 elements)
         if 'p_valence' in basis_data:
-            p_norm_factor = 1.0 / np.sqrt(2.0)
-
             # px valence
             px_val_primitives = []
             for exp, coeff in basis_data['p_valence']:
                 prim = GaussianPrimitive(
                     exponent=exp,
-                    coefficient=coeff * p_norm_factor,
+                    coefficient=coeff,  # Use coefficient as-is
                     angular_momentum=(1, 0, 0),
                     center=position
                 )
@@ -789,7 +783,7 @@ class BasisSet:
             for exp, coeff in basis_data['p_valence']:
                 prim = GaussianPrimitive(
                     exponent=exp,
-                    coefficient=coeff * p_norm_factor,
+                    coefficient=coeff,  # Use coefficient as-is
                     angular_momentum=(0, 1, 0),
                     center=position
                 )
@@ -803,7 +797,7 @@ class BasisSet:
             for exp, coeff in basis_data['p_valence']:
                 prim = GaussianPrimitive(
                     exponent=exp,
-                    coefficient=coeff * p_norm_factor,
+                    coefficient=coeff,  # Use coefficient as-is
                     angular_momentum=(0, 0, 1),
                     center=position
                 )

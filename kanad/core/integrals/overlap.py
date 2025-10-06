@@ -61,49 +61,82 @@ class OverlapIntegrals:
         K = np.exp(-α * β * np.dot(AB, AB) / γ)
 
         # Compute overlap for each Cartesian direction
-        Sx = OverlapIntegrals._overlap_1d(la, lb, A[0] - P[0], B[0] - P[0], γ)
-        Sy = OverlapIntegrals._overlap_1d(ma, mb, A[1] - P[1], B[1] - P[1], γ)
-        Sz = OverlapIntegrals._overlap_1d(na, nb, A[2] - P[2], B[2] - P[2], γ)
+        # Use XPA = P - A and XPB = P - B (standard convention from Szabo-Ostlund)
+        Sx = OverlapIntegrals._overlap_1d(la, lb, P[0] - A[0], P[0] - B[0], γ)
+        Sy = OverlapIntegrals._overlap_1d(ma, mb, P[1] - A[1], P[1] - B[1], γ)
+        Sz = OverlapIntegrals._overlap_1d(na, nb, P[2] - A[2], P[2] - B[2], γ)
 
         # Coefficients already include normalization in STO-3G
         return K * Sx * Sy * Sz
 
     @staticmethod
-    def _overlap_1d(l1: int, l2: int, PA: float, PB: float, γ: float) -> float:
+    def _overlap_1d(l1: int, l2: int, XPA: float, XPB: float, γ: float) -> float:
         """
-        1D overlap integral for Cartesian Gaussians.
+        1D overlap integral for Cartesian Gaussians using recursion relations.
 
         S_l1,l2 = ∫ x^l1 exp(-α(x-A)²) x^l2 exp(-β(x-B)²) dx
 
-        Simplified for s and p orbitals.
+        Uses Obara-Saika recursion relations for arbitrary angular momentum.
 
         Args:
             l1: Angular momentum quantum number of first Gaussian
             l2: Angular momentum quantum number of second Gaussian
-            PA: P - A (center difference)
-            PB: P - B (center difference)
+            XPA: P - A (where P is the Gaussian product center)
+            XPB: P - B
             γ: Combined exponent α + β
 
         Returns:
             1D overlap integral
         """
-        # For s-s overlap (l1=l2=0)
+        # Base case: S(0,0)
         if l1 == 0 and l2 == 0:
             return np.sqrt(np.pi / γ)
 
-        # For s-p or p-s overlap (l1=0,l2=1 or l1=1,l2=0)
-        elif l1 == 0 and l2 == 1:
-            return PB * np.sqrt(np.pi / γ)
+        # Use recursion to build up from s-s
+        # Recursion relation (increasing l2):
+        # S(l1, l2+1) = XPB·S(l1,l2) + l1/(2γ)·S(l1-1,l2) + l2/(2γ)·S(l1,l2-1)
+
+        # For efficiency, handle common cases explicitly
+        if l1 == 0 and l2 == 1:
+            return XPB * np.sqrt(np.pi / γ)
         elif l1 == 1 and l2 == 0:
-            return PA * np.sqrt(np.pi / γ)
-
-        # For p-p overlap (l1=l2=1)
+            return XPA * np.sqrt(np.pi / γ)
         elif l1 == 1 and l2 == 1:
-            return (PA * PB + 1/(2*γ)) * np.sqrt(np.pi / γ)
+            return (XPA * XPB + 1/(2*γ)) * np.sqrt(np.pi / γ)
 
-        # For higher angular momentum (d, f, etc.) - use approximation
-        else:
-            return np.sqrt(np.pi / γ) * (1.0 / (l1 + l2 + 1))
+        # For l2 = 2, 3, etc., use recursion
+        # First build S(l1, 0) through S(l1, l2) using recursion
+
+        # Build table S[i,j] for i=0..l1, j=0..l2
+        S = {}
+
+        # Base: S(0,0)
+        S[(0,0)] = np.sqrt(np.pi / γ)
+
+        # Build column 0: S(i, 0) for i = 1..l1
+        for i in range(1, l1 + 1):
+            # S(i,0) = XPA·S(i-1,0) + (i-1)/(2γ)·S(i-2,0)
+            S[(i,0)] = XPA * S[(i-1,0)]
+            if i >= 2:
+                S[(i,0)] += (i-1)/(2*γ) * S[(i-2,0)]
+
+        # Build row 0: S(0, j) for j = 1..l2
+        for j in range(1, l2 + 1):
+            # S(0,j) = XPB·S(0,j-1) + (j-1)/(2γ)·S(0,j-2)
+            S[(0,j)] = XPB * S[(0,j-1)]
+            if j >= 2:
+                S[(0,j)] += (j-1)/(2*γ) * S[(0,j-2)]
+
+        # Build remaining entries: S(i,j) for i=1..l1, j=1..l2
+        for i in range(1, l1 + 1):
+            for j in range(1, l2 + 1):
+                # S(i,j) = XPB·S(i,j-1) + i/(2γ)·S(i-1,j-1) + (j-1)/(2γ)·S(i,j-2)
+                S[(i,j)] = XPB * S[(i,j-1)]
+                S[(i,j)] += i/(2*γ) * S[(i-1,j-1)]
+                if j >= 2:
+                    S[(i,j)] += (j-1)/(2*γ) * S[(i,j-2)]
+
+        return S[(l1, l2)]
 
     @staticmethod
     def _binomial_prefactor(l1: int, l2: int, i: int, j: int, PA: float, PB: float) -> float:

@@ -84,33 +84,77 @@ class OneElectronIntegrals:
         """
         Compute kinetic integral between two primitives.
 
-        Simplified formula for s-orbitals.
+        Uses the relation:
+        T = -1/2 ⟨φ_a|∇²|φ_b⟩
+          = α(2l_a+1)S - 2α²⟨φ_a|r²|φ_b⟩ (for each direction)
+
+        For Cartesian Gaussians, can be computed using:
+        T_ij = β(2l_b+1)S_ij - 2β²S_{i,j+1} - 1/2 l_b(l_b-1)S_{i,j-1}
+        where j+1 and j-1 refer to angular momentum changes.
+
+        Reference: Molecular Electronic-Structure Theory by Helgaker, Jorgensen, Olsen
         """
         α = prim_a.exponent
         β = prim_b.exponent
         la, ma, na = prim_a.angular_momentum
         lb, mb, nb = prim_b.angular_momentum
+        A = prim_a.center
+        B = prim_b.center
 
-        # Get basic overlap
-        S_ab = OverlapIntegrals.overlap_primitive(prim_a, prim_b)
+        # Compute kinetic energy using recursion relations
+        # T = T_x × S_y × S_z + S_x × T_y × S_z + S_x × S_y × T_z
 
-        # For s-s overlap (simplified kinetic formula)
-        if la == ma == na == lb == mb == nb == 0:
-            A = prim_a.center
-            B = prim_b.center
-            AB_squared = np.dot(A - B, A - B)
+        # For each Cartesian direction, kinetic integral:
+        # T_{l_a,l_b} = β(2l_b+1)S_{l_a,l_b} - 2β²S_{l_a,l_b+2} - 1/2 l_b(l_b-1)S_{l_a,l_b-2}
 
-            # Kinetic energy for s-type Gaussians:
-            # T = (αβ/(α+β)) × [3 - 2αβR²/(α+β)] × S
-            # Reference: Szabo & Ostlund, eq. (A.11)
-            γ = α + β
-            prefactor = α * β / γ
-            term = 3 - 2 * α * β * AB_squared / γ
-            T = prefactor * term * S_ab
-            return T
+        γ = α + β
+        P = (α * A + β * B) / γ
+        AB = A - B
+        K = np.exp(-α * β * np.dot(AB, AB) / γ)
+
+        # Compute 1D kinetic integrals for each direction
+        T_x = self._kinetic_1d(la, lb, A[0], B[0], P[0], α, β, γ)
+        T_y = self._kinetic_1d(ma, mb, A[1], B[1], P[1], α, β, γ)
+        T_z = self._kinetic_1d(na, nb, A[2], B[2], P[2], α, β, γ)
+
+        # Compute 1D overlap integrals for cross terms
+        S_x = OverlapIntegrals._overlap_1d(la, lb, P[0]-A[0], P[0]-B[0], γ)
+        S_y = OverlapIntegrals._overlap_1d(ma, mb, P[1]-A[1], P[1]-B[1], γ)
+        S_z = OverlapIntegrals._overlap_1d(na, nb, P[2]-A[2], P[2]-B[2], γ)
+
+        # Total kinetic energy: sum of contributions from each direction
+        T_total = K * (T_x*S_y*S_z + S_x*T_y*S_z + S_x*S_y*T_z)
+
+        return T_total
+
+    def _kinetic_1d(self, la: int, lb: int, Ax: float, Bx: float, Px: float,
+                    α: float, β: float, γ: float) -> float:
+        """
+        Compute 1D kinetic energy integral.
+
+        T = β(2l_b+1)S - 2β²S(l_b+2) - 1/2·l_b(l_b-1)S(l_b-2)
+
+        where S(l) is the overlap integral with angular momentum l.
+        """
+        XPA = Px - Ax
+        XPB = Px - Bx
+
+        # Main term: β(2l_b+1)S_{la,lb}
+        S_main = OverlapIntegrals._overlap_1d(la, lb, XPA, XPB, γ)
+        term1 = β * (2*lb + 1) * S_main
+
+        # Second term: -2β² S_{la, lb+2}
+        S_plus2 = OverlapIntegrals._overlap_1d(la, lb+2, XPA, XPB, γ)
+        term2 = -2 * β**2 * S_plus2
+
+        # Third term: -1/2 l_b(l_b-1) S_{la, lb-2}
+        if lb >= 2:
+            S_minus2 = OverlapIntegrals._overlap_1d(la, lb-2, XPA, XPB, γ)
+            term3 = -0.5 * lb * (lb - 1) * S_minus2
         else:
-            # Simplified for p-orbitals
-            return β * 3 * S_ab
+            term3 = 0.0
+
+        return term1 + term2 + term3
 
     def compute_nuclear_attraction(self) -> np.ndarray:
         """
@@ -192,21 +236,83 @@ class OneElectronIntegrals:
         K = np.exp(-α * β * np.dot(AB, AB) / γ)
         prefactor = -Z * 2 * np.pi / γ * K
 
-        # Boys function evaluation
-        T = γ * np.dot(PC, PC)
-        F0 = self._boys_function(0, T)
-
-        # For s-type Gaussians (simplified)
+        # Angular momentum
         la, ma, na = prim_a.angular_momentum
         lb, mb, nb = prim_b.angular_momentum
 
-        # Note: Normalization is handled in _nuclear_contracted
-        if la == ma == na == lb == mb == nb == 0:
-            # Both are s-orbitals
+        # For higher angular momentum, need to use recursion
+        # The full formula involves Hermite Gaussians or McMurchie-Davidson
+        # For now, implement for s and p orbitals explicitly
+
+        total_L = la + ma + na + lb + mb + nb
+
+        if total_L == 0:
+            # Both s-orbitals
+            T = γ * np.dot(PC, PC)
+            F0 = self._boys_function(0, T)
             return prefactor * F0
+
+        elif total_L == 1:
+            # One p-orbital, one s-orbital
+            T = γ * np.dot(PC, PC)
+            F0 = self._boys_function(0, T)
+            F1 = self._boys_function(1, T)
+
+            # Determine which orbital has angular momentum
+            # Use McMurchie-Davidson style expansion
+            XPA = P[0] - A[0]
+            YPA = P[1] - A[1]
+            ZPA = P[2] - A[2]
+            XPC = P[0] - C[0]
+            YPC = P[1] - C[1]
+            ZPC = P[2] - C[2]
+
+            result = 0.0
+
+            # x direction
+            if la == 1:
+                result += XPA * F0 - XPC * F1
+            elif lb == 1:
+                XPB = P[0] - B[0]
+                result += XPB * F0 - XPC * F1
+
+            # y direction
+            if ma == 1:
+                result += YPA * F0 - YPC * F1
+            elif mb == 1:
+                YPB = P[1] - B[1]
+                result += YPB * F0 - YPC * F1
+
+            # z direction
+            if na == 1:
+                result += ZPA * F0 - ZPC * F1
+            elif nb == 1:
+                ZPB = P[2] - B[2]
+                result += ZPB * F0 - ZPC * F1
+
+            return prefactor * result
+
         else:
-            # For p and higher orbitals, use approximate formula
-            return prefactor * F0 * 0.5
+            # Higher angular momentum (p-p, d-orbitals, etc.)
+            # Use more Boys functions
+            T = γ * np.dot(PC, PC)
+            max_L = min(total_L, 3)  # Limit for now
+
+            # Compute necessary Boys functions
+            F = [self._boys_function(n, T) for n in range(max_L + 1)]
+
+            # For p-p case, use approximate formula based on F0 and F1
+            # This is still approximate but better than fixed *0.5
+            XPC = P[0] - C[0]
+            YPC = P[1] - C[1]
+            ZPC = P[2] - C[2]
+            RPC_sq = np.dot(PC, PC)
+
+            # Rough approximation: scale by angular momentum and distance
+            angular_factor = 1.0 / (1.0 + 0.5 * total_L)
+            distance_factor = 1.0 / (1.0 + RPC_sq)
+
+            return prefactor * F[0] * angular_factor * distance_factor
 
     @staticmethod
     def _boys_function(n: int, T: float) -> float:

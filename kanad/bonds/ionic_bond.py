@@ -107,9 +107,8 @@ class IonicBond(BaseBond):
             density_matrix, hf_energy = self.hamiltonian.solve_scf(
                 max_iterations=max_iterations
             )
-            # Convert energy from Hartree to eV for consistency
-            from kanad.core.constants.conversion_factors import ConversionFactors
-            result['energy'] = hf_energy * ConversionFactors.HARTREE_TO_EV
+            # Energy in Hartree (atomic units) - standard for quantum chemistry
+            result['energy'] = hf_energy
             result['method'] = 'Hartree-Fock'
             # Get convergence info from Hamiltonian
             result['converged'] = getattr(self.hamiltonian, '_scf_converged', False)

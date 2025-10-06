@@ -249,9 +249,16 @@ class IonicHamiltonian(MolecularHamiltonian):
 
         return V_ij
 
-    def to_matrix(self) -> np.ndarray:
+    def to_matrix(self, n_qubits: Optional[int] = None, use_mo_basis: bool = False) -> np.ndarray:
         """
         Convert to matrix form (one-body part only).
+
+        Note: For ionic bonding, full many-body Hamiltonian is not needed.
+        Uses simplified Hubbard-like model.
+
+        Args:
+            n_qubits: Number of qubits (ignored for ionic, kept for API compatibility)
+            use_mo_basis: Whether to use MO basis (ignored for ionic)
 
         Returns:
             Core Hamiltonian matrix
