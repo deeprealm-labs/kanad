@@ -59,26 +59,33 @@ class UCCAnsatz(BaseAnsatz):
         """
         Generate all singles and doubles excitations.
 
+        CRITICAL: Must determine occupied/virtual qubits from HF state,
+        not assume they're the first n_electrons/2 qubits!
+
         Returns:
             List of (occupied_orbitals, virtual_orbitals) tuples
         """
-        n_occ = self.n_electrons // 2  # Closed shell
-        n_virt = self.n_qubits - n_occ
+        # Get HF state to determine which qubits are occupied
+        hf_state = self._hartree_fock_state()
+
+        # Find occupied and virtual qubits
+        occupied = [i for i, occ in enumerate(hf_state) if occ == 1]
+        virtual = [i for i, occ in enumerate(hf_state) if occ == 0]
 
         excitations = []
 
         # Singles: |occ⟩ → |virt⟩
         if self.include_singles:
-            for i in range(n_occ):
-                for a in range(n_occ, self.n_qubits):
+            for i in occupied:
+                for a in virtual:
                     excitations.append(([i], [a]))
 
         # Doubles: |occ₁ occ₂⟩ → |virt₁ virt₂⟩
         if self.include_doubles:
-            for i in range(n_occ):
-                for j in range(i + 1, n_occ):
-                    for a in range(n_occ, self.n_qubits):
-                        for b in range(a + 1, self.n_qubits):
+            for idx_i, i in enumerate(occupied):
+                for j in occupied[idx_i + 1:]:
+                    for idx_a, a in enumerate(virtual):
+                        for b in virtual[idx_a + 1:]:
                             excitations.append(([i, j], [a, b]))
 
         return excitations
@@ -131,36 +138,30 @@ class UCCAnsatz(BaseAnsatz):
         """
         Generate Hartree-Fock reference state for spin orbitals.
 
-        For spin orbitals with alpha/beta separation:
-        - Qubits 0..n_orbitals-1: spin-up (alpha)
-        - Qubits n_orbitals..2*n_orbitals-1: spin-down (beta)
+        Uses interleaved spin ordering (Jordan-Wigner convention):
+        - Qubits 0, 1, 2, ..., N-1: spin-up orbitals (orbital 0↑, 1↑, 2↑, ...)
+        - Qubits N, N+1, ..., 2N-1: spin-down orbitals (orbital 0↓, 1↓, 2↓, ...)
 
-        Fills electrons in lowest spatial orbitals with spin pairing.
+        For H2 (2 electrons, 2 orbitals → 4 qubits):
+        - Correct HF state: [1,0,1,0] (qubit 0=orb0↑, qubit 2=orb0↓)
 
         Returns:
             Occupation list for spin orbitals
         """
         state = [0] * self.n_qubits
-        n_spatial_orbitals = self.n_qubits // 2
-        n_electrons = self.n_electrons
+        n_orbitals = self.n_qubits // 2
 
-        # For closed-shell: fill spatial orbitals from bottom, alternating spins
-        # Assuming even number of electrons (closed shell)
-        if n_electrons % 2 == 0:
-            n_pairs = n_electrons // 2
-            for i in range(n_pairs):
-                # Fill spin-up (alpha)
-                state[i] = 1
-                # Fill spin-down (beta) in corresponding spatial orbital
-                state[i + n_spatial_orbitals] = 1
-        else:
-            # Open-shell: fill pairs, then add unpaired electron to spin-up
-            n_pairs = n_electrons // 2
-            for i in range(n_pairs):
-                state[i] = 1
-                state[i + n_spatial_orbitals] = 1
-            # Unpaired electron in next spin-up orbital
-            state[n_pairs] = 1
+        # Calculate spin-up and spin-down electron counts
+        n_up = (self.n_electrons + 1) // 2  # Ceiling division
+        n_down = self.n_electrons // 2       # Floor division
+
+        # Fill spin-up orbitals (qubits 0, 1, 2, ...)
+        for i in range(min(n_up, n_orbitals)):
+            state[i] = 1
+
+        # Fill spin-down orbitals (qubits n_orbitals, n_orbitals+1, ...)
+        for i in range(min(n_down, n_orbitals)):
+            state[n_orbitals + i] = 1
 
         return state
 

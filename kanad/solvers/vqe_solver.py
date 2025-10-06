@@ -54,6 +54,7 @@ class VQESolver:
                 - 'classical': NumPy statevector simulation (exact, fast)
                 - 'aer_simulator': Qiskit Aer QASM simulator (shot-based)
                 - 'aer_simulator_statevector': Qiskit Aer statevector (exact)
+                - 'bluequbit': BlueQubit cloud simulator (CPU/GPU, requires API key)
                 - 'cuquantum_statevector': GPU-accelerated statevector (NVIDIA)
                 - 'cuquantum_tensornet': GPU tensor network simulation (NVIDIA)
                 - 'ibm_*': IBM Quantum hardware (requires credentials)
@@ -80,16 +81,24 @@ class VQESolver:
         if backend == 'classical':
             self._use_qiskit = False
             self._use_cuquantum = False
+            self._use_bluequbit = False
             self.qiskit_backend = None
             self.pauli_hamiltonian = None
             logger.info("Using classical NumPy simulation (exact statevector)")
+        elif backend == 'bluequbit':
+            self._use_qiskit = True  # BlueQubit uses Qiskit interface
+            self._use_cuquantum = False
+            self._use_bluequbit = True
+            self._initialize_bluequbit_backend(backend, backend_options)
         elif backend.startswith('cuquantum'):
             self._use_qiskit = True  # cuQuantum uses Qiskit interface
             self._use_cuquantum = True
+            self._use_bluequbit = False
             self._initialize_cuquantum_backend(backend, backend_options)
         else:
             self._use_qiskit = True
             self._use_cuquantum = False
+            self._use_bluequbit = False
             self._initialize_qiskit_backend(backend, backend_options)
 
         # Optimization history
@@ -186,6 +195,43 @@ class VQESolver:
                 f"Circuit has {self._qiskit_circuit.num_qubits} qubits but "
                 f"GPU can handle ~{max_qubits} qubits. May run out of memory!"
             )
+
+    def _initialize_bluequbit_backend(self, backend_name: str, backend_options: dict):
+        """Initialize BlueQubit cloud backend."""
+        try:
+            from kanad.backends.bluequbit import BlueQubitBackend
+            from kanad.core.hamiltonians.pauli_converter import PauliConverter
+        except ImportError as e:
+            raise ImportError(
+                f"Failed to import BlueQubit components: {e}\n"
+                "Install: pip install bluequbit"
+            )
+
+        # Extract device from backend_options
+        device = backend_options.get('device', 'cpu')
+
+        # Initialize BlueQubit backend
+        logger.info(f"Initializing BlueQubit backend with device: {device}")
+        self.qiskit_backend = BlueQubitBackend(device=device)
+
+        # Convert Hamiltonian to Pauli operators
+        logger.info("Converting Hamiltonian to Pauli operators...")
+        self.pauli_hamiltonian = PauliConverter.to_sparse_pauli_op(
+            self.hamiltonian,
+            self.mapper
+        )
+
+        num_terms = len(self.pauli_hamiltonian)
+        logger.info(f"Hamiltonian converted: {num_terms} Pauli terms")
+
+        # Get Estimator primitive
+        self._estimator = self.qiskit_backend.get_estimator()
+
+        # Convert circuit to Qiskit format (cached)
+        self._qiskit_circuit = self.circuit.to_qiskit()
+        logger.info(f"Circuit converted: {self._qiskit_circuit.num_qubits} qubits, "
+                   f"{self._qiskit_circuit.depth()} depth")
+        logger.info(f"BlueQubit backend ready with device: {device}")
 
     def solve(
         self,
@@ -285,12 +331,25 @@ class VQESolver:
             parameters
         )
 
-        # Run Estimator primitive (Aer V1 API)
-        job = self._estimator.run([bound_circuit], [self.pauli_hamiltonian])
-        result = job.result()
-
-        # Extract energy value
-        energy = result.values[0]
+        # Check if using V2 Estimator API (StatevectorEstimator, etc.)
+        try:
+            # Try V2 API first (single tuple argument)
+            job = self._estimator.run([(bound_circuit, self.pauli_hamiltonian)])
+            result = job.result()
+            # V2 returns PubResult in results list
+            pub_result = result[0]
+            # Extract evs (expectation values) - it's a scalar ndarray
+            energy = float(pub_result.data.evs)
+        except (TypeError, AttributeError, IndexError) as e:
+            # Fall back to V1 API (two list arguments)
+            try:
+                job = self._estimator.run([bound_circuit], [self.pauli_hamiltonian])
+                result = job.result()
+                # V1 returns values directly
+                energy = result.values[0]
+            except Exception as e2:
+                logger.error(f"Both V1 and V2 Estimator APIs failed: {e}, {e2}")
+                raise
 
         return float(energy)
 
@@ -464,12 +523,17 @@ class VQESolver:
         target_qubit: int,
         n_qubits: int
     ) -> np.ndarray:
-        """Expand single-qubit gate to full n-qubit system."""
-        # Build tensor product: I ⊗ ... ⊗ gate ⊗ ... ⊗ I
+        """
+        Expand single-qubit gate to full n-qubit system.
+
+        Uses little-endian qubit ordering (qubit 0 is rightmost/LSB).
+        For target_qubit=1 in 4-qubit system: I⊗I⊗gate⊗I
+        """
         I = np.eye(2)
         result = np.array([1.0])
 
-        for qubit in range(n_qubits):
+        # Iterate from highest qubit to lowest (little-endian convention)
+        for qubit in range(n_qubits - 1, -1, -1):
             if qubit == target_qubit:
                 result = np.kron(result, gate_matrix)
             else:
@@ -665,42 +729,70 @@ class VQESolver:
         n_qubits = self.circuit.n_qubits
         dim = 2**n_qubits
 
-        # Start with nuclear repulsion (constant term)
-        H = self.hamiltonian.nuclear_repulsion * np.eye(dim, dtype=complex)
+        logger.debug(f"Building Hamiltonian matrix for {n_qubits} qubits (dim={dim})...")
 
-        # Add one-body terms: Σ_{ij} h_{ij} a†_i a_j
-        h_core = self.hamiltonian.h_core
-        n_orbitals = len(h_core)
+        # Use PauliConverter to get correct Hamiltonian!
+        # This is the trusted, tested implementation
+        from kanad.core.hamiltonians.pauli_converter import PauliConverter
 
-        logger.debug(f"Building Hamiltonian for {n_orbitals} orbitals on {n_qubits} qubits...")
+        try:
+            # Get Pauli representation
+            pauli_op = PauliConverter.to_sparse_pauli_op(self.hamiltonian, self.mapper)
 
-        for i in range(n_orbitals):
-            for j in range(n_orbitals):
-                if abs(h_core[i, j]) > 1e-10:
-                    # Map a†_i a_j to qubits using Jordan-Wigner
-                    H += h_core[i, j] * self._build_excitation_operator(i, j, n_qubits)
+            # Convert to dense matrix (to_matrix() returns numpy array, not sparse matrix)
+            H_matrix = pauli_op.to_matrix()
 
-        # Add two-body terms: 1/2 Σ_{ijkl} g_{ijkl} a†_i a†_j a_l a_k
-        # where g_{ijkl} = ⟨ij||kl⟩ = ⟨ij|kl⟩ - ⟨ij|lk⟩
-        if hasattr(self.hamiltonian, 'eri'):
-            eri = self.hamiltonian.eri
+            # Ensure it's a numpy array (not a matrix subclass)
+            if hasattr(H_matrix, 'toarray'):
+                # It's a sparse matrix - convert to dense
+                H_matrix = H_matrix.toarray()
+            else:
+                # It's already a numpy array
+                H_matrix = np.array(H_matrix)
 
-            # Only compute for physically meaningful indices
-            # Use chemist's notation: ⟨ij|kl⟩ where (ik) and (jl) pairs interact
+            logger.debug(f"Hamiltonian built using PauliConverter: {len(pauli_op)} Pauli terms")
+
+            return H_matrix
+
+        except Exception as e:
+            logger.warning(f"PauliConverter failed ({e}), falling back to manual construction")
+
+            # Fallback: manual construction (old code - has bugs!)
+            H = self.hamiltonian.nuclear_repulsion * np.eye(dim, dtype=complex)
+
+            h_core = self.hamiltonian.h_core
+            n_orbitals = len(h_core)
+
             for i in range(n_orbitals):
                 for j in range(n_orbitals):
-                    for k in range(n_orbitals):
-                        for l in range(n_orbitals):
-                            # Coefficient: ⟨ij||kl⟩ = ⟨ij|kl⟩ - ⟨ij|lk⟩
-                            # But ERIs are stored as (ik|jl) in physicist's notation
-                            # Need to map: (ij|kl)_chemist = (ik|jl)_physicist
-                            g_ijkl = eri[i, k, j, l] - eri[i, l, j, k]
+                    if abs(h_core[i, j]) > 1e-10:
+                        for spin_offset in [0, n_orbitals]:
+                            i_spin = i + spin_offset
+                            j_spin = j + spin_offset
+                            H += h_core[i, j] * self._build_excitation_operator(i_spin, j_spin, n_qubits)
 
-                            if abs(g_ijkl) > 1e-10:
-                                # a†_i a†_j a_l a_k
-                                H += 0.5 * g_ijkl * self._build_two_electron_operator(i, j, l, k, n_qubits)
+            if hasattr(self.hamiltonian, 'eri'):
+                eri = self.hamiltonian.eri
+                for i in range(n_orbitals):
+                    for j in range(n_orbitals):
+                        for k in range(n_orbitals):
+                            for l in range(n_orbitals):
+                                v_ijkl = eri[i, j, k, l]
+                                if abs(v_ijkl) < 1e-10:
+                                    continue
 
-        return H
+                                for spin_i_l in [0, n_orbitals]:
+                                    for spin_k_j in [0, n_orbitals]:
+                                        i_spin = i + spin_i_l
+                                        k_spin = k + spin_k_j
+                                        l_spin = l + spin_i_l
+                                        j_spin = j + spin_k_j
+
+                                        H += 0.5 * v_ijkl * self._build_two_electron_operator(
+                                            i_spin, k_spin, l_spin, j_spin, n_qubits
+                                        )
+
+            return H
 
     def _build_two_electron_operator(
         self,

@@ -8,6 +8,7 @@ pytest-cov>=4.1.0
 qiskit>=2.2.0
 qiskit-aer>=0.15.0
 qiskit-ibm-runtime>=0.30.0
+# Note: qiskit-nature code is in kanad/external/qiskit_nature (adapted for Qiskit 2.x)
 
 # GPU acceleration (optional - requires NVIDIA GPU + CUDA)
 # Uncomment for GPU support:

@@ -229,6 +229,22 @@ class BlueQubitBackend:
                 "Try 'cpu' or 'gpu' devices."
             )
 
+    def get_estimator(self):
+        """
+        Get Qiskit Estimator primitive for BlueQubit backend.
+
+        Returns:
+            Estimator instance compatible with Qiskit primitives
+        """
+        try:
+            from qiskit.primitives import StatevectorEstimator
+        except ImportError:
+            raise ImportError("Qiskit primitives required for Estimator")
+
+        # Return StatevectorEstimator (using Qiskit's statevector simulator)
+        # TODO: Integrate directly with BlueQubit execution for cloud runs
+        return StatevectorEstimator()
+
     def get_device_info(self) -> Dict[str, Any]:
         """
         Get information about available devices.

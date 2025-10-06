@@ -82,10 +82,20 @@ class IonicGovernanceAnsatz(BaseAnsatz):
                     circuit.x(qubit)
             circuit.barrier()
         else:
-            # Default: assume simple ionic distribution
-            # First n_electrons qubits occupied
-            for i in range(min(self.n_electrons, self.n_qubits)):
+            # Default: Hartree-Fock state with interleaved spin ordering
+            # Qubit ordering: q0=orb0↑, q1=orb1↑, ..., qN=orb0↓, qN+1=orb1↓, ...
+            n_orbitals = self.n_qubits // 2
+            n_up = (self.n_electrons + 1) // 2  # Spin-up electrons
+            n_down = self.n_electrons // 2      # Spin-down electrons
+
+            # Fill spin-up orbitals (qubits 0, 1, 2, ...)
+            for i in range(min(n_up, n_orbitals)):
                 circuit.x(i)
+
+            # Fill spin-down orbitals (qubits n_orbitals, n_orbitals+1, ...)
+            for i in range(min(n_down, n_orbitals)):
+                circuit.x(n_orbitals + i)
+
             circuit.barrier()
 
         # 2. Apply ionic-governed layers
@@ -242,10 +252,20 @@ class CovalentGovernanceAnsatz(BaseAnsatz):
                     circuit.x(qubit)
             circuit.barrier()
         else:
-            # Default: fill lowest orbitals
-            n_occ = min(self.n_electrons, self.n_qubits)
-            for i in range(n_occ):
+            # Default: Hartree-Fock state with interleaved spin ordering
+            # Qubit ordering: q0=orb0↑, q1=orb1↑, ..., qN=orb0↓, qN+1=orb1↓, ...
+            n_orbitals = self.n_qubits // 2
+            n_up = (self.n_electrons + 1) // 2  # Spin-up electrons
+            n_down = self.n_electrons // 2      # Spin-down electrons
+
+            # Fill spin-up orbitals (qubits 0, 1, 2, ...)
+            for i in range(min(n_up, n_orbitals)):
                 circuit.x(i)
+
+            # Fill spin-down orbitals (qubits n_orbitals, n_orbitals+1, ...)
+            for i in range(min(n_down, n_orbitals)):
+                circuit.x(n_orbitals + i)
+
             circuit.barrier()
 
         # 2. Apply covalent-governed layers
@@ -468,6 +488,19 @@ class AdaptiveGovernanceAnsatz(BaseAnsatz):
 
         # Default: covalent
         return 'covalent'
+
+    def get_num_parameters(self) -> int:
+        """
+        Get number of parameters.
+
+        Returns number from delegate ansatz if built, otherwise estimate.
+        """
+        if self._delegate_ansatz is not None:
+            return self._delegate_ansatz.get_num_parameters()
+        else:
+            # Estimate before circuit is built
+            # Assume covalent (more parameters)
+            return self.n_layers * self.n_qubits * 3
 
     def __repr__(self) -> str:
         return (f"AdaptiveGovernanceAnsatz(n_qubits={self.n_qubits}, "

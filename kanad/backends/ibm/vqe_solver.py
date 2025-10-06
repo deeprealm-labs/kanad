@@ -117,9 +117,13 @@ class IBMVQESolver:
         self.circuit = ansatz.build_circuit()
         self.n_parameters = self.circuit.get_num_parameters()
 
-        # Convert Hamiltonian to sparse Pauli operators
+        # Convert Hamiltonian to sparse Pauli operators using PauliConverter
         logger.info("Converting Hamiltonian to sparse Pauli representation...")
-        self.pauli_hamiltonian = hamiltonian.to_sparse_hamiltonian()
+        from kanad.core.hamiltonians.pauli_converter import PauliConverter
+        from kanad.core.mappers.jordan_wigner_mapper import JordanWignerMapper
+
+        mapper = JordanWignerMapper()
+        self.pauli_hamiltonian = PauliConverter.to_sparse_pauli_op(hamiltonian, mapper)
         logger.info(f"Hamiltonian: {len(self.pauli_hamiltonian)} Pauli terms")
 
         # Convert circuit to Qiskit

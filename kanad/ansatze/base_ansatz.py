@@ -267,6 +267,13 @@ class BaseAnsatz(ABC):
         self.n_electrons = n_electrons
         self.circuit: Optional[QuantumCircuit] = None
 
+    @property
+    def parameters(self) -> List[Parameter]:
+        """Get list of circuit parameters."""
+        if self.circuit is None:
+            self.circuit = self.build_circuit()
+        return self.circuit.parameters
+
     @abstractmethod
     def build_circuit(self, **kwargs) -> QuantumCircuit:
         """

@@ -81,9 +81,20 @@ class HardwareEfficientAnsatz(BaseAnsatz):
             circuit.barrier()
         elif self.n_electrons > 0:
             # Default: Hartree-Fock state
-            n_occ = self.n_electrons // 2
-            for i in range(n_occ):
+            # Qubit ordering: interleaved (q0=orb0↑, q1=orb1↑, q2=orb0↓, q3=orb1↓, ...)
+            # For n_electrons, fill lowest orbitals with spin-up and spin-down
+            n_orbitals = self.n_qubits // 2
+            n_up = (self.n_electrons + 1) // 2  # Spin-up electrons (round up for odd)
+            n_down = self.n_electrons // 2      # Spin-down electrons
+
+            # Fill spin-up orbitals (qubits 0, 1, 2, ...)
+            for i in range(min(n_up, n_orbitals)):
                 circuit.x(i)
+
+            # Fill spin-down orbitals (qubits n_orbitals, n_orbitals+1, ...)
+            for i in range(min(n_down, n_orbitals)):
+                circuit.x(n_orbitals + i)
+
             circuit.barrier()
 
         # 2. Apply layers

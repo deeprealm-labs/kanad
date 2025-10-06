@@ -47,12 +47,15 @@ class PauliConverter:
                 "Qiskit not installed. Install with: pip install qiskit>=2.0"
             )
 
-        # Try Qiskit Nature approach first (CORRECT two-electron terms!)
+        # Try Qiskit Nature approach
+        # Always use it - even for charged systems we'll use the fermionic operators
+        # (The bug is in ElectronicEnergy, but we can work around it)
         if use_qiskit_nature and hasattr(hamiltonian, 'eri') and hasattr(hamiltonian, 'h_core'):
             try:
+                logger.info("Using Qiskit Nature fermionic operators for Pauli conversion")
                 return PauliConverter._to_pauli_qiskit_nature(hamiltonian, mapper)
             except ImportError:
-                logger.info("Qiskit Nature not installed, falling back to governance approach")
+                logger.info("Qiskit Nature not installed, falling back")
                 pass
             except Exception as e:
                 logger.warning(f"Qiskit Nature approach failed ({e}), falling back")
@@ -62,6 +65,9 @@ class PauliConverter:
         pauli_dict = {}  # {pauli_string: coefficient}
 
         n_orbitals = hamiltonian.n_orbitals
+
+        # Use integrals directly (they are already in the correct basis from Hamiltonian construction)
+        # The Hamiltonian class handles basis transformations internally
         h_core = hamiltonian.h_core
         eri = hamiltonian.eri if hasattr(hamiltonian, 'eri') else None
 
@@ -382,23 +388,19 @@ class PauliConverter:
             qiskit.quantum_info.SparsePauliOp
         """
         try:
-            from qiskit_nature.second_q.operators import ElectronicIntegrals
-            from qiskit_nature.second_q.hamiltonians import ElectronicEnergy
-            from qiskit_nature.second_q.mappers import JordanWignerMapper
+            from kanad.external.qiskit_nature.operators import ElectronicIntegrals
+            from kanad.external.qiskit_nature.hamiltonians import ElectronicEnergy
+            from kanad.external.qiskit_nature.mappers import JordanWignerMapper
             from qiskit.quantum_info import SparsePauliOp
             from pyscf import ao2mo
         except ImportError as e:
-            raise ImportError(f"Qiskit Nature or PySCF not available: {e}")
+            raise ImportError(f"External Qiskit Nature or PySCF not available: {e}")
 
         # CRITICAL FIX: Transform AO basis integrals to MO basis
         # Qiskit Nature expects MO basis integrals!
 
-        # Run HF to get MO coefficients
-        # Use _solve_hartree_fock which returns mo_coefficients
-        mo_energies, C, converged, iterations = hamiltonian._solve_hartree_fock(
-            max_iter=100,
-            conv_tol=1e-8
-        )
+        # Get MO coefficients from HF calculation
+        mo_energies, C = hamiltonian.compute_molecular_orbitals()
 
         # Transform h_core to MO basis: h_mo = C† h_ao C
         h_core_mo = C.T @ hamiltonian.h_core @ C
@@ -415,23 +417,12 @@ class PauliConverter:
         # Transform all 4 indices
         eri_mo_chemist = np.einsum('pi,qj,pqrs,rk,sl->ijkl', C, C, eri_ao, C, C, optimize=True)
 
-        # Convert ERI from chemist notation to physicist notation
-        # Chemist: eri[i,j,k,l] = (ij|kl)
-        # Physicist: h2[p,r,q,s] = (pq|rs)
-        # Conversion: h2[p,r,q,s] = eri[p,q,r,s]
-        n = hamiltonian.n_orbitals
-        eri_physicist = np.zeros_like(eri_mo_chemist)
-
-        for p in range(n):
-            for q in range(n):
-                for r in range(n):
-                    for s in range(n):
-                        eri_physicist[p, r, q, s] = eri_mo_chemist[p, q, r, s]
-
-        # Create Qiskit Nature Electronic Hamiltonian with MO integrals
+        # IMPORTANT: Pass chemist notation directly and let Qiskit Nature auto-convert
+        # from_raw_integrals has auto_index_order=True by default, which detects and converts
+        # If we manually convert, it might double-convert!
         integrals = ElectronicIntegrals.from_raw_integrals(
             h_core_mo,
-            eri_physicist
+            eri_mo_chemist  # Pass chemist notation, let it auto-convert
         )
         qn_hamiltonian = ElectronicEnergy(integrals)
 
@@ -447,5 +438,8 @@ class PauliConverter:
         e_nuc = hamiltonian.nuclear_repulsion
         identity_op = SparsePauliOp(['I' * qubit_op.num_qubits], [e_nuc])
         full_op = qubit_op + identity_op
+
+        # Simplify to combine like terms (though matrix is same either way)
+        full_op = full_op.simplify()
 
         return full_op

@@ -43,7 +43,7 @@ class IBMRuntimeBackend:
         backend_name: Optional[str] = None,
         token: Optional[str] = None,
         instance: Optional[str] = None,
-        channel: str = 'ibm_quantum',
+        channel: Optional[str] = None,  # Will auto-detect based on CRN presence
         shots: int = 4096,
         optimization_level: int = 3,
         resilience_level: int = 1,
@@ -91,11 +91,13 @@ class IBMRuntimeBackend:
             os.getenv('IBM_QUANTUM_CHANNEL') or
             os.getenv('QISKIT_IBM_CHANNEL')
         )
-        
-        # Map legacy channel names to correct ones
+
+        # Map legacy channel names to correct ones for both env and parameter
+        if channel == 'ibm_quantum':
+            channel = 'ibm_quantum_platform'
         if channel_env == 'ibm_quantum':
             channel_env = 'ibm_quantum_platform'
-        
+
         self.channel = channel or channel_env or default_channel
 
         # Initialize service and backend
