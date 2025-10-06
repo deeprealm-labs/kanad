@@ -104,17 +104,19 @@ class Molecule:
     This is a minimal implementation for Phase 3.
     """
 
-    def __init__(self, atoms: List['Atom'], bonds: Optional[List] = None):
+    def __init__(self, atoms: List['Atom'], bonds: Optional[List] = None, spin: int = 0):
         """
         Initialize molecule.
 
         Args:
             atoms: List of Atom objects
             bonds: Optional list of Bond objects
+            spin: Spin multiplicity (2S, where S is total spin)
         """
         self.atoms = atoms
         self.bonds = bonds or []
         self.n_atoms = len(atoms)
+        self.spin = spin
 
     @property
     def n_electrons(self) -> int:

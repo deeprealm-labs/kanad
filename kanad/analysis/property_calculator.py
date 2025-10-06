@@ -102,7 +102,7 @@ class PropertyCalculator:
         for atom in self.atoms:
             # Convert position from Angstroms to Bohr
             from kanad.core.constants.conversion_factors import ConversionFactors
-            pos_bohr = atom.position * ConversionFactors.ANGSTROM_TO_BOHR
+            pos_bohr = np.array(atom.position) * ConversionFactors.ANGSTROM_TO_BOHR
             mu_nuc += atom.atomic_number * (pos_bohr - origin)
 
         # Total dipole (atomic units)
@@ -142,7 +142,7 @@ class PropertyCalculator:
 
         for atom in self.atoms:
             mass = atom.atomic_mass
-            com += mass * atom.position
+            com += mass * np.array(atom.position)
             total_mass += mass
 
         return com / total_mass
@@ -159,7 +159,7 @@ class PropertyCalculator:
 
         for atom in self.atoms:
             charge = atom.atomic_number
-            center += charge * atom.position
+            center += charge * np.array(atom.position)
             total_charge += charge
 
         return center / total_charge

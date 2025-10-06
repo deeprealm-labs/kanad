@@ -130,10 +130,14 @@ class CovalentHamiltonian(MolecularHamiltonian):
                     for atom in self.atoms
                 ])
 
+                # Calculate spin from molecule if available
+                spin = getattr(self.molecule, 'spin', 0)
+
                 mol_pyscf = gto.M(
                     atom=atom_string,
                     basis=self.basis_name,
-                    unit='Angstrom'
+                    unit='Angstrom',
+                    spin=spin
                 )
 
                 # Compute integrals using PySCF

@@ -663,6 +663,9 @@ class BasisSet:
         symbol = atom.symbol
         # Convert position from Angstroms to Bohr (atomic units)
         position_angstrom = atom.position
+        # Ensure position is numpy array
+        if not isinstance(position_angstrom, np.ndarray):
+            position_angstrom = np.array(position_angstrom)
         position = position_angstrom * ConversionFactors.ANGSTROM_TO_BOHR
 
         if symbol not in self.STO3G_DATA:

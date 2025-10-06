@@ -64,8 +64,14 @@ class CovalentBond(BaseBond):
         self.bond_order = bond_order
         self.basis = basis
 
+        # Calculate total electrons and appropriate spin
+        n_electrons = atom_1.atomic_number + atom_2.atomic_number
+        # For odd number of electrons, use spin = 1 (doublet)
+        # For even number of electrons, use spin = 0 (singlet)
+        spin = n_electrons % 2
+
         # Create molecule
-        self.molecule = Molecule([atom_1, atom_2])
+        self.molecule = Molecule([atom_1, atom_2], spin=spin)
 
         # Determine hybridization if not explicitly specified
         if hybridization == 'sp3':

@@ -25,6 +25,13 @@ from kanad.io.smiles_parser import from_smiles, smiles_to_atoms
 from kanad.io.xyz_io import from_xyz, to_xyz
 from kanad.io.crystal_builder import build_crystal, build_binary_crystal, get_kpath, get_lattice_info
 
+# SMILES to Molecule conversion (requires RDKit)
+try:
+    from kanad.io.smiles_to_molecule import SMILESConverter, smiles_to_bond
+except ImportError:
+    SMILESConverter = None
+    smiles_to_bond = None
+
 __all__ = [
     'from_smiles',
     'smiles_to_atoms',
@@ -34,4 +41,6 @@ __all__ = [
     'build_binary_crystal',
     'get_kpath',
     'get_lattice_info',
+    'SMILESConverter',
+    'smiles_to_bond',
 ]
