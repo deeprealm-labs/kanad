@@ -22,12 +22,15 @@ class Parameter:
 
         Args:
             name: Parameter name
-            value: Initial value (optional)
+            value: Initial value (optional). If None, parameter is symbolic.
         """
         self.name = name
-        self.value = value if value is not None else 0.0
+        self.value = value  # Keep None if not provided - indicates symbolic parameter
+        self._is_symbolic = (value is None)  # Track if this should be symbolic
 
     def __repr__(self) -> str:
+        if self._is_symbolic:
+            return f"Parameter('{self.name}', symbolic)"
         return f"Parameter('{self.name}', value={self.value:.4f})"
 
 
@@ -181,7 +184,12 @@ class QuantumCircuit:
             qiskit_params = []
             for p in params:
                 if isinstance(p, Parameter):
-                    qiskit_params.append(param_map[p])
+                    # If parameter is symbolic (no value provided), use Qiskit Parameter
+                    # If parameter has a bound value, use the value directly
+                    if p._is_symbolic:
+                        qiskit_params.append(param_map[p])  # Symbolic - keep as Qiskit Parameter
+                    else:
+                        qiskit_params.append(p.value)  # Bound - use concrete value
                 else:
                     qiskit_params.append(p)
 

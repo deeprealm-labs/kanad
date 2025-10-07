@@ -38,7 +38,8 @@ class IonicBond(BaseBond):
         self,
         atom_1: Atom,
         atom_2: Atom,
-        distance: Optional[float] = None
+        distance: Optional[float] = None,
+        basis: str = 'sto-3g'
     ):
         """
         Initialize ionic bond.
@@ -47,7 +48,12 @@ class IonicBond(BaseBond):
             atom_1: First atom (typically donor/cation)
             atom_2: Second atom (typically acceptor/anion)
             distance: Bond distance in Angstroms (optional)
+            basis: Basis set name (default: 'sto-3g')
         """
+        # Validate basis set
+        from kanad.core.integrals.basis_registry import BasisSetRegistry
+        self.basis = BasisSetRegistry.validate_basis(basis)
+
         super().__init__([atom_1, atom_2], 'ionic', distance)
 
         # Identify donor and acceptor based on electronegativity
@@ -67,7 +73,8 @@ class IonicBond(BaseBond):
         # Set up Hamiltonian
         self.hamiltonian = IonicHamiltonian(
             self.molecule,
-            self.representation
+            self.representation,
+            basis_name=self.basis
         )
 
         # Governance protocol

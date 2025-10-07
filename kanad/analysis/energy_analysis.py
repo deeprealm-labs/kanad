@@ -83,8 +83,12 @@ class EnergyAnalyzer:
         else:
             decomposition['two_electron'] = 0.0
 
-        # Total energy
-        decomposition['total'] = sum(decomposition.values())
+        # Total energy (do NOT include intermediate coulomb/exchange terms to avoid double-counting)
+        decomposition['total'] = (
+            decomposition['nuclear_repulsion'] +
+            decomposition['one_electron'] +
+            decomposition['two_electron']
+        )
 
         return decomposition
 

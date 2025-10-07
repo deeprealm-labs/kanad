@@ -32,10 +32,12 @@ class TestBaseClasses:
         param = Parameter('theta_0', 0.5)
         assert param.name == 'theta_0'
         assert param.value == 0.5
+        assert not param._is_symbolic  # Has a value
 
-        # Default value
+        # Symbolic parameter (no value)
         param2 = Parameter('theta_1')
-        assert param2.value == 0.0
+        assert param2.value is None  # Symbolic parameters have None value
+        assert param2._is_symbolic  # Marked as symbolic
 
     def test_quantum_circuit_creation(self):
         """Test quantum circuit creation."""

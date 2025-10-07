@@ -31,11 +31,16 @@ class PropertyCalculator:
         Initialize property calculator.
 
         Args:
-            hamiltonian: MolecularHamiltonian object with PySCF backend
+            hamiltonian: MolecularHamiltonian object from kanad framework
         """
         self.hamiltonian = hamiltonian
-        self.mol = hamiltonian.mol  # PySCF molecule
-        self.atoms = hamiltonian.atoms
+        self.molecule = getattr(hamiltonian, 'molecule', None)
+        self.atoms = getattr(hamiltonian, 'atoms', [])
+
+        # Get PySCF mol if available (for advanced calculations)
+        self.mol = getattr(hamiltonian, 'mol', None)
+
+        logger.info(f"PropertyCalculator initialized for {len(self.atoms)}-atom system")
 
     def compute_dipole_moment(
         self,
@@ -75,27 +80,43 @@ class PropertyCalculator:
         """
         # Get density matrix
         if density_matrix is None:
-            density_matrix = self.hamiltonian.mf.make_rdm1()
+            # Try to get from Hamiltonian's SCF solution
+            if hasattr(self.hamiltonian, 'mf') and self.hamiltonian.mf is not None:
+                density_matrix = self.hamiltonian.mf.make_rdm1()
+            elif hasattr(self.hamiltonian, 'solve_scf'):
+                # Run SCF if not already done
+                density_matrix, _ = self.hamiltonian.solve_scf()
+            else:
+                raise ValueError("No density matrix available and cannot run SCF")
 
         # Set origin (default: center of mass)
         if origin is None:
             origin = np.zeros(3)
 
-        # Get dipole integrals from PySCF
-        # int1e_r returns (3, n_ao, n_ao) for x, y, z components
-        dip_ints = self.mol.intor('int1e_r')  # Shape: (3, n_ao, n_ao)
+        # Get dipole integrals - use PySCF if available, otherwise use framework
+        if self.mol is not None:
+            # PySCF path (more accurate)
+            dip_ints = self.mol.intor('int1e_r')  # Shape: (3, n_ao, n_ao)
 
-        # Shift origin if needed
-        if not np.allclose(origin, 0.0):
-            # Add -origin × overlap to each component
-            overlap = self.mol.intor('int1e_ovlp')
-            for i in range(3):
-                dip_ints[i] -= origin[i] * overlap
+            # Shift origin if needed
+            if not np.allclose(origin, 0.0):
+                overlap = self.mol.intor('int1e_ovlp')
+                for i in range(3):
+                    dip_ints[i] -= origin[i] * overlap
+        else:
+            # Framework-native path (approximate)
+            logger.warning("PySCF mol not available, using approximate dipole calculation")
+            # For now, use nuclear dipole only (electronic part requires dipole integrals)
+            dip_ints = None
 
         # Electronic contribution: -Tr(P · r)
         mu_elec = np.zeros(3)
-        for i in range(3):
-            mu_elec[i] = -np.einsum('ij,ji->', density_matrix, dip_ints[i])
+        if dip_ints is not None:
+            for i in range(3):
+                mu_elec[i] = -np.einsum('ij,ji->', density_matrix, dip_ints[i])
+        else:
+            # Approximate electronic contribution (placeholder)
+            logger.warning("Electronic dipole contribution not calculated (requires integral evaluation)")
 
         # Nuclear contribution: Σ Z_A (R_A - origin)
         mu_nuc = np.zeros(3)
@@ -387,7 +408,8 @@ class PropertyCalculator:
             h1e -= field_vector[i] * dip_ints[i]
 
         # Create new SCF object with modified Hamiltonian
-        if self.hamiltonian.spin == 0:
+        spin = self.hamiltonian.molecule.spin if hasattr(self.hamiltonian, 'molecule') else 0
+        if spin == 0:
             mf_field = scf.RHF(self.mol)
         else:
             mf_field = scf.ROHF(self.mol)
@@ -544,7 +566,8 @@ class PropertyCalculator:
             h1e -= field_vector[i] * dip_ints[i]
 
         # Create new SCF object with modified Hamiltonian
-        if self.hamiltonian.spin == 0:
+        spin = self.hamiltonian.molecule.spin if hasattr(self.hamiltonian, 'molecule') else 0
+        if spin == 0:
             mf_field = scf.RHF(self.mol)
         else:
             mf_field = scf.ROHF(self.mol)
@@ -573,3 +596,47 @@ class PropertyCalculator:
         result = self.compute_dipole_moment(density_matrix=dm_mp2)
 
         return result['dipole_au']
+
+    def calculate_properties(
+        self,
+        molecule,
+        hamiltonian,
+        density_matrix: Optional[np.ndarray] = None
+    ) -> Dict[str, Any]:
+        """
+        Calculate all available molecular properties.
+
+        Args:
+            molecule: Molecule object
+            hamiltonian: Hamiltonian object
+            density_matrix: Optional density matrix (uses HF if None)
+
+        Returns:
+            Dictionary with computed properties
+        """
+        properties = {}
+
+        try:
+            # Dipole moment
+            dipole_result = self.compute_dipole_moment(density_matrix=density_matrix)
+            properties['dipole_moment'] = dipole_result['dipole_magnitude']
+            properties['dipole_vector'] = dipole_result['dipole_vector']
+        except Exception as e:
+            logger.debug(f"Dipole calculation failed: {e}")
+            properties['dipole_moment'] = None
+
+        try:
+            # Center of mass
+            properties['center_of_mass'] = self.compute_center_of_mass()
+        except Exception as e:
+            logger.debug(f"Center of mass calculation failed: {e}")
+            properties['center_of_mass'] = None
+
+        try:
+            # Center of charge
+            properties['center_of_charge'] = self.compute_center_of_charge()
+        except Exception as e:
+            logger.debug(f"Center of charge calculation failed: {e}")
+            properties['center_of_charge'] = None
+
+        return properties

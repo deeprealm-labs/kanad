@@ -52,6 +52,16 @@ class IonicGovernanceAnsatz(BaseAnsatz):
         super().__init__(n_qubits, n_electrons)
         self.n_layers = n_layers
         self.protocol = protocol
+        self._built = False
+
+    @property
+    def n_parameters(self) -> int:
+        """Return number of variational parameters."""
+        if not self._built:
+            # Build circuit to count parameters
+            self.build_circuit()
+        # Ionic: 2 parameters per qubit per layer (Rz, Ry)
+        return 2 * self.n_qubits * self.n_layers
 
     def build_circuit(
         self,
@@ -103,6 +113,7 @@ class IonicGovernanceAnsatz(BaseAnsatz):
             self._apply_ionic_layer(circuit, layer_idx, ionization_threshold)
 
         self.circuit = circuit
+        self._built = True
         return circuit
 
     def _apply_ionic_layer(
@@ -218,9 +229,20 @@ class CovalentGovernanceAnsatz(BaseAnsatz):
         self.n_layers = n_layers
         self.hybridization = hybridization
         self.protocol = protocol
+        self._built = False
 
         if n_qubits % 2 != 0:
             raise ValueError("Covalent ansatz requires even number of qubits for MO pairing")
+
+    @property
+    def n_parameters(self) -> int:
+        """Return number of variational parameters."""
+        if not self._built:
+            # Build circuit to count parameters
+            self.build_circuit()
+        # Covalent: 2 parameters per qubit (hybridization) + 2 per pair (bonding)
+        n_pairs = self.n_qubits // 2
+        return (2 * self.n_qubits + 2 * n_pairs) * self.n_layers
 
     def build_circuit(
         self,
@@ -273,6 +295,7 @@ class CovalentGovernanceAnsatz(BaseAnsatz):
             self._apply_covalent_layer(circuit, layer_idx, overlap_threshold)
 
         self.circuit = circuit
+        self._built = True
         return circuit
 
     def _apply_covalent_layer(

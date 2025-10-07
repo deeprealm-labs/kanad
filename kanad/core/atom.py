@@ -32,7 +32,11 @@ class Atom:
             charge: Formal charge on the atom
         """
         self.symbol = symbol
-        self.position = position if position is not None else np.zeros(3)
+        # Always store position as numpy array
+        if position is not None:
+            self.position = np.array(position) if not isinstance(position, np.ndarray) else position
+        else:
+            self.position = np.zeros(3)
         self.charge = charge
 
         # Get atomic properties from periodic table

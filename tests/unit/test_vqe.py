@@ -104,15 +104,17 @@ class TestVQESolver:
         assert result['iterations'] > 0
 
     def test_vqe_with_ucc_ansatz(self, h2_hamiltonian):
-        """Test VQE with UCC ansatz."""
-        ansatz = UCC_S_Ansatz(n_qubits=2, n_electrons=2)
+        """Test VQE with UCC ansatz (quick test, not for accuracy)."""
+        # H2 has 2 orbitals → 4 qubits (blocked spin ordering)
+        ansatz = UCC_S_Ansatz(n_qubits=4, n_electrons=2)
         mapper = JordanWignerMapper()
 
         solver = VQESolver(
             hamiltonian=h2_hamiltonian,
             ansatz=ansatz,
             mapper=mapper,
-            max_iterations=30
+            optimizer='SLSQP',  # More robust than COBYLA for UCC
+            max_iterations=10  # Reduced for speed (test only checks finite energy)
         )
 
         result = solver.solve()

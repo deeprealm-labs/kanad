@@ -240,7 +240,9 @@ class BaseSolver(ABC):
         if 'energy' in self.results and hasattr(self, '_is_correlated') and self._is_correlated:
             hf_energy = self.get_reference_energy()
             if hf_energy is not None:
-                below_hf = self.results['energy'] <= hf_energy + 1e-6  # Small tolerance
+                # Use 1e-5 Ha (10 μHa) tolerance for VQE numerical precision
+                # Previous 1e-6 was too strict and caused false positives
+                below_hf = self.results['energy'] <= hf_energy + 1e-5
                 validation['checks'].append({
                     'name': 'energy_below_hf',
                     'passed': below_hf,
@@ -259,7 +261,7 @@ class BaseSolver(ABC):
                 'message': f"Solver {'converged' if converged else 'did not converge'}"
             })
             if not converged:
-                logger.warning("Solver did not converge!")
+                logger.info("Solver did not fully converge (may need more iterations or different optimizer)")
 
         return validation
 

@@ -224,39 +224,55 @@ def smiles_to_bond(
     # For multi-atom molecules, we create a generalized molecular bond
     if len(molecule.atoms) == 2:
         # Diatomic - use standard bond factory
-        atom1 = molecule.atoms[0]['symbol']
-        atom2 = molecule.atoms[1]['symbol']
+        atom1 = molecule.atoms[0]
+        atom2 = molecule.atoms[1]
         distance = np.linalg.norm(
-            np.array(molecule.atoms[0]['position']) -
-            np.array(molecule.atoms[1]['position'])
+            np.array(atom1.position) - np.array(atom2.position)
         )
 
         bond = BondFactory.create_bond(
-            atom1, atom2,
+            atom1.symbol, atom2.symbol,
             distance=distance,
             bond_type=bond_type
         )
     else:
         # Polyatomic - create molecular bond
-        # This requires a MolecularBond class (to be implemented)
-        logger.warning("Multi-atom molecules not fully supported yet")
-
-        # For now, create a covalent bond using the first two heavy atoms
-        heavy_atoms = [a for a in molecule.atoms if a['symbol'] != 'H']
+        # For molecules with 1 heavy atom (e.g., H2O, NH3), use central atom with first H
+        # For molecules with 2+ heavy atoms, use first two heavy atoms
+        heavy_atoms = [a for a in molecule.atoms if a.symbol != 'H']
 
         if len(heavy_atoms) >= 2:
+            # Use first two heavy atoms
             atom1 = heavy_atoms[0]
             atom2 = heavy_atoms[1]
             distance = np.linalg.norm(
-                np.array(atom1['position']) - np.array(atom2['position'])
+                np.array(atom1.position) - np.array(atom2.position)
             )
 
             bond = BondFactory.create_bond(
-                atom1['symbol'],
-                atom2['symbol'],
+                atom1.symbol,
+                atom2.symbol,
                 distance=distance
             )
+        elif len(heavy_atoms) == 1 and len(molecule.atoms) >= 2:
+            # Single heavy atom (e.g., H2O, NH3) - use heavy atom + first H
+            atom1 = heavy_atoms[0]
+            # Find first H atom
+            h_atoms = [a for a in molecule.atoms if a.symbol == 'H']
+            if h_atoms:
+                atom2 = h_atoms[0]
+                distance = np.linalg.norm(
+                    np.array(atom1.position) - np.array(atom2.position)
+                )
+
+                bond = BondFactory.create_bond(
+                    atom1.symbol,
+                    atom2.symbol,
+                    distance=distance
+                )
+            else:
+                raise ValueError(f"Cannot create bond from SMILES: {smiles}")
         else:
-            raise ValueError(f"Cannot create bond from SMILES: {smiles}")
+            raise ValueError(f"Cannot create bond from SMILES: {smiles} - no suitable atoms")
 
     return bond

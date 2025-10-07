@@ -48,7 +48,9 @@ class MetallicHamiltonian(MolecularHamiltonian):
         onsite_energy: float = 0.0,
         hubbard_u: float = 0.0,
         periodic: bool = True,
-        temperature: Optional[float] = None
+        temperature: Optional[float] = None,
+        use_governance: bool = True,
+        basis_name: str = 'sto-3g'
     ):
         """
         Initialize metallic Hamiltonian.
@@ -61,7 +63,13 @@ class MetallicHamiltonian(MolecularHamiltonian):
             hubbard_u: Coulomb repulsion U (eV), 0 for non-interacting
             periodic: Use periodic boundary conditions
             temperature: Temperature in Kelvin (for thermal effects)
+            use_governance: Enable governance protocol (default: True)
+            basis_name: Basis set name (default: 'sto-3g')
         """
+        # Validate basis set (will raise ValueError if not available)
+        from kanad.core.integrals.basis_registry import BasisSetRegistry
+        self.basis_name = BasisSetRegistry.validate_basis(basis_name)
+
         # Store parameters before calling super().__init__
         self.lattice_type = lattice_type
         self.hopping_parameter = hopping_parameter
@@ -69,6 +77,14 @@ class MetallicHamiltonian(MolecularHamiltonian):
         self.hubbard_u = hubbard_u
         self.periodic = periodic
         self.temperature = temperature
+        self.use_governance = use_governance
+
+        # Initialize governance protocol
+        if use_governance:
+            from kanad.governance.protocols.metallic_protocol import MetallicGovernanceProtocol
+            self.governance_protocol = MetallicGovernanceProtocol()
+        else:
+            self.governance_protocol = None
 
         self.molecule = molecule
         self.n_sites = len(molecule.atoms)

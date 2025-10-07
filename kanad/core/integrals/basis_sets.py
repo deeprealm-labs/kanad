@@ -821,6 +821,9 @@ class BasisSet:
 
         symbol = atom.symbol
         position_angstrom = atom.position
+        # Ensure position is numpy array
+        if not isinstance(position_angstrom, np.ndarray):
+            position_angstrom = np.array(position_angstrom)
         position = position_angstrom * ConversionFactors.ANGSTROM_TO_BOHR
 
         if symbol not in self.G31G_DATA:

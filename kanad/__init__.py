@@ -45,6 +45,10 @@ try:
 except ImportError:
     ExcitedStatesSolver = None
 
+# Legacy solvers (not yet implemented)
+QPESolver = None
+FCISolver = None
+
 # Backends (optional - may not be installed)
 try:
     from kanad.backends.qiskit_backend import QiskitBackend
@@ -52,7 +56,11 @@ except ImportError:
     QiskitBackend = None
 
 try:
-    from kanad.backends.ibm import IBMRuntimeBackend, IBMVQESolver, IBMQPESolver, IBMSQDSolver
+    from kanad.backends.ibm import IBMBackend as IBMRuntimeBackend
+    # Legacy solver classes removed - use VQESolver with backend='ibm' instead
+    IBMVQESolver = None
+    IBMQPESolver = None
+    IBMSQDSolver = None
 except ImportError:
     IBMRuntimeBackend = IBMVQESolver = IBMQPESolver = IBMSQDSolver = None
 
@@ -93,7 +101,9 @@ __all__ = [
 
     # Solvers
     'VQESolver',
+    'QPESolver',
     'SQDSolver',
+    'FCISolver',
     'ExcitedStatesSolver',
 
     # Backends

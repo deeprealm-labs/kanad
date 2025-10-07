@@ -55,6 +55,13 @@ class HardwareEfficientAnsatz(BaseAnsatz):
         self.rotation_gates = rotation_gates or ['ry']
         self.entangling_gate = entangling_gate
 
+    @property
+    def n_parameters(self) -> int:
+        """Number of variational parameters."""
+        # Each layer has: n_qubits * len(rotation_gates) rotations
+        # (Note: no second rotation layer after entangling gates)
+        return self.n_layers * self.n_qubits * len(self.rotation_gates)
+
     def build_circuit(self, initial_state: Optional[List[int]] = None) -> QuantumCircuit:
         """
         Build hardware-efficient circuit.

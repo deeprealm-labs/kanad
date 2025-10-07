@@ -66,13 +66,13 @@ class TestCircuitConversion:
         from kanad.ansatze.base_ansatz import QuantumCircuit, Parameter
 
         circuit = QuantumCircuit(2)
-        theta = Parameter('theta', 0.5)
+        theta = Parameter('theta')  # Symbolic parameter (no value)
         circuit.ry(theta, 0)
         circuit.rz(theta, 1)
 
         qc = circuit.to_qiskit()
         assert qc.num_qubits == 2
-        assert len(qc.parameters) == 1  # One unique parameter
+        assert len(qc.parameters) == 1  # One unique symbolic parameter
 
     def test_parameter_binding(self):
         """Test parameter binding for Qiskit circuits."""

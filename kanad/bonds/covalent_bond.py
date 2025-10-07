@@ -57,12 +57,15 @@ class CovalentBond(BaseBond):
             bond_order: Bond order (1=single, 2=double, 3=triple)
             basis: Basis set name ('sto-3g', '6-31g', etc.)
         """
+        # Validate basis set
+        from kanad.core.integrals.basis_registry import BasisSetRegistry
+        self.basis = BasisSetRegistry.validate_basis(basis)
+
         super().__init__([atom_1, atom_2], 'covalent', distance)
 
         self.atom_1 = atom_1
         self.atom_2 = atom_2
         self.bond_order = bond_order
-        self.basis = basis
 
         # Calculate total electrons and appropriate spin
         n_electrons = atom_1.atomic_number + atom_2.atomic_number
@@ -87,7 +90,7 @@ class CovalentBond(BaseBond):
         self.hamiltonian = CovalentHamiltonian(
             self.molecule,
             self.representation,
-            basis_name=basis
+            basis_name=self.basis
         )
 
         # Governance protocol
@@ -368,7 +371,7 @@ class CovalentBond(BaseBond):
             self.hamiltonian = CovalentHamiltonian(
                 self.molecule,
                 self.representation,
-                basis_name='sto-3g'
+                basis_name=self.basis
             )
 
             # Compute energy
@@ -425,7 +428,7 @@ class CovalentBond(BaseBond):
         self.hamiltonian = CovalentHamiltonian(
             self.molecule,
             self.representation,
-            basis_name='sto-3g'
+            basis_name=self.basis
         )
 
     def _determine_hybridization(self) -> str:

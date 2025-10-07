@@ -375,6 +375,15 @@ class CovalentGovernanceProtocol(BaseGovernanceProtocol):
             'long_range',  # Long-range interactions
         ]
 
+    def get_representation_type(self) -> str:
+        """
+        Get quantum representation type for covalent bonding.
+
+        Returns:
+            'molecular_orbital' - Covalent bonding uses MO basis
+        """
+        return 'molecular_orbital'
+
     def get_bonding_angle(self, hybridization: str) -> float:
         """
         Get characteristic bonding angle for hybridization type.

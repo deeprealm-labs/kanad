@@ -230,7 +230,7 @@ class ExcitedStatesSolver(BaseSolver):
         }
 
         # UV-Vis spectrum if analysis enabled
-        if self.enable_analysis and hasattr(self, 'uvvis_calculator'):
+        if self.enable_analysis and hasattr(self, 'uvvis_calculator') and self.uvvis_calculator is not None:
             try:
                 spectrum = self.uvvis_calculator.compute_spectrum(
                     excitation_energies_ev,

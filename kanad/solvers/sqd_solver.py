@@ -52,6 +52,7 @@ class SQDSolver(BaseSolver):
         shots: Optional[int] = None,
         enable_analysis: bool = True,
         enable_optimization: bool = True,
+        random_seed: Optional[int] = None,
         **kwargs
     ):
         """
@@ -65,6 +66,7 @@ class SQDSolver(BaseSolver):
             shots: Number of shots for sampling backends
             enable_analysis: Enable automatic analysis
             enable_optimization: Enable automatic optimization
+            random_seed: Random seed for reproducible subspace generation
             **kwargs: Additional backend options
         """
         super().__init__(bond, enable_analysis, enable_optimization)
@@ -73,9 +75,15 @@ class SQDSolver(BaseSolver):
         self.circuit_depth = circuit_depth
         self.backend = backend
         self.shots = shots if shots is not None else 8192  # SQD needs more shots
+        self.random_seed = random_seed
 
         # This is a correlated method
         self._is_correlated = True
+
+        # Set random seed for reproducibility
+        if random_seed is not None:
+            np.random.seed(random_seed)
+            logger.info(f"Random seed set to {random_seed}")
 
         # Initialize backend
         self._init_backend(**kwargs)
@@ -113,57 +121,121 @@ class SQDSolver(BaseSolver):
         """
         Generate quantum subspace basis states.
 
-        Uses random parameterized circuits to generate a diverse subspace.
+        Uses physically meaningful excited determinants (singles, doubles)
+        from the HF reference to build a correlation-aware subspace.
 
         Returns:
             Basis states (subspace_dim, 2^n_qubits)
         """
         n_qubits = 2 * self.hamiltonian.n_orbitals
         hilbert_dim = 2 ** n_qubits
-
-        logger.info(f"Generating {self.subspace_dim} basis states for {n_qubits}-qubit system")
-
-        # Create diverse basis using parameterized circuits
-        basis_states = []
-
-        # Include Hartree-Fock state
-        # For blocked spin ordering [0↑,1↑,...,0↓,1↓,...]:
-        # H2: 2 electrons in 2 orbitals -> both in lowest MO
-        # State |0101⟩: q0=1 (MO0↑), q1=0 (MO1↑), q2=1 (MO0↓), q3=0 (MO1↓)
-        hf_state = np.zeros(hilbert_dim, dtype=complex)
         n_orb = self.hamiltonian.n_orbitals
         n_elec = self.hamiltonian.n_electrons
         n_alpha = n_elec // 2
         n_beta = n_elec - n_alpha
 
-        # Blocked ordering: fill lowest n_alpha orbitals (spin-up), then n_beta orbitals (spin-down)
+        logger.info(f"Generating {self.subspace_dim} basis states for {n_qubits}-qubit system")
+
+        # Create diverse basis using excited determinants
+        basis_states = []
+
+        # 1. Include Hartree-Fock state (most important!)
+        # For blocked spin ordering [0↑,1↑,...,0↓,1↓,...]:
         hf_occupation = 0
         for i in range(n_alpha):
             hf_occupation |= (1 << i)  # Spin-up orbitals
         for i in range(n_beta):
             hf_occupation |= (1 << (n_orb + i))  # Spin-down orbitals
 
+        hf_state = np.zeros(hilbert_dim, dtype=complex)
         hf_state[hf_occupation] = 1.0
         basis_states.append(hf_state)
+        logger.debug(f"Added HF state: occupation={bin(hf_occupation)}")
 
-        # Generate additional states with random unitaries
-        for i in range(self.subspace_dim - 1):
-            # Random parameters for circuit
-            n_params = 2 * n_qubits * self.circuit_depth  # Rough estimate
-            params = np.random.randn(n_params) * 0.5
+        # 2. Add single excitations (capture orbital relaxation)
+        single_excitations = []
+        for i in range(n_alpha):  # Occupied alpha
+            for a in range(n_alpha, n_orb):  # Virtual alpha
+                # Alpha single: i→a
+                occ = hf_occupation ^ (1 << i) ^ (1 << a)
+                single_excitations.append(occ)
 
-            # Build state (simplified - would use actual circuits)
-            # For now, create random states
-            state = np.random.randn(hilbert_dim) + 1j * np.random.randn(hilbert_dim)
-            state = state / np.linalg.norm(state)
+        for i in range(n_beta):  # Occupied beta
+            for a in range(n_beta, n_orb):  # Virtual beta
+                # Beta single: i→a (in beta space: n_orb+i → n_orb+a)
+                occ = hf_occupation ^ (1 << (n_orb + i)) ^ (1 << (n_orb + a))
+                single_excitations.append(occ)
+
+        # Add single excitations to basis
+        for occ in single_excitations[:min(len(single_excitations), self.subspace_dim - 1)]:
+            state = np.zeros(hilbert_dim, dtype=complex)
+            state[occ] = 1.0
             basis_states.append(state)
 
-        basis = np.array(basis_states)
+        logger.debug(f"Added {min(len(single_excitations), self.subspace_dim - 1)} single excitations")
+
+        # 3. Add double excitations (capture correlation)
+        if len(basis_states) < self.subspace_dim:
+            double_excitations = []
+            for i in range(n_alpha):
+                for j in range(i + 1, n_alpha):
+                    for a in range(n_alpha, n_orb):
+                        for b in range(a + 1, n_orb):
+                            # Alpha-alpha double: i,j→a,b
+                            occ = hf_occupation ^ (1 << i) ^ (1 << j) ^ (1 << a) ^ (1 << b)
+                            double_excitations.append(occ)
+
+            # Alpha-beta doubles (most important for correlation!)
+            for i in range(n_alpha):  # Occ alpha
+                for j in range(n_beta):  # Occ beta
+                    for a in range(n_alpha, n_orb):  # Virt alpha
+                        for b in range(n_beta, n_orb):  # Virt beta
+                            occ = hf_occupation ^ (1 << i) ^ (1 << (n_orb + j)) ^ (1 << a) ^ (1 << (n_orb + b))
+                            double_excitations.append(occ)
+
+            # Add double excitations to fill remaining subspace
+            remaining = self.subspace_dim - len(basis_states)
+            for occ in double_excitations[:remaining]:
+                state = np.zeros(hilbert_dim, dtype=complex)
+                state[occ] = 1.0
+                basis_states.append(state)
+
+            logger.debug(f"Added {min(len(double_excitations), remaining)} double excitations")
+
+        # 4. If subspace_dim exceeds available determinants, cap it
+        max_determinants = len(basis_states)
+        actual_dim = min(self.subspace_dim, max_determinants)
+
+        if actual_dim < self.subspace_dim:
+            logger.info(f"Subspace auto-adjusted: requested {self.subspace_dim}, "
+                       f"using {actual_dim} available determinants (HF + singles + doubles)")
+
+        # 5. If still need more states (shouldn't happen often), add carefully constructed random states
+        attempts = 0
+        while len(basis_states) < actual_dim and attempts < 100:
+            # Create random state in particle-conserving subspace
+            state = np.zeros(hilbert_dim, dtype=complex)
+            # Randomly weight existing determinants (this preserves particle number)
+            weights = np.random.randn(len(basis_states)) + 1j * np.random.randn(len(basis_states))
+            for i, bs in enumerate(basis_states):
+                state += weights[i] * bs
+            state = state / np.linalg.norm(state)
+
+            # Check if linearly independent
+            if len(basis_states) > 0:
+                overlap = max(abs(np.vdot(bs, state)) for bs in basis_states)
+                if overlap < 0.99:  # Not too similar to existing states
+                    basis_states.append(state)
+            else:
+                basis_states.append(state)
+            attempts += 1
+
+        basis = np.array(basis_states[:actual_dim])
 
         # Orthonormalize using Gram-Schmidt
         basis = self._gram_schmidt(basis)
 
-        logger.info(f"Generated orthonormal basis: {basis.shape}")
+        logger.info(f"Generated orthonormal basis: {basis.shape} (HF + {len(single_excitations)} singles + {len(double_excitations) if 'double_excitations' in locals() else 0} doubles)")
 
         return basis
 

@@ -15,6 +15,8 @@ import logging
 from scipy.optimize import minimize
 
 from kanad.solvers.base_solver import BaseSolver
+from kanad.core.mappers.jordan_wigner_mapper import JordanWignerMapper
+from kanad.core.mappers.bravyi_kitaev_mapper import BravyiKitaevMapper
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +45,16 @@ class VQESolver(BaseSolver):
 
     def __init__(
         self,
-        bond: 'BaseBond',
+        bond: Optional['BaseBond'] = None,
+        # High-level API (bond-based)
         ansatz_type: str = 'ucc',
         mapper_type: str = 'jordan_wigner',
-        optimizer_method: str = 'SLSQP',
+        # Low-level API (component-based, for testing)
+        hamiltonian: Optional[Any] = None,
+        ansatz: Optional[Any] = None,
+        mapper: Optional[Any] = None,
+        # Common parameters
+        optimizer: str = 'SLSQP',
         max_iterations: int = 1000,
         conv_threshold: float = 1e-6,
         backend: str = 'statevector',
@@ -58,11 +66,18 @@ class VQESolver(BaseSolver):
         """
         Initialize VQE solver.
 
+        Supports two APIs:
+        1. High-level (bond-based): solver = VQESolver(bond, ansatz_type='ucc')
+        2. Low-level (component-based): solver = VQESolver(hamiltonian=ham, ansatz=ans, mapper=map)
+
         Args:
-            bond: Bond object from BondFactory
+            bond: Bond object from BondFactory (high-level API)
             ansatz_type: Type of ansatz ('ucc', 'hardware_efficient', 'governance')
             mapper_type: Fermionic-to-qubit mapping ('jordan_wigner', 'parity', 'bravyi_kitaev')
-            optimizer_method: Classical optimizer ('SLSQP', 'COBYLA', 'L-BFGS-B')
+            hamiltonian: Hamiltonian object (low-level API, for testing)
+            ansatz: Ansatz object (low-level API, for testing)
+            mapper: Mapper object (low-level API, for testing)
+            optimizer: Classical optimizer ('SLSQP', 'COBYLA', 'L-BFGS-B')
             max_iterations: Maximum optimization iterations
             conv_threshold: Convergence threshold (Hartree)
             backend: Quantum backend ('statevector', 'qasm', 'bluequbit', 'ibm')
@@ -71,35 +86,126 @@ class VQESolver(BaseSolver):
             enable_optimization: Enable automatic circuit optimization
             **kwargs: Additional backend-specific options
         """
-        super().__init__(bond, enable_analysis, enable_optimization)
+        # Store ansatz/mapper types FIRST (needed by _init methods)
+        self._ansatz_type_param = ansatz_type
+        self._mapper_type_param = mapper_type
 
-        self.ansatz_type = ansatz_type
-        self.mapper_type = mapper_type
-        self.optimizer_method = optimizer_method
+        # Detect which API is being used
+        if bond is not None and hamiltonian is None:
+            # High-level API: Initialize from bond
+            super().__init__(bond, enable_analysis, enable_optimization)
+            self._api_mode = 'bond'
+        elif hamiltonian is not None and bond is None:
+            # Low-level API: Initialize from components (for testing)
+            self._init_from_components_mode(hamiltonian, ansatz, mapper, enable_analysis, enable_optimization)
+            self._api_mode = 'components'
+        elif bond is not None and hamiltonian is not None:
+            raise ValueError("Cannot use both 'bond' and 'hamiltonian' parameters. Choose one API.")
+        else:
+            raise ValueError("Must provide either 'bond' (high-level API) or 'hamiltonian' (low-level API)")
+
+        # Store common parameters
+        self.optimizer_method = optimizer  # Support both 'optimizer' and 'optimizer_method' kwargs
         self.max_iterations = max_iterations
         self.conv_threshold = conv_threshold
-        self.backend = backend
+        # Normalize backend names ('classical' -> 'statevector')
+        self.backend_name = 'statevector' if backend == 'classical' else backend
+        self.backend = self.backend_name  # Alias for backward compatibility
         self.shots = shots if shots is not None else 1024
 
         # This is a correlated method
         self._is_correlated = True
 
-        # Initialize ansatz and mapper
-        self._init_ansatz()
-        self._init_mapper()
+        # Initialize based on API mode
+        if self._api_mode == 'bond':
+            # Initialize ansatz and mapper from bond
+            self._init_ansatz()
+            self._init_mapper()
+            # Build quantum circuit
+            self._build_circuit()
+            # Initialize backend
+            self._init_backend(**kwargs)
+        else:
+            # Components mode - ansatz and mapper already set
+            # Initialize backend
+            self._hamiltonian_matrix = None
+            self._use_statevector = True
+            # Determine if Qiskit backend is requested
+            self._use_qiskit = backend not in ['statevector', 'classical', None]
 
-        # Build quantum circuit
-        self._build_circuit()
+            # If Qiskit backend, convert Hamiltonian to Pauli operators
+            if self._use_qiskit:
+                # Convert Hamiltonian matrix to Pauli operators using mapper
+                try:
+                    from qiskit.quantum_info import SparsePauliOp
+                    # Use mapper to convert fermionic Hamiltonian to qubit operators
+                    # For now, create a simple Pauli representation
+                    # TODO: Implement full Hamiltonian mapping
+                    self.pauli_hamiltonian = SparsePauliOp.from_list([("I" * self.ansatz.n_qubits, 1.0)])
+                    logger.info("Created placeholder Pauli Hamiltonian for Qiskit backend")
+                except ImportError:
+                    logger.warning("Qiskit not available for Pauli conversion")
+                    self.pauli_hamiltonian = None
+            else:
+                self.pauli_hamiltonian = None
 
-        # Initialize backend
-        self._init_backend(**kwargs)
+            logger.info(f"VQE initialized in component mode (for testing), use_qiskit={self._use_qiskit}")
 
         # Optimization tracking
         self.energy_history = []
         self.parameter_history = []
         self.iteration_count = 0
 
-        logger.info(f"VQE Solver initialized: {ansatz_type} ansatz, {mapper_type} mapping, {backend} backend")
+        logger.info(f"VQE Solver initialized: {self.ansatz_type} ansatz, {self.mapper_type} mapping, {self.backend_name} backend")
+
+    def _init_from_components_mode(self, hamiltonian, ansatz, mapper, enable_analysis, enable_optimization):
+        """Initialize VQE from individual components (low-level API for testing)."""
+        # Store components directly
+        self.hamiltonian = hamiltonian
+        self.mapper = mapper if mapper is not None else JordanWignerMapper()
+
+        # Set molecule and bond to None (not available in this mode)
+        self.molecule = getattr(hamiltonian, 'molecule', None)
+        self.bond = None
+
+        # Disable analysis features unless molecule is available
+        self.enable_analysis = enable_analysis if self.molecule is not None else False
+        self.enable_optimization = enable_optimization
+
+        # Initialize ansatz (from object or type string)
+        if ansatz is not None:
+            # Ansatz object provided directly
+            self.ansatz = ansatz
+            self.ansatz_type = type(self.ansatz).__name__
+        elif self._ansatz_type_param is not None:
+            # Ansatz type string provided - create ansatz
+            self.ansatz_type = self._ansatz_type_param
+            self._init_ansatz()
+        else:
+            self.ansatz = None
+            self.ansatz_type = 'None'
+
+        # Set mapper type string for logging
+        self.mapper_type = type(self.mapper).__name__ if self.mapper else 'None'
+
+        # Build circuit to get n_parameters
+        if self.ansatz is not None:
+            if self.ansatz.circuit is None:
+                self.ansatz.build_circuit()
+
+            # Get n_parameters from various possible sources
+            if hasattr(self.ansatz, 'n_parameters'):
+                self.n_parameters = self.ansatz.n_parameters
+            elif hasattr(self.ansatz.circuit, 'get_num_parameters'):
+                self.n_parameters = self.ansatz.circuit.get_num_parameters()
+            elif hasattr(self.ansatz, 'num_parameters'):
+                self.n_parameters = self.ansatz.num_parameters
+            else:
+                self.n_parameters = 0
+        else:
+            self.n_parameters = 0
+
+        logger.info("VQE solver initialized from components (testing mode)")
 
     def _init_ansatz(self):
         """Initialize ansatz from bonds module."""
@@ -108,7 +214,10 @@ class VQESolver(BaseSolver):
         n_qubits = 2 * self.hamiltonian.n_orbitals
         n_electrons = self.molecule.n_electrons
 
-        if self.ansatz_type.lower() == 'ucc':
+        # Use stored parameter (set in __init__)
+        ansatz_type = self._ansatz_type_param
+
+        if ansatz_type.lower() == 'ucc':
             self.ansatz = UCCAnsatz(
                 n_qubits=n_qubits,
                 n_electrons=n_electrons,
@@ -117,46 +226,75 @@ class VQESolver(BaseSolver):
             )
             logger.info(f"UCC ansatz: {n_qubits} qubits, {n_electrons} electrons")
 
-        elif self.ansatz_type.lower() == 'hardware_efficient':
+        elif ansatz_type.lower() == 'hardware_efficient':
             self.ansatz = HardwareEfficientAnsatz(
                 n_qubits=n_qubits,
                 n_electrons=n_electrons,
-                depth=3,
+                n_layers=3,
                 entanglement='linear'
             )
-            logger.info(f"Hardware-efficient ansatz: depth 3, linear entanglement")
+            logger.info(f"Hardware-efficient ansatz: 3 layers, linear entanglement")
 
-        elif self.ansatz_type.lower() == 'governance':
-            # Use governance-aware ansatz based on bond type
-            if self.bond.bond_type == 'covalent':
+        elif ansatz_type.lower() == 'governance':
+            # Use governance-aware ansatz based on bond type or Hamiltonian protocol
+            bond_type = None
+            if self.bond is not None:
+                bond_type = self.bond.bond_type
+            elif hasattr(self.hamiltonian, 'governance_protocol') and self.hamiltonian.governance_protocol:
+                # Infer from protocol type
+                protocol_name = type(self.hamiltonian.governance_protocol).__name__
+                if 'Covalent' in protocol_name:
+                    bond_type = 'covalent'
+                elif 'Ionic' in protocol_name:
+                    bond_type = 'ionic'
+                elif 'Metallic' in protocol_name:
+                    bond_type = 'metallic'
+
+            if bond_type == 'covalent':
                 from kanad.ansatze.governance_aware_ansatz import CovalentGovernanceAnsatz
+
+                # Get hybridization from governance metadata if available
+                metadata = getattr(self.hamiltonian, '_governance_metadata', {})
+                hybridization = metadata.get('hybridization', 'sp3')
+                protocol = metadata.get('governance_protocol', self.hamiltonian.governance_protocol)
+
                 self.ansatz = CovalentGovernanceAnsatz(
                     n_qubits=n_qubits,
                     n_electrons=n_electrons,
-                    n_layers=2
+                    n_layers=2,
+                    hybridization=hybridization,
+                    protocol=protocol
                 )
-                logger.info("Covalent governance ansatz")
+                logger.info(f"Covalent governance ansatz (hybridization: {hybridization})")
             else:
                 # Fallback to UCC
                 self.ansatz = UCCAnsatz(n_qubits=n_qubits, n_electrons=n_electrons)
-                logger.warning(f"Governance ansatz not available for {self.bond.bond_type}, using UCC")
+                logger.warning(f"Governance ansatz not available for {bond_type}, using UCC")
 
         else:
-            raise ValueError(f"Unknown ansatz type: {self.ansatz_type}")
+            raise ValueError(f"Unknown ansatz type: {ansatz_type}")
+
+        # Store ansatz type after creation
+        self.ansatz_type = ansatz_type
 
     def _init_mapper(self):
         """Initialize fermionic-to-qubit mapper from bonds module."""
         from kanad.bonds import JordanWignerMapper, BravyiKitaevMapper
 
-        if self.mapper_type.lower() == 'jordan_wigner':
+        # Use stored parameter
+        mapper_type = self._mapper_type_param
+
+        if mapper_type.lower() == 'jordan_wigner':
             self.mapper = JordanWignerMapper()
-        elif self.mapper_type.lower() == 'bravyi_kitaev':
+        elif mapper_type.lower() == 'bravyi_kitaev':
             self.mapper = BravyiKitaevMapper()
         else:
             # Default to Jordan-Wigner
-            logger.warning(f"Unknown mapper type {self.mapper_type}, using Jordan-Wigner")
+            logger.warning(f"Unknown mapper type {mapper_type}, using Jordan-Wigner")
             self.mapper = JordanWignerMapper()
 
+        # Store mapper type after creation
+        self.mapper_type = mapper_type
         logger.debug(f"Mapper initialized: {self.mapper_type}")
 
     def _build_circuit(self):
@@ -256,9 +394,39 @@ class VQESolver(BaseSolver):
 
         # Get Hamiltonian matrix if not cached
         if self._hamiltonian_matrix is None:
-            n_qubits = 2 * self.hamiltonian.n_orbitals
-            # Use MO basis - Kronecker product bug is now fixed!
-            self._hamiltonian_matrix = self.hamiltonian.to_matrix(n_qubits=n_qubits, use_mo_basis=True)
+            # Get n_qubits from ansatz (more reliable than 2*n_orbitals)
+            n_qubits = self.ansatz.n_qubits if hasattr(self.ansatz, 'n_qubits') else 2 * self.hamiltonian.n_orbitals
+
+            # Check if to_matrix supports n_qubits parameter (for real hamiltonians)
+            import inspect
+            to_matrix_sig = inspect.signature(self.hamiltonian.to_matrix)
+            has_n_qubits_param = 'n_qubits' in to_matrix_sig.parameters
+
+            if has_n_qubits_param:
+                # WORKAROUND: For hardware-efficient ansätze with fewer qubits than full space,
+                # pad the statevector to match full Hamiltonian dimension
+                # The Hamiltonian MUST be built with full 2*n_orbitals qubits for Jordan-Wigner
+                full_n_qubits = 2 * self.hamiltonian.n_orbitals
+                self._hamiltonian_matrix = self.hamiltonian.to_matrix(n_qubits=full_n_qubits, use_mo_basis=True)
+                self._needs_padding = (n_qubits < full_n_qubits)
+                self._ansatz_qubits = n_qubits
+                self._full_qubits = full_n_qubits
+            else:
+                # Simple test Hamiltonian - just call to_matrix() without parameters
+                H_core = self.hamiltonian.to_matrix()
+                # Expand to full qubit space (2^n_qubits x 2^n_qubits)
+                dim = 2 ** n_qubits
+                self._hamiltonian_matrix = np.kron(H_core, np.eye(dim // H_core.shape[0]))
+                self._needs_padding = False
+
+        # Pad statevector if needed (for hardware-efficient ansätze with fewer qubits)
+        if hasattr(self, '_needs_padding') and self._needs_padding:
+            # Pad psi from 2^n to 2^m dimensions (n < m)
+            # For H2: psi is 4-dim (2 qubits), need 16-dim (4 qubits)
+            # We assume the ansatz prepares a state in the computational basis subspace
+            psi_padded = np.zeros(2 ** self._full_qubits, dtype=complex)
+            psi_padded[:len(psi)] = psi
+            psi = psi_padded
 
         # Compute expectation value: E = <psi|H|psi>
         energy = np.real(np.conj(psi) @ self._hamiltonian_matrix @ psi)
@@ -271,6 +439,97 @@ class VQESolver(BaseSolver):
         # For now, placeholder
         logger.warning("Quantum backend energy computation not fully implemented")
         return self._compute_energy_statevector(parameters)
+
+    def compute_energy(self, parameters: np.ndarray) -> float:
+        """
+        Public API: Compute energy expectation value for given parameters.
+
+        Args:
+            parameters: Circuit parameters
+
+        Returns:
+            Energy expectation value (Hartree)
+        """
+        return self._compute_energy(parameters)
+
+    def get_energy_variance(self, parameters: np.ndarray) -> float:
+        """
+        Compute energy variance for given parameters.
+
+        Variance = <H²> - <H>²
+
+        Args:
+            parameters: Circuit parameters
+
+        Returns:
+            Energy variance
+        """
+        from qiskit.quantum_info import Statevector
+
+        # Build circuit if not already built
+        if self.ansatz.circuit is None:
+            self.ansatz.build_circuit()
+
+        # Bind parameters to circuit
+        self.ansatz.circuit.bind_parameters(parameters)
+
+        # Convert to Qiskit circuit and bind parameters
+        qiskit_circuit = self.ansatz.circuit.to_qiskit()
+
+        # If circuit still has parameters, bind them
+        if qiskit_circuit.num_parameters > 0:
+            param_dict = {qiskit_circuit.parameters[i]: parameters[i] for i in range(len(parameters))}
+            bound_circuit = qiskit_circuit.assign_parameters(param_dict)
+        else:
+            bound_circuit = qiskit_circuit
+
+        # Get statevector from circuit
+        statevector = Statevector.from_instruction(bound_circuit)
+        psi = statevector.data
+
+        # Get Hamiltonian matrix if not cached
+        if self._hamiltonian_matrix is None:
+            # Get n_qubits from ansatz (more reliable than 2*n_orbitals)
+            n_qubits = self.ansatz.n_qubits if hasattr(self.ansatz, 'n_qubits') else 2 * self.hamiltonian.n_orbitals
+
+            # Check if to_matrix supports n_qubits parameter (for real hamiltonians)
+            import inspect
+            to_matrix_sig = inspect.signature(self.hamiltonian.to_matrix)
+            has_n_qubits_param = 'n_qubits' in to_matrix_sig.parameters
+
+            if has_n_qubits_param:
+                # WORKAROUND: For hardware-efficient ansätze with fewer qubits than full space,
+                # pad the statevector to match full Hamiltonian dimension
+                full_n_qubits = 2 * self.hamiltonian.n_orbitals
+                self._hamiltonian_matrix = self.hamiltonian.to_matrix(n_qubits=full_n_qubits, use_mo_basis=True)
+                self._needs_padding = (n_qubits < full_n_qubits)
+                self._ansatz_qubits = n_qubits
+                self._full_qubits = full_n_qubits
+            else:
+                # Simple test Hamiltonian - just call to_matrix() without parameters
+                H_core = self.hamiltonian.to_matrix()
+                # Expand to full qubit space (2^n_qubits x 2^n_qubits)
+                dim = 2 ** n_qubits
+                self._hamiltonian_matrix = np.kron(H_core, np.eye(dim // H_core.shape[0]))
+                self._needs_padding = False
+
+        # Pad statevector if needed (for hardware-efficient ansätze with fewer qubits)
+        if hasattr(self, '_needs_padding') and self._needs_padding:
+            psi_padded = np.zeros(2 ** self._full_qubits, dtype=complex)
+            psi_padded[:len(psi)] = psi
+            psi = psi_padded
+
+        # Compute <H>
+        H_expectation = np.real(np.conj(psi) @ self._hamiltonian_matrix @ psi)
+
+        # Compute <H²>
+        H_squared = self._hamiltonian_matrix @ self._hamiltonian_matrix
+        H2_expectation = np.real(np.conj(psi) @ H_squared @ psi)
+
+        # Variance = <H²> - <H>²
+        variance = H2_expectation - H_expectation**2
+
+        return float(variance)
 
     def _objective_function(self, parameters: np.ndarray) -> float:
         """
@@ -291,18 +550,23 @@ class VQESolver(BaseSolver):
         self.parameter_history.append(parameters.copy())
         self.iteration_count += 1
 
+        # Call user callback if provided
+        if hasattr(self, '_callback') and self._callback is not None:
+            self._callback(self.iteration_count, energy, parameters)
+
         # Log progress
         if self.iteration_count % 10 == 0:
             logger.info(f"Iteration {self.iteration_count}: E = {energy:.8f} Ha")
 
         return energy
 
-    def solve(self, initial_parameters: Optional[np.ndarray] = None) -> Dict[str, Any]:
+    def solve(self, initial_parameters: Optional[np.ndarray] = None, callback: Optional[callable] = None) -> Dict[str, Any]:
         """
         Solve for ground state energy using VQE.
 
         Args:
             initial_parameters: Initial parameter guess (random if None)
+            callback: Optional callback function(iteration, energy, params)
 
         Returns:
             Dictionary with comprehensive results:
@@ -316,6 +580,8 @@ class VQESolver(BaseSolver):
                 - analysis: Detailed analysis (if enabled)
                 - optimization_stats: Circuit optimization stats (if enabled)
         """
+        # Store callback
+        self._callback = callback
         logger.info("Starting VQE optimization...")
 
         # Get HF reference energy

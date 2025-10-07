@@ -1,7 +1,5 @@
 README.md
 setup.py
-api/__init__.py
-api/server.py
 kanad/__init__.py
 kanad.egg-info/PKG-INFO
 kanad.egg-info/SOURCES.txt
@@ -23,16 +21,12 @@ kanad/ansatze/governance_aware_ansatz.py
 kanad/ansatze/hardware_efficient_ansatz.py
 kanad/ansatze/two_local_ansatz.py
 kanad/ansatze/ucc_ansatz.py
-kanad/backends/__init__.py
-kanad/backends/cuquantum_backend.py
+kanad/ansatze/ucc_correct_double.py
 kanad/backends/qiskit_backend.py
 kanad/backends/bluequbit/__init__.py
 kanad/backends/bluequbit/backend.py
 kanad/backends/ibm/__init__.py
 kanad/backends/ibm/backend.py
-kanad/backends/ibm/qpe_solver.py
-kanad/backends/ibm/sqd_solver.py
-kanad/backends/ibm/vqe_solver.py
 kanad/bonds/__init__.py
 kanad/bonds/base_bond.py
 kanad/bonds/bond_factory.py
@@ -76,7 +70,7 @@ kanad/core/representations/second_quantization.py
 kanad/external/__init__.py
 kanad/external/qiskit_nature/__init__.py
 kanad/external/qiskit_nature/exceptions.py
-kanad/external/qiskit_nature/logging.py
+kanad/external/qiskit_nature/qn_logging.py
 kanad/external/qiskit_nature/second_q_init.py
 kanad/external/qiskit_nature/units.py
 kanad/external/qiskit_nature/version.py
@@ -110,6 +104,7 @@ kanad/governance/protocols/metallic_protocol.py
 kanad/io/__init__.py
 kanad/io/crystal_builder.py
 kanad/io/smiles_parser.py
+kanad/io/smiles_to_molecule.py
 kanad/io/xyz_io.py
 kanad/optimization/__init__.py
 kanad/optimization/adaptive_optimizer.py
@@ -119,8 +114,8 @@ kanad/optimization/orbital_optimizer.py
 kanad/optimization/quantum_optimizer.py
 kanad/solvers/__init__.py
 kanad/solvers/active_space.py
-kanad/solvers/fci_solver.py
-kanad/solvers/qpe_solver.py
+kanad/solvers/base_solver.py
+kanad/solvers/excited_states_solver.py
 kanad/solvers/sqd_solver.py
 kanad/solvers/vqe_solver.py
 kanad/vqe_optimization/__init__.py
@@ -130,7 +125,6 @@ tests/__init__.py
 tests/test_core.py
 tests/test_optimization.py
 tests/test_optimization_comprehensive.py
-tests/test_solvers.py
 tests/test_vqe_energies.py
 tests/governance/__init__.py
 tests/governance/run_all_governance_tests.py
@@ -139,13 +133,6 @@ tests/governance/test_covalent_governance.py
 tests/governance/test_governance_final.py
 tests/governance/test_ionic_governance.py
 tests/governance/test_metallic_governance.py
-tests/integration/60_bluequbit_cloud_validation.py
-tests/integration/61_bluequbit_quick_test.py
-tests/integration/62_ibm_runtime_quick_test.py
-tests/integration/63_ibm_runtime_cloud_validation.py
-tests/integration/__init__.py
-tests/integration/test_bluequbit_backend.py
-tests/integration/test_ibm_runtime_backend.py
 tests/unit/__init__.py
 tests/unit/test_analysis.py
 tests/unit/test_ansatze.py

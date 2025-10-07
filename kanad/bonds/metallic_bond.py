@@ -50,7 +50,8 @@ class MetallicBond(BaseBond):
         hopping_parameter: Optional[float] = None,
         hubbard_u: float = 2.0,  # Default 2 eV (typical for metals, needed for VQE)
         temperature: Optional[float] = None,
-        periodic: bool = True
+        periodic: bool = True,
+        basis: str = 'sto-3g'
     ):
         """
         Initialize metallic bond with quantum framework.
@@ -62,8 +63,10 @@ class MetallicBond(BaseBond):
             hubbard_u: Coulomb repulsion U (eV), 0 for non-interacting
             temperature: Temperature in Kelvin (None for T=0)
             periodic: Use periodic boundary conditions
+            basis: Basis set name (default: 'sto-3g')
         """
         super().__init__(atoms, 'metallic', distance=None)
+        self.basis = basis
 
         self.lattice_type = lattice_type
         self.n_atoms = len(atoms)
@@ -85,7 +88,8 @@ class MetallicBond(BaseBond):
             onsite_energy=0.0,
             hubbard_u=hubbard_u,
             periodic=periodic,
-            temperature=temperature
+            temperature=temperature,
+            basis_name=basis
         )
 
         # Governance protocol
