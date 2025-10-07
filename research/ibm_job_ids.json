@@ -1,0 +1,102 @@
+{
+  "submission_time": "2025-10-07T15:26:51.936850",
+  "backend": "ibm_torino",
+  "experiments": [
+    {
+      "name": "Caffeine (C-N bond)",
+      "description": "Psychoactive drug - aromatic C-N",
+      "bond": "C-N",
+      "distance": 1.34,
+      "qubits": 20,
+      "test_qubits": 4,
+      "hf_energy": -90.46875355057335,
+      "job_id": "d3ie7p9b641c738n3gt0",
+      "status": "submitted",
+      "submission_time": "2025-10-07T15:26:54.046147"
+    },
+    {
+      "name": "Aspirin (C=O bond)",
+      "description": "Pharmaceutical - carbonyl C=O",
+      "bond": "C-O",
+      "distance": 1.22,
+      "qubits": 20,
+      "test_qubits": 4,
+      "hf_energy": -111.21204562958366,
+      "job_id": "d3ie7pq0uq0c73d7sm20",
+      "status": "submitted",
+      "submission_time": "2025-10-07T15:26:55.972142"
+    },
+    {
+      "name": "Vitamin C (O-H bond)",
+      "description": "Antioxidant - hydroxyl O-H",
+      "bond": "O-H",
+      "distance": 0.96,
+      "qubits": 12,
+      "test_qubits": 4,
+      "hf_energy": -73.88817550256805,
+      "job_id": "d3ie7qa0uq0c73d7sm2g",
+      "status": "submitted",
+      "submission_time": "2025-10-07T15:26:57.710490"
+    },
+    {
+      "name": "Cholesterol (C-C bond)",
+      "description": "Biological lipid - sp\u00b3 C-C",
+      "bond": "C-C",
+      "distance": 1.54,
+      "qubits": 20,
+      "test_qubits": 4,
+      "hf_energy": -74.31543587551704,
+      "job_id": "d3ie7qpb641c738n3gvg",
+      "status": "submitted",
+      "submission_time": "2025-10-07T15:26:59.650831"
+    },
+    {
+      "name": "Adenine (N-H bond)",
+      "description": "DNA base - aromatic N-H",
+      "bond": "N-H",
+      "distance": 1.01,
+      "qubits": 12,
+      "test_qubits": 4,
+      "hf_energy": -54.13123993881682,
+      "job_id": "d3ie7rc1nk1s739pdhp0",
+      "status": "submitted",
+      "submission_time": "2025-10-07T15:27:01.628635"
+    },
+    {
+      "name": "Penicillin (S-C bond)",
+      "description": "Antibiotic - S-C thiazolidine",
+      "bond": "S-C",
+      "distance": 1.82,
+      "qubits": 28,
+      "test_qubits": 4,
+      "hf_energy": -430.387802791158,
+      "job_id": "d3ie7rq0uq0c73d7sm50",
+      "status": "submitted",
+      "submission_time": "2025-10-07T15:27:04.202007"
+    },
+    {
+      "name": "Chlorophyll (Mg-N bond)",
+      "description": "Photosynthesis - Mg-N coordination",
+      "bond": "Mg-N",
+      "distance": 2.07,
+      "qubits": 4,
+      "test_qubits": 4,
+      "hf_energy": 15.441221860456515,
+      "job_id": "d3ie7s9b641c738n3h1g",
+      "status": "submitted",
+      "submission_time": "2025-10-07T15:27:06.072569"
+    },
+    {
+      "name": "Serotonin (aromatic C-C)",
+      "description": "Neurotransmitter - aromatic C-C",
+      "bond": "C-C",
+      "distance": 1.4,
+      "qubits": 20,
+      "test_qubits": 4,
+      "hf_energy": -74.38184048129996,
+      "job_id": "d3ie7ss1nk1s739pdhrg",
+      "status": "submitted",
+      "submission_time": "2025-10-07T15:27:08.048065"
+    }
+  ]
+}

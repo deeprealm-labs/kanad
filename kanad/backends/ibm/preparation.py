@@ -86,9 +86,12 @@ class IBMPreparation:
                 spin_ordering='blocked'
             )
         elif self.ansatz_type == 'hardware_efficient':
+            n_qubits = 2 * self.hamiltonian.n_orbitals
+            n_electrons = self.hamiltonian.molecule.n_electrons
             self.ansatz = HardwareEfficientAnsatz(
-                hamiltonian=self.hamiltonian,
-                reps=2,
+                n_qubits=n_qubits,
+                n_electrons=n_electrons,
+                n_layers=2,
                 entanglement='linear'
             )
         else:
@@ -115,7 +118,7 @@ class IBMPreparation:
         """Prepare fermionic-to-qubit mapper."""
         from kanad.core.mappers import JordanWignerMapper
 
-        self.mapper = JordanWignerMapper(n_qubits=self.n_qubits)
+        self.mapper = JordanWignerMapper()
 
         logger.info(f"Mapper prepared: {self.mapper_type}")
 

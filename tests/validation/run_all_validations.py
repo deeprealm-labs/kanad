@@ -22,6 +22,8 @@ validation_scripts = [
     "06_basis_set_validation.py",
     "07_analysis_modules_validation.py",
     "08_io_modules_validation.py",
+    "09_bluequbit_cloud_validation.py",
+    "10_complex_molecules_validation.py",
 ]
 
 results = {}

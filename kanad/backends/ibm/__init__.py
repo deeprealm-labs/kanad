@@ -11,9 +11,10 @@ Features:
 
 Authentication:
     Set environment variables:
-    - IBM_QUANTUM_TOKEN: Your IBM Quantum API token
-    - IBM_QUANTUM_CHANNEL: 'ibm_quantum' (default) or 'ibm_cloud'
-    - IBM_CRN: Cloud Resource Name (for IBM Cloud only)
+    - IBM_API: Your IBM Quantum API token
+    - IBM_CRN: Cloud Resource Name (for IBM Cloud channel)
+
+    Channels: 'ibm_quantum_platform' (default) or 'ibm_cloud'
 
 Usage:
     from kanad.backends.ibm import IBMBackend, IBMPreparation

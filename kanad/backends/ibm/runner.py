@@ -64,35 +64,35 @@ class IBMRunner:
         circuits, observables = prep.prepare_vqe_circuits()
 
         # Transpile for hardware
-        circuits = prep.transpile_for_hardware(
-            circuits,
-            self.backend,
-            optimization_level=optimization_level
+        from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+
+        logger.info(f"Transpiling {len(circuits)} circuits for hardware...")
+        pm = generate_preset_pass_manager(
+            optimization_level=optimization_level,
+            backend=self.backend.backend
         )
 
-        # Run on IBM
+        transpiled_circuits = [pm.run(circuit) for circuit in circuits]
+        logger.info(f"Transpilation complete")
+
+        # Run on IBM (non-blocking submission)
         results = self.backend.run_batch(
-            circuits,
+            transpiled_circuits,
             observables,
-            shots=shots,
-            optimization_level=optimization_level
+            shots=shots
         )
 
-        # Process results
-        energy = results['values'][0] if results['values'] else None
-
+        # Return job info (non-blocking - job is queued)
         output = {
-            'energy': float(energy) if energy is not None else None,
-            'hf_energy': float(prep.hf_energy),
             'job_id': results['job_id'],
-            'metadata': results['metadata'],
-            'backend': self.backend.backend.name,
+            'status': results['status'],
+            'backend': results['backend'],
             'shots': shots,
+            'hf_energy': float(prep.hf_energy),
             'preparation_summary': prep.get_preparation_summary()
         }
 
-        if energy is not None:
-            logger.info(f"VQE complete: E = {energy:.8f} Ha")
+        logger.info(f"Job submitted: {results['job_id']}")
 
         return output
 

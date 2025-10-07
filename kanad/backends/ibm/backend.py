@@ -31,7 +31,7 @@ class IBMBackend:
         self,
         backend_name: Optional[str] = None,
         api_token: Optional[str] = None,
-        channel: str = 'ibm_quantum',
+        channel: str = 'ibm_quantum_platform',
         crn: Optional[str] = None,
         instance: Optional[str] = None
     ):
@@ -41,8 +41,8 @@ class IBMBackend:
         Args:
             backend_name: Backend name (e.g., 'ibm_brisbane', 'ibmq_qasm_simulator')
                          If None, uses least busy backend
-            api_token: IBM Quantum API token (or set IBM_QUANTUM_TOKEN env var)
-            channel: 'ibm_quantum' or 'ibm_cloud'
+            api_token: IBM Quantum API token (or set IBM_API env var)
+            channel: 'ibm_quantum_platform' or 'ibm_cloud'
             crn: Cloud Resource Name (required for ibm_cloud)
             instance: IBM Quantum instance (optional)
         """
@@ -157,20 +157,23 @@ class IBMBackend:
                     # Use Estimator for energy expectation values
                     estimator = Estimator(mode=batch)
 
-                    # Set options
+                    # Set options (V2 primitives)
                     estimator.options.default_shots = shots
-                    estimator.options.optimization_level = optimization_level
-                    estimator.options.resilience_level = resilience_level
+                    # Note: optimization_level moved to transpilation
+                    # resilience_level available as resilience option
 
                     logger.info("Using Estimator primitive")
 
-                    job = estimator.run(circuits, observables)
-                    result = job.result()
+                    # Build pub (circuit, observable) tuples
+                    pubs = [(circuits[i], observables[i]) for i in range(len(circuits))]
 
+                    job = estimator.run(pubs)
+
+                    # Return job immediately (non-blocking)
                     return {
-                        'values': [res.data.evs for res in result],
-                        'metadata': result.metadata,
-                        'job_id': job.job_id()
+                        'job_id': job.job_id(),
+                        'status': str(job.status()),
+                        'backend': self.backend.name
                     }
 
                 else:
@@ -179,17 +182,16 @@ class IBMBackend:
 
                     # Set options
                     sampler.options.default_shots = shots
-                    sampler.options.optimization_level = optimization_level
 
                     logger.info("Using Sampler primitive")
 
                     job = sampler.run(circuits)
-                    result = job.result()
 
+                    # Return job immediately (non-blocking)
                     return {
-                        'counts': [res.data.meas.get_counts() for res in result],
-                        'metadata': result.metadata,
-                        'job_id': job.job_id()
+                        'job_id': job.job_id(),
+                        'status': str(job.status()),
+                        'backend': self.backend.name
                     }
 
         except Exception as e:
