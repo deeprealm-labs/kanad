@@ -1,0 +1,154 @@
+{
+  "framework": "Kanad",
+  "version": "1.0.0",
+  "timestamp": "2025-10-07T17:38:52.040476",
+  "molecules": {
+    "H2": {
+      "name": "H2",
+      "atoms": [
+        "H",
+        "H"
+      ],
+      "distance": 0.74,
+      "charge": 0,
+      "exact_energy": -1.1745,
+      "configurations": [
+        {
+          "description": "UCC + Jordan-Wigner",
+          "ansatz": "ucc",
+          "mapper": "Default",
+          "success": true,
+          "vqe_energy": -1.1167591999757864,
+          "correlation_energy_mha": 0.00010742063882851483,
+          "n_iterations": 0,
+          "time_seconds": 0.2103102207183838,
+          "memory_mb": 25.8125,
+          "error_vs_hf_mha": 0.00010742063882851483,
+          "error_vs_exact_mha": 57.74080002421367,
+          "correlation_recovery_percent": 0.00018603974768024206,
+          "converged": true,
+          "n_parameters": 5
+        },
+        {
+          "description": "Hardware-Efficient + Jordan-Wigner",
+          "ansatz": "hardware_efficient",
+          "mapper": "Default",
+          "success": true,
+          "vqe_energy": -1.1372597831901785,
+          "correlation_energy_mha": -20.500475793753246,
+          "n_iterations": 0,
+          "time_seconds": 0.16093182563781738,
+          "memory_mb": 3.09375,
+          "error_vs_hf_mha": 20.500475793753246,
+          "error_vs_exact_mha": 37.24021680982159,
+          "correlation_recovery_percent": 35.504381519116066,
+          "converged": true,
+          "n_parameters": 12
+        }
+      ],
+      "hf_energy": -1.1167593073964253,
+      "hf_time": 0.0005271434783935547,
+      "n_orbitals": 2,
+      "n_electrons": 2,
+      "n_qubits": 4
+    },
+    "HeH+": {
+      "name": "HeH+",
+      "atoms": [
+        "He",
+        "H"
+      ],
+      "distance": 0.772,
+      "charge": 1,
+      "exact_energy": -2.8796,
+      "configurations": [
+        {
+          "description": "UCC + Jordan-Wigner",
+          "ansatz": "ucc",
+          "mapper": "Default",
+          "success": true,
+          "vqe_energy": -3.0290745831088093,
+          "correlation_energy_mha": -3026.327319956084,
+          "n_iterations": 0,
+          "time_seconds": 0.004515886306762695,
+          "memory_mb": 0.09375,
+          "error_vs_hf_mha": 3026.327319956084,
+          "error_vs_exact_mha": 149.47458310880936,
+          "correlation_recovery_percent": 105.19576762460974,
+          "converged": true,
+          "n_parameters": 3
+        },
+        {
+          "description": "Hardware-Efficient + Jordan-Wigner",
+          "ansatz": "hardware_efficient",
+          "mapper": "Default",
+          "success": true,
+          "vqe_energy": -3.1742467516736506,
+          "correlation_energy_mha": -3171.499488520925,
+          "n_iterations": 0,
+          "time_seconds": 0.08240413665771484,
+          "memory_mb": 0.265625,
+          "error_vs_hf_mha": 3171.499488520925,
+          "error_vs_exact_mha": 294.6467516736506,
+          "correlation_recovery_percent": 110.2419824240483,
+          "converged": true,
+          "n_parameters": 12
+        }
+      ],
+      "hf_energy": -0.002747263152725443,
+      "hf_time": 0.0003941059112548828,
+      "n_orbitals": 2,
+      "n_electrons": 3,
+      "n_qubits": 4
+    },
+    "LiH": {
+      "name": "LiH",
+      "atoms": [
+        "Li",
+        "H"
+      ],
+      "distance": 1.6,
+      "charge": 0,
+      "exact_energy": -7.9822,
+      "configurations": [
+        {
+          "description": "UCC + Jordan-Wigner",
+          "ansatz": "ucc",
+          "mapper": "Default",
+          "success": true,
+          "vqe_energy": -7.86186186063723,
+          "correlation_energy_mha": 0.002909172011733574,
+          "n_iterations": 0,
+          "time_seconds": 88.17065620422363,
+          "memory_mb": 296.734375,
+          "error_vs_hf_mha": 0.002909172011733574,
+          "error_vs_exact_mha": 120.3381393627696,
+          "correlation_recovery_percent": 0.002417556360778049,
+          "converged": true,
+          "n_parameters": 200
+        },
+        {
+          "description": "Hardware-Efficient + Jordan-Wigner",
+          "ansatz": "hardware_efficient",
+          "mapper": "Default",
+          "success": true,
+          "vqe_energy": -7.714838406350383,
+          "correlation_energy_mha": 147.0263634588589,
+          "n_iterations": 0,
+          "time_seconds": 79.7338240146637,
+          "memory_mb": 2.875,
+          "error_vs_hf_mha": 147.0263634588589,
+          "error_vs_exact_mha": 267.36159364961674,
+          "correlation_recovery_percent": 122.18064753421729,
+          "converged": true,
+          "n_parameters": 36
+        }
+      ],
+      "hf_energy": -7.861864769809242,
+      "hf_time": 0.01820206642150879,
+      "n_orbitals": 6,
+      "n_electrons": 4,
+      "n_qubits": 12
+    }
+  }
+}
