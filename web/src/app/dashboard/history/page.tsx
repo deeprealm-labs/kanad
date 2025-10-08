@@ -12,6 +12,8 @@ import {
   Play,
   FileText,
   Loader2,
+  Ban,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import * as api from "@/lib/api";
@@ -110,6 +112,10 @@ export default function HistoryPage() {
         return <Play className="w-5 h-5 text-blue-600" />;
       case "queued":
         return <Clock className="w-5 h-5 text-yellow-600" />;
+      case "cancelled":
+        return <Ban className="w-5 h-5 text-orange-600" />;
+      case "failed":
+        return <XCircle className="w-5 h-5 text-red-600" />;
       default:
         return null;
     }
@@ -168,6 +174,8 @@ export default function HistoryPage() {
             <option value="completed">Completed</option>
             <option value="running">Running</option>
             <option value="queued">Queued</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="failed">Failed</option>
           </select>
         </div>
       </div>

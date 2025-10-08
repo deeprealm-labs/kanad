@@ -5,6 +5,7 @@ Handles experiment creation, listing, retrieval, and deletion.
 """
 
 import logging
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -147,6 +148,116 @@ def delete_experiment(
     }
 
 
+@router.patch("/{experiment_id}/cancel")
+def cancel_experiment(
+    experiment_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Cancel a running or queued experiment.
+
+    Supports:
+    - Local VQE/SQD jobs (via cancellation flags)
+    - IBM Quantum jobs (via IBM Runtime API)
+    - BlueQubit jobs (via BlueQubit API)
+
+    The experiment will be marked as 'cancelled' and execution will stop gracefully.
+    Partial results may be saved if cancellation occurs during execution.
+    """
+    experiment = db.query(Experiment).filter(Experiment.id == experiment_id).first()
+
+    if not experiment:
+        raise ExperimentNotFoundError(experiment_id)
+
+    # Check if experiment can be cancelled
+    if experiment.status not in ["queued", "running"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot cancel experiment with status '{experiment.status}'. "
+                   f"Only queued or running experiments can be cancelled."
+        )
+
+    logger.info(f"Cancellation requested for experiment {experiment_id} (status: {experiment.status})")
+
+    # Cancel cloud job if exists
+    cloud_cancelled = False
+    cloud_error = None
+
+    if experiment.cloud_job_id and experiment.cloud_backend:
+        try:
+            if experiment.cloud_backend == 'ibm':
+                # Cancel IBM job
+                from kanad.backends.ibm.backend import IBMBackend
+
+                # Get IBM credentials from config
+                config = experiment.configuration
+                api_token = config.get('ibm_token') or os.getenv('IBM_API')
+                crn = config.get('ibm_crn') or os.getenv('IBM_CRN')
+                channel = config.get('ibm_channel', 'ibm_quantum_platform')
+
+                if api_token:
+                    ibm_backend = IBMBackend(
+                        backend_name=config.get('backend_name'),
+                        api_token=api_token,
+                        channel=channel,
+                        crn=crn
+                    )
+                    result = ibm_backend.cancel_job(experiment.cloud_job_id)
+                    cloud_cancelled = True
+                    logger.info(f"IBM job {experiment.cloud_job_id} cancelled: {result}")
+                else:
+                    cloud_error = "IBM API token not available for job cancellation"
+
+            elif experiment.cloud_backend == 'bluequbit':
+                # Cancel BlueQubit job
+                from kanad.backends.bluequbit.backend import BlueQubitBackend
+
+                config = experiment.configuration
+                api_token = config.get('bluequbit_token') or os.getenv('BLUE_TOKEN')
+
+                if api_token:
+                    bq_backend = BlueQubitBackend(device='gpu', api_token=api_token)
+                    bq_backend.cancel_job(experiment.cloud_job_id)
+                    cloud_cancelled = True
+                    logger.info(f"BlueQubit job {experiment.cloud_job_id} cancelled")
+                else:
+                    cloud_error = "BlueQubit API token not available for job cancellation"
+
+        except Exception as e:
+            cloud_error = str(e)
+            logger.error(f"Failed to cancel cloud job: {e}")
+
+    # Cancel local job via job queue
+    local_cancelled = job_queue.cancel_job(experiment_id)
+
+    # Update experiment status
+    experiment.status = "cancelled"
+    experiment.cancelled_at = datetime.now()
+    if experiment.completed_at is None:
+        experiment.completed_at = datetime.now()
+
+    # Update error message if cloud cancellation failed
+    if cloud_error:
+        experiment.error_message = f"Cloud job cancellation warning: {cloud_error}"
+
+    # Update queue item
+    queue_item = db.query(QueueItem).filter(QueueItem.experiment_id == experiment_id).first()
+    if queue_item:
+        queue_item.status = "cancelled"
+
+    db.commit()
+
+    return {
+        "status": "cancelled",
+        "experiment_id": experiment_id,
+        "local_cancelled": local_cancelled,
+        "cloud_cancelled": cloud_cancelled,
+        "cloud_job_id": experiment.cloud_job_id,
+        "message": "Experiment cancellation requested successfully",
+        "warning": cloud_error if cloud_error else None
+    }
+
+
 @router.get("/{experiment_id}/status")
 def get_experiment_status(
     experiment_id: int,
@@ -221,13 +332,6 @@ def get_circuit_visualization(
 
     if not experiment:
         raise ExperimentNotFoundError(experiment_id)
-
-    # Check if experiment has completed or has circuit data stored
-    if not experiment.results:
-        raise HTTPException(
-            status_code=400,
-            detail="Experiment has no results yet. Circuit data available after execution."
-        )
 
     # Extract circuit data from experiment configuration
     config = experiment.configuration

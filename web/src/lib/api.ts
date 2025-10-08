@@ -676,6 +676,97 @@ export function pollExperimentStatus(
   };
 }
 
+// ----- Cloud Credentials -----
+
+/**
+ * Save IBM Quantum credentials
+ * @param crn - IBM Cloud Resource Name
+ * @param apiKey - IBM Quantum API key
+ */
+export async function saveIBMCredentials(
+  crn: string,
+  apiKey: string
+): Promise<{ provider: string; configured: boolean; message: string }> {
+  const response = await fetchWithRetry(
+    `${API_BASE_URL}/api/v1/cloud-credentials/ibm`,
+    {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ crn, api_key: apiKey }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Save BlueQubit credentials
+ * @param apiToken - BlueQubit API token
+ */
+export async function saveBlueQubitCredentials(
+  apiToken: string
+): Promise<{ provider: string; configured: boolean; message: string }> {
+  const response = await fetchWithRetry(
+    `${API_BASE_URL}/api/v1/cloud-credentials/bluequbit`,
+    {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ api_token: apiToken }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Get cloud credentials status
+ * @returns Status of IBM and BlueQubit credentials
+ */
+export async function getCloudCredentialsStatus(): Promise<{
+  ibm: { configured: boolean };
+  bluequbit: { configured: boolean };
+}> {
+  const response = await fetchWithRetry(
+    `${API_BASE_URL}/api/v1/cloud-credentials/status`,
+    {
+      method: "GET",
+      headers: getHeaders(),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Delete IBM Quantum credentials
+ */
+export async function deleteIBMCredentials(): Promise<{ message: string }> {
+  const response = await fetchWithRetry(
+    `${API_BASE_URL}/api/v1/cloud-credentials/ibm`,
+    {
+      method: "DELETE",
+      headers: getHeaders(),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Delete BlueQubit credentials
+ */
+export async function deleteBlueQubitCredentials(): Promise<{ message: string }> {
+  const response = await fetchWithRetry(
+    `${API_BASE_URL}/api/v1/cloud-credentials/bluequbit`,
+    {
+      method: "DELETE",
+      headers: getHeaders(),
+    }
+  );
+
+  return handleResponse(response);
+}
+
 // ----- Health Check -----
 
 /**
@@ -799,6 +890,13 @@ export default {
 
   // Validation
   validateSmiles,
+
+  // Cloud Credentials
+  saveIBMCredentials,
+  saveBlueQubitCredentials,
+  getCloudCredentialsStatus,
+  deleteIBMCredentials,
+  deleteBlueQubitCredentials,
 
   // WebSocket
   createWebSocket,

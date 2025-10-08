@@ -186,7 +186,8 @@ class JobQueue:
                 molecule_data=experiment.molecule_data,
                 config=experiment.configuration,
                 progress_callback=progress_callback,
-                experiment_id=experiment_id  # Pass for cancellation checks
+                experiment_id=experiment_id,  # Pass for cancellation checks
+                db_session=db  # Pass database session for cloud credentials
             )
 
             # Update experiment with results

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, History, Clock, CheckCircle2, TrendingUp, Loader2 } from "lucide-react";
+import { Play, History, Clock, CheckCircle2, TrendingUp, Loader2, XCircle } from "lucide-react";
 import * as api from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
+import CancelConfirmationDialog from "@/components/experiment/CancelConfirmationDialog";
 
 interface DashboardHomeProps {
   onNewExperiment: () => void;
@@ -17,6 +19,10 @@ export default function DashboardHome({
 }: DashboardHomeProps) {
   const [queueStats, setQueueStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [experimentToCancel, setExperimentToCancel] = useState<any>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     loadQueueStats();
@@ -41,8 +47,49 @@ export default function DashboardHome({
   const recentExperiments = experiments.slice(0, 3);
   const runningExperiments = experiments.filter((e) => e.status === "running");
 
+  const handleCancelClick = (exp: any, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setExperimentToCancel(exp);
+    setShowCancelDialog(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!experimentToCancel) return;
+
+    try {
+      setIsCancelling(true);
+      await api.cancelExperiment(experimentToCancel.id);
+      setShowCancelDialog(false);
+      setExperimentToCancel(null);
+      toast.success("Experiment cancelled successfully");
+
+      // Refresh data
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Failed to cancel experiment:", error);
+      toast.error(error.message || "Failed to cancel experiment");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-background p-6 space-y-6">
+      {/* Cancel Confirmation Dialog */}
+      {experimentToCancel && (
+        <CancelConfirmationDialog
+          isOpen={showCancelDialog}
+          onClose={() => {
+            setShowCancelDialog(false);
+            setExperimentToCancel(null);
+          }}
+          onConfirm={handleCancelConfirm}
+          experimentName={experimentToCancel.molecule?.smiles || experimentToCancel.name || "Custom Experiment"}
+          isRunning={experimentToCancel.status === "running"}
+          isLoading={isCancelling}
+        />
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-quando font-bold mb-2">Dashboard</h1>
@@ -167,10 +214,19 @@ export default function DashboardHome({
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-blue-600 font-quando font-medium">
-                      Click to monitor
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={(e) => handleCancelClick(exp, e)}
+                      className="p-2 border-2 border-red-600 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition"
+                      title="Cancel experiment"
+                    >
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                    <div className="text-right">
+                      <p className="text-sm text-blue-600 font-quando font-medium">
+                        Click to monitor
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -229,6 +285,10 @@ export default function DashboardHome({
                             ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                             : exp.status === "running"
                             ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                            : exp.status === "cancelled"
+                            ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+                            : exp.status === "failed"
+                            ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                             : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
                         }`}
                       >

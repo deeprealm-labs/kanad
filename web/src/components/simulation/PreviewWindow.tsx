@@ -222,31 +222,70 @@ export default function PreviewWindow({
             {/* Circuit Diagram */}
             <div className="flex-1 bg-muted rounded-lg p-6 overflow-auto">
               <div className="font-mono text-sm space-y-2">
-                <div>q0: ──H──●──────●──Ry(θ₁)──●──────</div>
-                <div>q1: ──H──X──●───┼──────────X──Ry(θ₂)</div>
-                <div>q2: ──H─────X───●──Ry(θ₃)──────────</div>
-                <div>q3: ──H──────────┼──────────●──Ry(θ₄)</div>
-                <div className="mt-4 text-muted-foreground">
-                  Circuit depth: 8 | Parameters: 12 | Gates: 24
-                </div>
+                {backendSettings.method === "VQE" || backendSettings.method === "SQD" ? (
+                  <>
+                    <div className="text-muted-foreground mb-4">
+                      Circuit will be generated when experiment starts
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-xs text-muted-foreground">Preview based on configuration:</div>
+                      <div className="mt-2">
+                        <span className="text-muted-foreground">Ansatz: </span>
+                        <span className="font-quando">{backendSettings.ansatz?.toUpperCase() || "UCC"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Mapper: </span>
+                        <span className="font-quando">
+                          {backendSettings.mapper?.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("-") || "Jordan-Wigner"}
+                        </span>
+                      </div>
+                      {molecule.atoms && (
+                        <div>
+                          <span className="text-muted-foreground">Atoms: </span>
+                          <span className="font-quando">{molecule.atoms.length}</span>
+                        </div>
+                      )}
+                      <div className="mt-4 p-3 bg-background rounded border border-border">
+                        <div className="text-xs text-muted-foreground mb-2">
+                          Estimated Circuit Properties:
+                        </div>
+                        <div className="text-xs space-y-1">
+                          <div>Qubits: ~{molecule.atoms ? molecule.atoms.length * 2 : 4}-{molecule.atoms ? molecule.atoms.length * 4 : 8}</div>
+                          <div>Parameters: Depends on ansatz</div>
+                          <div>Gates: Generated at runtime</div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-muted-foreground">
+                    {backendSettings.method === "HF"
+                      ? "Hartree-Fock method does not use quantum circuits"
+                      : "Circuit preview available after experiment creation"}
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Estimates */}
             <div className="mt-6 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Estimated qubits:</span>
-                <span className="font-quando">12</span>
+                <span className="text-muted-foreground">Method:</span>
+                <span className="font-quando">{backendSettings.method || "VQE"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Backend:</span>
+                <span className="font-quando">
+                  {backendSettings.backend?.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "Classical"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
                   Estimated runtime:
                 </span>
-                <span className="font-quando">~30 seconds</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Queue position:</span>
-                <span className="font-quando">-</span>
+                <span className="font-quando">
+                  {backendSettings.method === "HF" ? "< 1 second" : "~30-60 seconds"}
+                </span>
               </div>
             </div>
           </div>

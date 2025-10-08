@@ -43,6 +43,15 @@ export default function ConfigurationSelector({
     );
   }
 
+  // Helper function to format option names
+  const formatOptionName = (name: string) => {
+    // Replace underscores with spaces and capitalize words
+    return name
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   return (
     <div className="space-y-4">
       {/* Method Selection */}
@@ -79,7 +88,7 @@ export default function ConfigurationSelector({
           >
             {options?.ansatze?.map((ansatz: string) => (
               <option key={ansatz} value={ansatz}>
-                {ansatz.toUpperCase().replace("_", "-")}
+                {formatOptionName(ansatz)}
               </option>
             ))}
           </select>
@@ -102,10 +111,7 @@ export default function ConfigurationSelector({
           >
             {options?.mappers?.map((mapper: string) => (
               <option key={mapper} value={mapper}>
-                {mapper
-                  .split("_")
-                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                  .join("-")}
+                {formatOptionName(mapper)}
               </option>
             ))}
           </select>
@@ -127,7 +133,7 @@ export default function ConfigurationSelector({
         >
           {options?.hamiltonians?.map((ham: string) => (
             <option key={ham} value={ham}>
-              {ham.charAt(0).toUpperCase() + ham.slice(1)}
+              {formatOptionName(ham)}
             </option>
           ))}
         </select>
@@ -171,10 +177,7 @@ export default function ConfigurationSelector({
         >
           {options?.backends?.map((backend: string) => (
             <option key={backend} value={backend}>
-              {backend
-                .split("_")
-                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                .join(" ")}
+              {formatOptionName(backend)}
             </option>
           ))}
         </select>

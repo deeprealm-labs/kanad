@@ -71,6 +71,12 @@ export default function Sidebar() {
             >
               Job Queue
             </a>
+            <a
+              href="/dashboard/settings"
+              className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition font-quando"
+            >
+              Settings
+            </a>
             <div className="border-t border-gray-800 my-2"></div>
             <a
               href="#"

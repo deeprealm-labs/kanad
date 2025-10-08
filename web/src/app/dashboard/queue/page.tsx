@@ -11,9 +11,12 @@ import {
   Trash2,
   MoveUp,
   MoveDown,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import * as api from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
+import CancelConfirmationDialog from "@/components/experiment/CancelConfirmationDialog";
 
 interface QueuedJob {
   id: string;
@@ -34,6 +37,10 @@ export default function QueuePage() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [jobToCancel, setJobToCancel] = useState<QueuedJob | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     loadQueue();
@@ -121,6 +128,47 @@ export default function QueuePage() {
     saveQueue(updated);
   };
 
+  const handleCancelClick = (job: QueuedJob) => {
+    setJobToCancel(job);
+    setShowCancelDialog(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!jobToCancel) return;
+
+    try {
+      setIsCancelling(true);
+
+      // If it's a running or queued experiment with ID, use the cancel API
+      if (jobToCancel.status === "running" || jobToCancel.status === "queued") {
+        try {
+          await api.cancelExperiment(jobToCancel.id);
+          toast.success("Job cancelled successfully");
+        } catch (error) {
+          console.error("API cancel failed, removing from local queue:", error);
+          // Fallback to local deletion
+          handleDelete(jobToCancel.id);
+          toast.warning("Job removed from local queue");
+        }
+      } else {
+        // For scheduled/paused jobs, just delete from queue
+        handleDelete(jobToCancel.id);
+        toast.success("Job removed from queue");
+      }
+
+      setShowCancelDialog(false);
+      setJobToCancel(null);
+
+      // Reload queue
+      await loadQueue();
+    } catch (error: any) {
+      console.error("Failed to cancel job:", error);
+      toast.error(error.message || "Failed to cancel job");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "running":
@@ -136,6 +184,21 @@ export default function QueuePage() {
 
   return (
     <div className="h-full flex flex-col bg-background">
+      {/* Cancel Confirmation Dialog */}
+      {jobToCancel && (
+        <CancelConfirmationDialog
+          isOpen={showCancelDialog}
+          onClose={() => {
+            setShowCancelDialog(false);
+            setJobToCancel(null);
+          }}
+          onConfirm={handleCancelConfirm}
+          experimentName={jobToCancel.molecule?.smiles || jobToCancel.name || "Custom Job"}
+          isRunning={jobToCancel.status === "running"}
+          isLoading={isCancelling}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div className="flex items-center gap-4">
@@ -265,34 +328,47 @@ export default function QueuePage() {
 
                   {/* Actions */}
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedJob(job);
-                        setShowScheduleModal(true);
-                      }}
-                      className="p-2 border border-border rounded-lg hover:bg-accent transition"
-                      title="Schedule"
-                    >
-                      <Calendar className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleTogglePause(job.id)}
-                      className="p-2 border border-border rounded-lg hover:bg-accent transition"
-                      title={job.status === "paused" ? "Resume" : "Pause"}
-                    >
-                      {job.status === "paused" ? (
-                        <Play className="w-4 h-4" />
-                      ) : (
-                        <Pause className="w-4 h-4" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(job.id)}
-                      className="p-2 border border-border rounded-lg hover:bg-red-100 dark:hover:bg-red-900 transition text-red-600"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {job.status === "running" && (
+                      <button
+                        onClick={() => handleCancelClick(job)}
+                        className="p-2 border-2 border-red-600 rounded-lg hover:bg-red-600 hover:text-white transition text-red-600"
+                        title="Cancel Running Job"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    )}
+                    {job.status !== "running" && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setSelectedJob(job);
+                            setShowScheduleModal(true);
+                          }}
+                          className="p-2 border border-border rounded-lg hover:bg-accent transition"
+                          title="Schedule"
+                        >
+                          <Calendar className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleTogglePause(job.id)}
+                          className="p-2 border border-border rounded-lg hover:bg-accent transition"
+                          title={job.status === "paused" ? "Resume" : "Pause"}
+                        >
+                          {job.status === "paused" ? (
+                            <Play className="w-4 h-4" />
+                          ) : (
+                            <Pause className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(job.id)}
+                          className="p-2 border border-border rounded-lg hover:bg-red-100 dark:hover:bg-red-900 transition text-red-600"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

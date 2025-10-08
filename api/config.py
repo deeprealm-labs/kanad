@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import Optional
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
 
 class Settings(BaseSettings):
@@ -36,9 +37,10 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_JOBS: int = 2
     JOB_TIMEOUT_SECONDS: int = 3600  # 1 hour default timeout
 
-    # Quantum Backends
-    IBM_QUANTUM_TOKEN: Optional[str] = None
-    BLUEQUBIT_API_KEY: Optional[str] = None
+    # Quantum Backends - Environment variable fallbacks
+    IBM_QUANTUM_TOKEN: Optional[str] = None  # Fallback if not in DB
+    IBM_QUANTUM_CRN: Optional[str] = None  # Fallback if not in DB
+    BLUEQUBIT_API_KEY: Optional[str] = None  # Fallback if not in DB
 
     # Default Computation Settings
     DEFAULT_METHOD: str = "VQE"
@@ -52,9 +54,11 @@ class Settings(BaseSettings):
     RESULTS_DIR: Path = Path("./results")
     UPLOAD_DIR: Path = Path("./uploads")
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore"  # Ignore extra environment variables
+    )
 
 
 # Global settings instance

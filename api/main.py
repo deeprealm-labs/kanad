@@ -17,7 +17,7 @@ from api.services.job_queue import job_queue
 from api.utils.exceptions import validation_exception_handler, general_exception_handler
 
 # Import routers
-from api.routers import experiments, queue, molecules, settings as settings_router
+from api.routers import experiments, queue, molecules, settings as settings_router, cloud_credentials
 
 # Configure logging
 logging.basicConfig(
@@ -79,6 +79,7 @@ app.include_router(experiments.router, prefix=settings.API_V1_PREFIX)
 app.include_router(queue.router, prefix=settings.API_V1_PREFIX)
 app.include_router(molecules.router, prefix=settings.API_V1_PREFIX)
 app.include_router(settings_router.router, prefix=settings.API_V1_PREFIX)
+app.include_router(cloud_credentials.router)
 
 
 @app.get("/")
@@ -114,21 +115,29 @@ def api_info():
             "queue_stats": f"{settings.API_V1_PREFIX}/queue/stats",
             "molecules": f"{settings.API_V1_PREFIX}/molecules",
             "settings": f"{settings.API_V1_PREFIX}/settings",
+            "cloud_credentials": f"{settings.API_V1_PREFIX}/cloud-credentials",
             "circuit_visualization": f"{settings.API_V1_PREFIX}/experiments/{{id}}/circuit",
             "experiment_report": f"{settings.API_V1_PREFIX}/experiments/{{id}}/report",
             "convergence_data": f"{settings.API_V1_PREFIX}/experiments/{{id}}/convergence"
         },
+        "solvers": ["VQE", "SQD", "ExcitedStates"],
+        "ansatze": ["ucc", "uccsd", "hardware_efficient", "governance_aware", "two_local"],
+        "mappers": ["jordan_wigner", "bravyi_kitaev", "hybrid_orbital"],
+        "hamiltonians": ["covalent", "ionic", "metallic", "periodic", "molecular"],
+        "optimizers": ["SLSQP", "COBYLA", "L-BFGS-B", "BFGS", "Powell", "Nelder-Mead", "CG"],
+        "backends": ["classical", "ibm_quantum", "bluequbit_gpu"],
         "capabilities": {
             "methods": {
                 "VQE": "Variational Quantum Eigensolver (ground state)",
                 "SQD": "Subspace Quantum Diagonalization (ground + excited states)",
-                "EXCITED_STATES": "Excited states solver (CIS, TDDFT)",
+                "ExcitedStates": "Excited states solver (CIS, TDDFT)",
                 "HF": "Hartree-Fock (classical reference)"
             },
             "ansatze": {
-                "ucc": "Unitary Coupled Cluster (UCCSD)",
+                "ucc": "Unitary Coupled Cluster (UCC)",
+                "uccsd": "Unitary Coupled Cluster Singles and Doubles",
                 "hardware_efficient": "Hardware-Efficient Ansatz (layered)",
-                "governance": "Governance-Aware Ansatz (bond-type specific)",
+                "governance_aware": "Governance-Aware Ansatz (bond-type specific)",
                 "two_local": "Two-Local Ansatz (customizable)"
             },
             "mappers": {
@@ -136,15 +145,22 @@ def api_info():
                 "bravyi_kitaev": "Bravyi-Kitaev transformation",
                 "hybrid_orbital": "Hybrid Orbital mapping"
             },
+            "hamiltonians": {
+                "covalent": "Covalent bonding Hamiltonian",
+                "ionic": "Ionic bonding Hamiltonian",
+                "metallic": "Metallic bonding Hamiltonian",
+                "periodic": "Periodic system Hamiltonian",
+                "molecular": "General molecular Hamiltonian"
+            },
             "excited_methods": {
                 "cis": "Configuration Interaction Singles",
                 "tddft": "Time-Dependent DFT"
             },
-            "optimizers": ["SLSQP", "COBYLA", "L-BFGS-B", "ADAM", "POWELL"],
+            "optimizers": ["SLSQP", "COBYLA", "L-BFGS-B", "BFGS", "Powell", "Nelder-Mead", "CG"],
             "backends": {
                 "classical": "Classical statevector simulation (exact)",
                 "ibm_quantum": "IBM Quantum hardware/simulators",
-                "bluequbit": "BlueQubit cloud platform"
+                "bluequbit_gpu": "BlueQubit GPU cloud platform"
             },
             "basis_sets": ["sto-3g", "6-31g", "6-31g*", "6-31g**", "cc-pvdz", "cc-pvtz"]
         },
@@ -153,7 +169,8 @@ def api_info():
             "report_formats": ["json", "markdown"],
             "real_time_convergence": True,
             "job_queue": True,
-            "queue_statistics": True
+            "queue_statistics": True,
+            "cloud_credentials_management": True
         }
     }
 

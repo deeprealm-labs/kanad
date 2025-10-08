@@ -175,7 +175,8 @@ class ExperimentService:
         self,
         molecule: Molecule,
         config: Dict[str, Any],
-        progress_callback: Optional[Callable] = None
+        progress_callback: Optional[Callable] = None,
+        db_session=None
     ) -> Dict[str, Any]:
         """
         Execute VQE calculation.
@@ -183,20 +184,25 @@ class ExperimentService:
         Args:
             molecule: Kanad Molecule object
             config: Configuration dictionary with:
-                - ansatz: Ansatz type (ucc, hardware_efficient, governance)
-                - mapper: Qubit mapper (jordan_wigner, bravyi_kitaev, hybrid_orbital)
-                - optimizer: Classical optimizer (SLSQP, COBYLA, L-BFGS-B, ADAM)
-                - backend: Backend type (classical, ibm, bluequbit)
+                - ansatz: Ansatz type (ucc, uccsd, hardware_efficient, governance_aware, two_local)
+                - mapper: Qubit mapper (jordan_wigner, bravyi_kitaev, hybrid_orbital, parity)
+                - optimizer: Classical optimizer (SLSQP, COBYLA, L-BFGS-B, ADAM, etc.)
+                - backend: Backend type (classical, ibm_quantum, bluequbit_gpu)
                 - backend_name: Specific backend name (e.g., ibm_torino)
                 - max_iterations: Max optimization iterations
                 - conv_threshold: Convergence threshold
             progress_callback: Optional callback function(iteration, energy, params)
+            db_session: Database session for retrieving cloud credentials
 
         Returns:
             Dictionary with results
         """
         # Extract configuration
         ansatz_type = config.get('ansatz', 'ucc')
+        # Normalize ansatz names
+        if ansatz_type == 'governance':
+            ansatz_type = 'governance_aware'
+
         mapper_type = config.get('mapper', 'jordan_wigner')
         optimizer = config.get('optimizer', 'SLSQP')
         backend = config.get('backend', 'classical')
@@ -282,7 +288,8 @@ class ExperimentService:
         self,
         molecule: Molecule,
         config: Dict[str, Any],
-        progress_callback: Optional[Callable] = None
+        progress_callback: Optional[Callable] = None,
+        db_session=None
     ) -> Dict[str, Any]:
         """
         Execute SQD (Subspace Quantum Diagonalization) calculation.
@@ -291,6 +298,7 @@ class ExperimentService:
             molecule: Kanad Molecule object
             config: Configuration dictionary
             progress_callback: Optional callback function
+            db_session: Database session for retrieving cloud credentials
 
         Returns:
             Dictionary with results
@@ -343,7 +351,8 @@ class ExperimentService:
         self,
         molecule: Molecule,
         config: Dict[str, Any],
-        progress_callback: Optional[Callable] = None
+        progress_callback: Optional[Callable] = None,
+        db_session=None
     ) -> Dict[str, Any]:
         """
         Execute excited states calculation.
@@ -354,6 +363,7 @@ class ExperimentService:
                 - excited_method: CIS, TDDFT, etc.
                 - n_states: Number of excited states
             progress_callback: Optional callback function
+            db_session: Database session for retrieving cloud credentials
 
         Returns:
             Dictionary with results
@@ -408,7 +418,9 @@ class ExperimentService:
         self,
         molecule_data: Dict[str, Any],
         config: Dict[str, Any],
-        progress_callback: Optional[Callable] = None
+        progress_callback: Optional[Callable] = None,
+        experiment_id: Optional[int] = None,
+        db_session=None
     ) -> Dict[str, Any]:
         """
         Main entry point for executing experiments.
@@ -417,6 +429,8 @@ class ExperimentService:
             molecule_data: Molecule configuration
             config: Computation configuration
             progress_callback: Optional progress callback
+            experiment_id: Optional experiment ID for cancellation checks
+            db_session: Optional database session for cloud credentials
 
         Returns:
             Dictionary with results
@@ -441,11 +455,11 @@ class ExperimentService:
 
             # Execute based on method
             if method == 'VQE':
-                result = self.execute_vqe(molecule, config, progress_callback)
+                result = self.execute_vqe(molecule, config, progress_callback, db_session)
             elif method == 'SQD':
-                result = self.execute_sqd(molecule, config, progress_callback)
-            elif method == 'EXCITED' or method == 'EXCITED_STATES':
-                result = self.execute_excited_states(molecule, config, progress_callback)
+                result = self.execute_sqd(molecule, config, progress_callback, db_session)
+            elif method == 'EXCITED' or method == 'EXCITED_STATES' or method == 'EXCITEDSTATES':
+                result = self.execute_excited_states(molecule, config, progress_callback, db_session)
             elif method == 'HF':
                 # Simple Hartree-Fock calculation
                 result = {

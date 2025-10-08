@@ -53,18 +53,24 @@ class ExperimentConfig(BaseModel):
     max_iterations: int = Field(default=1000, description="Max iterations")
     conv_threshold: float = Field(default=1e-6, description="Convergence threshold")
 
+    # Additional configuration options
+    hamiltonian_type: Optional[str] = Field(None, description="Hamiltonian type (covalent, ionic, metallic, periodic, molecular)")
+    excited_method: Optional[str] = Field(None, description="Excited states method (cis, tddft)")
+    n_states: Optional[int] = Field(None, description="Number of excited states")
+    subspace_dim: Optional[int] = Field(None, description="Subspace dimension for SQD")
+
     @validator('method')
     def validate_method(cls, v):
         """Validate computation method."""
-        valid_methods = ['VQE', 'HF', 'SQD', 'QPE']
+        valid_methods = ['VQE', 'HF', 'SQD', 'EXCITED_STATES', 'EXCITEDSTATES']
         if v.upper() not in valid_methods:
-            raise ValueError(f"Invalid method. Valid options: {', '.join(valid_methods)}")
+            raise ValueError(f"Invalid method. Valid options: VQE, HF, SQD, ExcitedStates")
         return v.upper()
 
     @validator('ansatz')
     def validate_ansatz(cls, v):
         """Validate ansatz type."""
-        valid_ansatze = ['ucc', 'hardware_efficient', 'governance']
+        valid_ansatze = ['ucc', 'uccsd', 'hardware_efficient', 'governance_aware', 'governance', 'two_local']
         if v.lower() not in valid_ansatze:
             raise ValueError(f"Invalid ansatz. Valid options: {', '.join(valid_ansatze)}")
         return v.lower()
@@ -80,7 +86,7 @@ class ExperimentConfig(BaseModel):
     @validator('optimizer')
     def validate_optimizer(cls, v):
         """Validate optimizer."""
-        valid_optimizers = ['SLSQP', 'COBYLA', 'L-BFGS-B', 'ADAM', 'POWELL']
+        valid_optimizers = ['SLSQP', 'COBYLA', 'L-BFGS-B', 'BFGS', 'POWELL', 'NELDER-MEAD', 'CG', 'ADAM']
         if v.upper() not in valid_optimizers:
             raise ValueError(f"Invalid optimizer. Valid options: {', '.join(valid_optimizers)}")
         return v.upper()
@@ -88,7 +94,7 @@ class ExperimentConfig(BaseModel):
     @validator('backend')
     def validate_backend(cls, v):
         """Validate backend type."""
-        valid_backends = ['classical', 'ibm_quantum', 'bluequbit']
+        valid_backends = ['classical', 'ibm_quantum', 'bluequbit', 'bluequbit_gpu']
         if v.lower() not in valid_backends:
             raise ValueError(f"Invalid backend. Valid options: {', '.join(valid_backends)}")
         return v.lower()
