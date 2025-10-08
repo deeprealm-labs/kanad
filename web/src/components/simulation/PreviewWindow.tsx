@@ -1,22 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Settings } from "lucide-react";
+import ConfigurationSelector from "./ConfigurationSelector";
+import type { BackendSettings } from "@/lib/types";
 
 interface PreviewWindowProps {
   molecule: any;
-  backendSettings: any;
+  backendSettings: BackendSettings;
   onBack: () => void;
   onExecute: (config: any) => void;
+  onQueue?: (config: any) => void;
 }
 
 export default function PreviewWindow({
   molecule,
-  backendSettings,
+  backendSettings: initialSettings,
   onBack,
   onExecute,
+  onQueue,
 }: PreviewWindowProps) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [backendSettings, setBackendSettings] = useState<BackendSettings>(initialSettings);
   const [analysis, setAnalysis] = useState({
     energyDecomposition: true,
     bondAnalysis: true,
@@ -28,7 +34,16 @@ export default function PreviewWindow({
 
   const handleExecute = () => {
     if (acceptedTerms) {
-      onExecute({ molecule, backendSettings, analysis });
+      const config = { molecule, backendSettings, analysis };
+      console.log("PreviewWindow.handleExecute - config:", config);
+      console.log("PreviewWindow.handleExecute - backendSettings:", backendSettings);
+      onExecute(config);
+    }
+  };
+
+  const handleQueue = () => {
+    if (acceptedTerms && onQueue) {
+      onQueue({ molecule, backendSettings, analysis });
     }
   };
 
@@ -95,44 +110,79 @@ export default function PreviewWindow({
 
           {/* Backend Configuration */}
           <div className="bg-card border border-border rounded-lg p-6">
-            <h3 className="text-lg font-quando font-semibold mb-4">
-              Backend Configuration
-            </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Method:</span>
-                <span className="font-quando">
-                  {backendSettings?.method || "VQE"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Ansatz:</span>
-                <span className="font-quando">
-                  {backendSettings?.ansatz || "Hardware-Efficient"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Mapper:</span>
-                <span className="font-quando">
-                  {backendSettings?.mapper || "Jordan-Wigner"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Backend:</span>
-                <span className="font-quando">
-                  {backendSettings?.backend || "Classical"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Optimizer:</span>
-                <span className="font-quando">
-                  {backendSettings?.optimizer || "SLSQP"}
-                </span>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-quando font-semibold">
+                Backend Configuration
+              </h3>
+              <button
+                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                className="flex items-center gap-2 px-3 py-1 text-sm border border-border rounded-lg hover:bg-accent transition font-quando"
+              >
+                <Settings className="w-4 h-4" />
+                {showAdvancedSettings ? "Hide" : "Show"} Settings
+              </button>
             </div>
-            <div className="mt-4 text-xs text-muted-foreground font-quando">
-              Configure in Settings to change these options
-            </div>
+
+            {showAdvancedSettings ? (
+              <ConfigurationSelector
+                settings={backendSettings}
+                onChange={setBackendSettings}
+              />
+            ) : (
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Method:</span>
+                  <span className="font-quando">
+                    {backendSettings?.method || "VQE"}
+                  </span>
+                </div>
+                {backendSettings?.ansatz && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ansatz:</span>
+                    <span className="font-quando">
+                      {backendSettings.ansatz.toUpperCase().replace("_", "-")}
+                    </span>
+                  </div>
+                )}
+                {backendSettings?.mapper && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Mapper:</span>
+                    <span className="font-quando">
+                      {backendSettings.mapper
+                        .split("_")
+                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                        .join("-")}
+                    </span>
+                  </div>
+                )}
+                {backendSettings?.hamiltonian && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Hamiltonian:</span>
+                    <span className="font-quando">
+                      {backendSettings.hamiltonian.charAt(0).toUpperCase() +
+                        backendSettings.hamiltonian.slice(1)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Backend:</span>
+                  <span className="font-quando">
+                    {backendSettings?.backend
+                      ?.split("_")
+                      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                      .join(" ") || "Classical"}
+                  </span>
+                </div>
+                {backendSettings?.optimizer && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Optimizer:</span>
+                    <span className="font-quando">
+                      {backendSettings.optimizer}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Analysis Properties */}
@@ -233,17 +283,27 @@ export default function PreviewWindow({
           <div className="flex gap-4">
             <button
               onClick={onBack}
-              className="flex-1 px-6 py-3 border border-border rounded-lg hover:bg-accent transition font-quando"
+              className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition font-quando"
             >
               Back
             </button>
+            {onQueue && (
+              <button
+                onClick={handleQueue}
+                disabled={!acceptedTerms}
+                className="flex-1 px-6 py-3 border-2 border-brand-orange text-brand-orange rounded-lg hover:bg-brand-orange hover:text-white transition font-quando disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                Add to Queue
+              </button>
+            )}
             <button
               onClick={handleExecute}
               disabled={!acceptedTerms}
               className="flex-1 px-6 py-3 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <CheckCircle2 className="w-5 h-5" />
-              Execute Experiment
+              Execute Now
             </button>
           </div>
         </div>

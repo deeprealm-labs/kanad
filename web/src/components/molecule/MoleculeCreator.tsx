@@ -203,13 +203,13 @@ export default function MoleculeCreator({
                     className="border border-border rounded p-1.5 cursor-move hover:border-brand-orange transition"
                   >
                     <div className="text-center">
-                      <div className="text-[9px] text-muted-foreground leading-none">
+                      <div className="text-[9px] text-black leading-none">
                         {atom.atomicNumber}
                       </div>
-                      <div className="text-lg font-bold font-quando leading-none my-0.5">
+                      <div className="text-lg font-bold font-quando leading-none my-0.5 text-black">
                         {atom.symbol}
                       </div>
-                      <div className="text-[9px] text-muted-foreground leading-none">
+                      <div className="text-[9px] text-black leading-none">
                         {atom.massNumber}
                       </div>
                     </div>
@@ -274,13 +274,13 @@ export default function MoleculeCreator({
                       style={{ backgroundColor: atom.color }}
                       className="w-10 h-10 border border-border rounded flex-shrink-0 flex flex-col items-center justify-center"
                     >
-                      <div className="text-[8px] text-muted-foreground leading-none">
+                      <div className="text-[8px] text-black leading-none">
                         {atom.atomicNumber}
                       </div>
-                      <div className="text-sm font-bold leading-none my-0.5">
+                      <div className="text-sm font-bold leading-none my-0.5 text-black">
                         {atom.symbol}
                       </div>
-                      <div className="text-[8px] text-muted-foreground leading-none">
+                      <div className="text-[8px] text-black leading-none">
                         {atom.massNumber}
                       </div>
                     </div>

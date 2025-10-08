@@ -239,5 +239,29 @@ class IBMBackend:
         backends = self.service.backends(simulator=simulator, operational=operational)
         return [b.name for b in backends]
 
+    def cancel_job(self, job_id: str) -> Dict[str, Any]:
+        """
+        Cancel a running or queued job.
+
+        Args:
+            job_id: IBM job ID to cancel
+
+        Returns:
+            Dictionary with cancellation status
+        """
+        try:
+            job = self.service.job(job_id)
+            job.cancel()
+            logger.info(f"IBM job {job_id} cancelled successfully")
+
+            return {
+                'status': 'cancelled',
+                'job_id': job_id,
+                'message': 'Job cancellation requested'
+            }
+        except Exception as e:
+            logger.error(f"Failed to cancel IBM job {job_id}: {e}")
+            raise RuntimeError(f"Failed to cancel job: {e}")
+
     def __repr__(self):
         return f"IBMBackend(backend='{self.backend.name}', qubits={self.backend.num_qubits})"

@@ -54,6 +54,25 @@ export default function Sidebar() {
         <nav className="flex-1 p-4">
           <div className="space-y-1">
             <a
+              href="/dashboard"
+              className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition font-quando"
+            >
+              Dashboard
+            </a>
+            <a
+              href="/dashboard/history"
+              className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition font-quando"
+            >
+              Experimentation History
+            </a>
+            <a
+              href="/dashboard/queue"
+              className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition font-quando"
+            >
+              Job Queue
+            </a>
+            <div className="border-t border-gray-800 my-2"></div>
+            <a
               href="#"
               className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition font-quando"
             >

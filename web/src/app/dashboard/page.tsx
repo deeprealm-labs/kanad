@@ -1,24 +1,217 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import MoleculeCreator from "@/components/molecule/MoleculeCreator";
 import LewisStructureView from "@/components/molecule/LewisStructureView";
 import PreviewWindow from "@/components/simulation/PreviewWindow";
+import ExperimentMonitor from "@/components/simulation/ExperimentMonitor";
+import DashboardHome from "@/components/dashboard/DashboardHome";
+import { useToast } from "@/components/ui/toast";
+import { FullPageLoader } from "@/components/ui/loading";
+import * as api from "@/lib/api";
+import type { Experiment, BackendSettings } from "@/lib/types";
 
-type WorkflowStep = "idle" | "create" | "review" | "preview" | "running";
+type WorkflowStep = "home" | "create" | "review" | "preview" | "running";
 
 export default function DashboardPage() {
-  const [currentStep, setCurrentStep] = useState<WorkflowStep>("idle");
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>("home");
   const [molecule, setMolecule] = useState<any>(null);
-
-  // Mock backend settings - in production, this comes from settings
-  const backendSettings = {
+  const [experimentConfig, setExperimentConfig] = useState<any>(null);
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  const [currentExperimentId, setCurrentExperimentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [backendSettings, setBackendSettings] = useState<BackendSettings>({
     method: "VQE",
-    ansatz: "Hardware-Efficient",
-    mapper: "Jordan-Wigner",
-    backend: "Classical",
+    ansatz: "hardware_efficient",
+    mapper: "jordan_wigner",
+    backend: "classical",
     optimizer: "SLSQP",
+  });
+
+  const toast = useToast();
+
+  // Load experiments from API
+  useEffect(() => {
+    loadExperiments();
+    loadSettings();
+  }, []);
+
+  const loadExperiments = async () => {
+    try {
+      // Try to load from API
+      const response = await api.getExperiments({ limit: 10 });
+      setExperiments(response.experiments);
+    } catch (error: any) {
+      console.error("Failed to load experiments from API:", error);
+
+      // Fallback to localStorage if API is not available
+      const saved = localStorage.getItem("kanad_experiments");
+      if (saved) {
+        try {
+          setExperiments(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse localStorage experiments:", e);
+        }
+      }
+
+      // Show toast only if it's not a connection error
+      if (error.statusCode !== 503) {
+        toast.error("Failed to load experiments. Using local data.");
+      }
+    }
   };
+
+  const loadSettings = async () => {
+    try {
+      const response = await api.getSettings();
+      setBackendSettings(response.settings as any);
+    } catch (error) {
+      console.error("Failed to load settings from API:", error);
+
+      // Fallback to localStorage
+      const saved = localStorage.getItem("kanad_settings");
+      if (saved) {
+        try {
+          setBackendSettings(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse localStorage settings:", e);
+        }
+      }
+    }
+  };
+
+  // Save experiment
+  const saveExperiment = async (exp: Partial<Experiment>) => {
+    try {
+      setLoading(true);
+
+      // Create experiment via API
+      const response = await api.createExperiment({
+        molecule: exp.molecule!,
+        backendSettings: exp.backendSettings!,
+        analysis: exp.analysis,
+        executeNow: false, // Just save, don't execute
+      });
+
+      toast.success("Experiment saved successfully!");
+
+      // Reload experiments
+      await loadExperiments();
+    } catch (error: any) {
+      console.error("Failed to save experiment:", error);
+      toast.error(error.message || "Failed to save experiment");
+
+      // Fallback to localStorage
+      const newExperiment: Experiment = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        status: "completed",
+        method: exp.backendSettings?.method || "VQE",
+        backend: exp.backendSettings?.backend || "classical",
+        ...exp,
+      } as Experiment;
+
+      const updated = [newExperiment, ...experiments];
+      setExperiments(updated);
+      localStorage.setItem("kanad_experiments", JSON.stringify(updated));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add job to queue
+  const addToQueue = async (config: any) => {
+    try {
+      setLoading(true);
+
+      // Submit to API (executeNow: false means add to queue)
+      const response = await api.createExperiment({
+        molecule: config.molecule,
+        backendSettings: config.backendSettings || backendSettings,
+        analysis: config.analysis,
+        executeNow: false,
+      });
+
+      toast.success("Experiment added to queue!");
+      setCurrentStep("home");
+    } catch (error: any) {
+      console.error("Failed to add to queue:", error);
+      toast.error(error.message || "Failed to add experiment to queue");
+
+      // Fallback to localStorage
+      const saved = localStorage.getItem("kanad_queue");
+      const queue = saved ? JSON.parse(saved) : [];
+
+      const newJob = {
+        id: Date.now().toString(),
+        name: config.molecule?.smiles || "Custom Molecule",
+        molecule: config.molecule,
+        method: config.backendSettings?.method || backendSettings.method,
+        backend: config.backendSettings?.backend || backendSettings.backend,
+        priority: queue.length + 1,
+        status: "queued" as const,
+        createdAt: new Date().toISOString(),
+        backendSettings: config.backendSettings || backendSettings,
+        analysis: config.analysis,
+      };
+
+      const updated = [...queue, newJob];
+      localStorage.setItem("kanad_queue", JSON.stringify(updated));
+      toast.success("Experiment added to queue (offline mode)");
+      setCurrentStep("home");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Execute experiment
+  const executeExperiment = async (config: any) => {
+    try {
+      setLoading(true);
+
+      // Debug logging
+      console.log("executeExperiment - config:", config);
+      console.log("executeExperiment - config.backendSettings:", config.backendSettings);
+      console.log("executeExperiment - dashboard backendSettings:", backendSettings);
+
+      // Ensure we have valid backend settings with defaults
+      const settings = config.backendSettings || backendSettings || {
+        method: "VQE",
+        ansatz: "ucc",
+        mapper: "jordan_wigner",
+        backend: "classical",
+        optimizer: "SLSQP",
+      };
+
+      console.log("executeExperiment - using settings:", settings);
+
+      // Submit to API with executeNow: true
+      const response = await api.createExperiment({
+        molecule: config.molecule,
+        backendSettings: settings,
+        analysis: config.analysis,
+        executeNow: true,
+      });
+
+      setCurrentExperimentId(response.experimentId);
+      setExperimentConfig(config);
+      setCurrentStep("running");
+      toast.success("Experiment started!");
+    } catch (error: any) {
+      console.error("Failed to execute experiment:", error);
+      toast.error(error.message || "Failed to start experiment");
+
+      // In offline mode, still show the monitor with simulation
+      setExperimentConfig(config);
+      setCurrentStep("running");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <FullPageLoader message="Processing..." />;
+  }
 
   if (currentStep === "create") {
     return (
@@ -27,7 +220,7 @@ export default function DashboardPage() {
           setMolecule(mol);
           setCurrentStep("review");
         }}
-        onCancel={() => setCurrentStep("idle")}
+        onCancel={() => setCurrentStep("home")}
       />
     );
   }
@@ -48,9 +241,10 @@ export default function DashboardPage() {
         backendSettings={backendSettings}
         onBack={() => setCurrentStep("review")}
         onExecute={(config) => {
-          console.log("Executing experiment:", config);
-          // TODO: Submit to backend and move to running step
-          setCurrentStep("running");
+          executeExperiment(config);
+        }}
+        onQueue={(config) => {
+          addToQueue(config);
         }}
       />
     );
@@ -58,33 +252,29 @@ export default function DashboardPage() {
 
   if (currentStep === "running") {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-2xl font-quando font-bold mb-4">
-            Experiment Running...
-          </div>
-          <div className="text-muted-foreground font-quando">
-            Job monitoring view coming soon
-          </div>
-          <button
-            onClick={() => setCurrentStep("idle")}
-            className="mt-6 px-6 py-3 border border-border rounded-lg hover:bg-accent transition font-quando"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      </div>
+      <ExperimentMonitor
+        experimentId={currentExperimentId}
+        experimentConfig={experimentConfig}
+        onComplete={async () => {
+          await loadExperiments();
+          setCurrentStep("home");
+        }}
+        onBack={() => setCurrentStep("home")}
+        onQueueAnother={() => setCurrentStep("create")}
+      />
     );
   }
 
+  // Home view
   return (
-    <div
-      onClick={() => setCurrentStep("create")}
-      className="flex items-center justify-center h-full cursor-pointer hover:bg-accent transition-colors"
-    >
-      <h1 className="text-4xl font-quando text-muted-foreground">
-        click anywhere to start
-      </h1>
-    </div>
+    <DashboardHome
+      onNewExperiment={() => setCurrentStep("create")}
+      onViewExperiment={(experimentId, config) => {
+        setCurrentExperimentId(experimentId);
+        setExperimentConfig(config);
+        setCurrentStep("running");
+      }}
+      experiments={experiments}
+    />
   );
 }

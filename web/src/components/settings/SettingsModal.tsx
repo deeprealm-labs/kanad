@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Save } from "lucide-react";
 
 interface SettingsModalProps {
@@ -8,23 +8,51 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const [method, setMethod] = useState("VQE");
-  const [ansatz, setAnsatz] = useState("hardware_efficient");
-  const [mapper, setMapper] = useState("jordan_wigner");
-  const [optimizer, setOptimizer] = useState("SLSQP");
-  const [backend, setBackend] = useState("classical");
-  const [backendName, setBackendName] = useState("ibm_torino");
-
-  const [optimization, setOptimization] = useState({
+const DEFAULT_SETTINGS = {
+  method: "VQE",
+  ansatz: "hardware_efficient",
+  mapper: "jordan_wigner",
+  optimizer: "SLSQP",
+  backend: "classical",
+  backendName: "ibm_torino",
+  optimization: {
     geometry: false,
     orbitals: false,
     circuit: true,
     adaptive: false,
-  });
+  },
+};
+
+export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+  const [method, setMethod] = useState(DEFAULT_SETTINGS.method);
+  const [ansatz, setAnsatz] = useState(DEFAULT_SETTINGS.ansatz);
+  const [mapper, setMapper] = useState(DEFAULT_SETTINGS.mapper);
+  const [optimizer, setOptimizer] = useState(DEFAULT_SETTINGS.optimizer);
+  const [backend, setBackend] = useState(DEFAULT_SETTINGS.backend);
+  const [backendName, setBackendName] = useState(DEFAULT_SETTINGS.backendName);
+
+  const [optimization, setOptimization] = useState(DEFAULT_SETTINGS.optimization);
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("kanad_settings");
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        setMethod(settings.method || DEFAULT_SETTINGS.method);
+        setAnsatz(settings.ansatz || DEFAULT_SETTINGS.ansatz);
+        setMapper(settings.mapper || DEFAULT_SETTINGS.mapper);
+        setOptimizer(settings.optimizer || DEFAULT_SETTINGS.optimizer);
+        setBackend(settings.backend || DEFAULT_SETTINGS.backend);
+        setBackendName(settings.backendName || DEFAULT_SETTINGS.backendName);
+        setOptimization(settings.optimization || DEFAULT_SETTINGS.optimization);
+      } catch (e) {
+        console.error("Failed to load settings:", e);
+      }
+    }
+  }, [isOpen]);
 
   const handleSave = () => {
-    // TODO: Save to localStorage or backend
     const settings = {
       method,
       ansatz,
@@ -34,6 +62,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       backendName,
       optimization,
     };
+    localStorage.setItem("kanad_settings", JSON.stringify(settings));
     console.log("Saved settings:", settings);
     onClose();
   };
@@ -41,7 +70,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/20">
       <div className="bg-background border border-border rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">

@@ -53,6 +53,7 @@ class VQESolver(BaseSolver):
         hamiltonian: Optional[Any] = None,
         ansatz: Optional[Any] = None,
         mapper: Optional[Any] = None,
+        molecule: Optional[Any] = None,  # Molecule for hamiltonian-based API
         # Common parameters
         optimizer: str = 'SLSQP',
         max_iterations: int = 1000,
@@ -96,9 +97,33 @@ class VQESolver(BaseSolver):
             super().__init__(bond, enable_analysis, enable_optimization)
             self._api_mode = 'bond'
         elif hamiltonian is not None and bond is None:
-            # Low-level API: Initialize from components (for testing)
-            self._init_from_components_mode(hamiltonian, ansatz, mapper, enable_analysis, enable_optimization)
-            self._api_mode = 'components'
+            if ansatz is None and mapper is None:
+                # Hamiltonian-based API with types (for polyatomic molecules from API)
+                # Use provided molecule or extract from hamiltonian
+                if molecule is not None:
+                    molecule_obj = molecule
+                elif hasattr(hamiltonian, 'molecule'):
+                    molecule_obj = hamiltonian.molecule
+                else:
+                    # Hamiltonian might not have molecule reference, try to get it
+                    molecule_obj = getattr(hamiltonian, '_molecule', None)
+
+                if molecule_obj is None:
+                    raise ValueError("Must provide 'molecule' parameter or hamiltonian with molecule reference for type-based initialization")
+
+                # Initialize with molecule and hamiltonian
+                self.molecule = molecule_obj
+                self.hamiltonian = hamiltonian
+                self.bond = None
+                self._enable_analysis = enable_analysis
+                self._enable_optimization = enable_optimization
+                self.enable_analysis = enable_analysis  # Public attribute for _build_circuit
+                self.enable_optimization = enable_optimization  # Public attribute for _build_circuit
+                self._api_mode = 'hamiltonian_types'
+            else:
+                # Low-level API: Initialize from components (for testing)
+                self._init_from_components_mode(hamiltonian, ansatz, mapper, enable_analysis, enable_optimization)
+                self._api_mode = 'components'
         elif bond is not None and hamiltonian is not None:
             raise ValueError("Cannot use both 'bond' and 'hamiltonian' parameters. Choose one API.")
         else:
@@ -119,6 +144,14 @@ class VQESolver(BaseSolver):
         # Initialize based on API mode
         if self._api_mode == 'bond':
             # Initialize ansatz and mapper from bond
+            self._init_ansatz()
+            self._init_mapper()
+            # Build quantum circuit
+            self._build_circuit()
+            # Initialize backend
+            self._init_backend(**kwargs)
+        elif self._api_mode == 'hamiltonian_types':
+            # Hamiltonian-based API with types - initialize like bond mode
             self._init_ansatz()
             self._init_mapper()
             # Build quantum circuit

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Quando } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ToastProvider } from "@/components/ui/toast";
+import Script from "next/script";
 
 const quando = Quando({
   weight: "400",
@@ -22,6 +24,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script
+          src="/smiles-drawer.min.js"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className={`${quando.variable} antialiased`} style={{ fontFamily: 'var(--font-quando), serif' }}>
         <ThemeProvider
           attribute="class"
@@ -29,7 +37,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <ToastProvider>
+            {children}
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>
