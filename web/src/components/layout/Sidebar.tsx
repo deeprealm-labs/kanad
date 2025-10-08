@@ -50,8 +50,23 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Spacer */}
-        <div className="flex-1"></div>
+        {/* Navigation */}
+        <nav className="flex-1 p-4">
+          <div className="space-y-1">
+            <a
+              href="#"
+              className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition font-quando"
+            >
+              Docs
+            </a>
+            <a
+              href="#"
+              className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition font-quando"
+            >
+              Tutorials
+            </a>
+          </div>
+        </nav>
 
         {/* Kanad Logo at Bottom - Much Bigger, Covers Sidebar Width */}
         <div className="p-4 border-t border-gray-800">
