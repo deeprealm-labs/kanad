@@ -1,8 +1,0 @@
-{
-  "job_id": "d3ie3mpb641c738n3d80",
-  "backend": "ibm_torino",
-  "molecule": "H2",
-  "hf_energy": -1.1167593073964253,
-  "submission_time": "2025-10-07T15:18:12.222196",
-  "qubits": 4
-}
