@@ -1,0 +1,47 @@
+================================================================================
+KANAD FRAMEWORK - MASTER BENCHMARK
+================================================================================
+
+[1/12] Running test_h2_hardwareefficient.py... ✗ ERROR: could not convert string to float: 'E=-1.137306'
+[2/12] Running test_h2_twolocal.py... ✗ ERROR: could not convert string to float: 'E=-1.116999'
+[3/12] Running test_h2_covalentgov.py... ✗ ERROR: could not convert string to float: 'E=-1.137306'
+[4/12] Running test_h2_ionicgov.py... ✗ ERROR: could not convert string to float: 'E=-1.137305'
+[5/12] Running test_lih_hardwareefficient.py... ✗ FAILED
+[6/12] Running test_lih_twolocal.py... ✗ ERROR: could not convert string to float: 'E=-7.862250'
+[7/12] Running test_lih_covalentgov.py... ✗ TIMEOUT
+[8/12] Running test_lih_ionicgov.py... ✗ TIMEOUT
+[9/12] Running test_heh+_hardwareefficient.py... ✗ FAILED
+[10/12] Running test_heh+_twolocal.py... ✗ ERROR: could not convert string to float: 'E=-3.016314'
+[11/12] Running test_heh+_covalentgov.py... ✗ ERROR: could not convert string to float: 'E=-3.014981'
+[12/12] Running test_heh+_ionicgov.py... ✗ ERROR: could not convert string to float: 'E=-3.014978'
+
+================================================================================
+RESULTS SUMMARY
+================================================================================
+
+Total tests: 12
+Passed: 0
+Failed: 12
+Success rate: 0.0%
+Total time: 11.6 minutes
+
+--------------------------------------------------------------------------------
+FAILED TESTS
+--------------------------------------------------------------------------------
+  test_h2_hardwareefficient.py: ERROR
+  test_h2_twolocal.py: ERROR
+  test_h2_covalentgov.py: ERROR
+  test_h2_ionicgov.py: ERROR
+  test_lih_hardwareefficient.py: FAIL
+  test_lih_twolocal.py: ERROR
+  test_lih_covalentgov.py: TIMEOUT
+  test_lih_ionicgov.py: TIMEOUT
+  test_heh+_hardwareefficient.py: FAIL
+  test_heh+_twolocal.py: ERROR
+  test_heh+_covalentgov.py: ERROR
+  test_heh+_ionicgov.py: ERROR
+
+✓ Results saved to:
+  - benchmarks/benchmark_results.json
+  - benchmarks/benchmark_log.txt
+================================================================================

@@ -116,9 +116,16 @@ class UCCAnsatz(BaseAnsatz):
         if initial_state is None:
             initial_state = self._hartree_fock_state()
 
-        for qubit, occupation in enumerate(initial_state):
+        # CRITICAL: Qiskit uses little-endian qubit ordering (qubit 0 is rightmost)
+        # So we need to reverse the occupation list when applying X gates
+        # Example: HF state [1,1,0,0] means occupy spin-orbitals 0,1
+        # In Qiskit little-endian, this is |1100⟩ which means qubits 2,3 are |1⟩
+        # So we apply X to qubits at indices: n_qubits - 1 - i for each occupied i
+        for i, occupation in enumerate(initial_state):
             if occupation == 1:
-                circuit.x(qubit)
+                # Map spin-orbital i to qubit (n_qubits - 1 - i) for little-endian
+                qubit_index = self.n_qubits - 1 - i
+                circuit.x(qubit_index)
 
         circuit.barrier()
 
@@ -143,12 +150,17 @@ class UCCAnsatz(BaseAnsatz):
         """
         Generate Hartree-Fock reference state for spin orbitals.
 
-        Uses interleaved spin ordering (Jordan-Wigner convention):
-        - Qubits 0, 1, 2, ..., N-1: spin-up orbitals (orbital 0↑, 1↑, 2↑, ...)
-        - Qubits N, N+1, ..., 2N-1: spin-down orbitals (orbital 0↓, 1↓, 2↓, ...)
+        CRITICAL: Uses OpenFermion/Qiskit spin-orbital ordering:
+        - Spin orbitals are paired: [0↑, 0↓, 1↑, 1↓, 2↑, 2↓, ...]
+        - Qubit index: 2*orbital_idx for spin-up, 2*orbital_idx+1 for spin-down
 
-        For H2 (2 electrons, 2 orbitals → 4 qubits):
-        - Correct HF state: [1,0,1,0] (qubit 0=orb0↑, qubit 2=orb0↓)
+        For H2 (2 electrons, 2 spatial orbitals → 4 qubits):
+        - HF state: both electrons in lowest orbital (orbital 0)
+        - Qubits: [0↑, 0↓, 1↑, 1↓] = [1, 1, 0, 0]
+        - This is |1100⟩ in qubit basis
+
+        For closed-shell systems:
+        - Fill lowest orbitals with electron pairs (↑↓)
 
         Returns:
             Occupation list for spin orbitals
@@ -156,19 +168,39 @@ class UCCAnsatz(BaseAnsatz):
         state = [0] * self.n_qubits
         n_orbitals = self.n_qubits // 2
 
-        # Calculate spin-up and spin-down electron counts
-        n_up = (self.n_electrons + 1) // 2  # Ceiling division
-        n_down = self.n_electrons // 2       # Floor division
+        # For closed-shell: assume even number of electrons, paired spins
+        if self.n_electrons % 2 == 0:
+            n_pairs = self.n_electrons // 2
+            # Fill lowest n_pairs orbitals with both spin-up and spin-down
+            for i in range(min(n_pairs, n_orbitals)):
+                state[2*i] = 1      # Spin-up: qubit 2*i
+                state[2*i + 1] = 1  # Spin-down: qubit 2*i+1
+        else:
+            # Open-shell: fill pairs first, then add unpaired electron
+            n_pairs = self.n_electrons // 2
+            for i in range(min(n_pairs, n_orbitals)):
+                state[2*i] = 1      # Spin-up
+                state[2*i + 1] = 1  # Spin-down
 
-        # Fill spin-up orbitals (qubits 0, 1, 2, ...)
-        for i in range(min(n_up, n_orbitals)):
-            state[i] = 1
-
-        # Fill spin-down orbitals (qubits n_orbitals, n_orbitals+1, ...)
-        for i in range(min(n_down, n_orbitals)):
-            state[n_orbitals + i] = 1
+            # Add unpaired electron (spin-up in next orbital)
+            if n_pairs < n_orbitals:
+                state[2*n_pairs] = 1
 
         return state
+
+    def _spin_orbital_to_qubit(self, spin_orbital_idx: int) -> int:
+        """
+        Map spin-orbital index to Qiskit qubit index.
+
+        Accounts for Qiskit's little-endian qubit ordering.
+
+        Args:
+            spin_orbital_idx: Spin-orbital index (0 to n_qubits-1)
+
+        Returns:
+            Qubit index in Qiskit's little-endian convention
+        """
+        return self.n_qubits - 1 - spin_orbital_idx
 
     def _apply_single_excitation(
         self,
@@ -178,27 +210,28 @@ class UCCAnsatz(BaseAnsatz):
         exc_idx: int
     ):
         """
-        Apply single excitation operator.
+        Apply single excitation operator using correct Jordan-Wigner gates.
 
         Implements: exp(θ (a†_virt a_occ - a†_occ a_virt))
 
-        Using Givens rotation decomposition.
-
         Args:
             circuit: Circuit to modify
-            occ: Occupied orbital
-            virt: Virtual orbital
+            occ: Occupied spin-orbital index
+            virt: Virtual spin-orbital index
             exc_idx: Excitation index
         """
+        from kanad.ansatze.ucc_gates import apply_single_excitation_jw
+
         theta = Parameter(f'θ_s_{exc_idx}')
 
-        # Givens rotation: mixing occupied and virtual orbitals
-        # Implemented as RY rotation between qubits
+        # Map spin-orbital indices to qubit indices (little-endian)
+        occ_qubit = self._spin_orbital_to_qubit(occ)
+        virt_qubit = self._spin_orbital_to_qubit(virt)
 
-        # Entangle the orbitals
-        circuit.cx(occ, virt)
-        circuit.ry(theta, virt)
-        circuit.cx(occ, virt)
+        # Apply correct fermionic excitation using Jordan-Wigner
+        apply_single_excitation_jw(
+            circuit, virt_qubit, occ_qubit, theta, self.n_qubits
+        )
 
     def _apply_double_excitation(
         self,
@@ -210,58 +243,32 @@ class UCCAnsatz(BaseAnsatz):
         exc_idx: int
     ):
         """
-        Apply double excitation operator using proper fermionic mapping.
+        Apply double excitation operator using correct Jordan-Wigner gates.
 
         Implements: exp(θ (a†_virt1 a†_virt2 a_occ2 a_occ1 - a†_occ1 a†_occ2 a_virt2 a_virt1))
 
-        This uses the full Jordan-Wigner transformation to properly implement
-        the double excitation while preserving particle number.
-
         Args:
             circuit: Circuit to modify
-            occ1: First occupied orbital
-            occ2: Second occupied orbital
-            virt1: First virtual orbital
-            virt2: Second virtual orbital
+            occ1: First occupied spin-orbital index
+            occ2: Second occupied spin-orbital index
+            virt1: First virtual spin-orbital index
+            virt2: Second virtual spin-orbital index
             exc_idx: Excitation index
         """
+        from kanad.ansatze.ucc_gates import apply_double_excitation_jw
+
         theta = Parameter(f'θ_d_{exc_idx}')
 
-        # Proper double excitation using fermion-to-qubit mapping
-        # This implements the UCCSD double excitation gate decomposition
-        # Reference: Quantum Chemistry in the Age of Quantum Computing (Cao et al. 2019)
+        # Map spin-orbital indices to qubit indices (little-endian)
+        occ1_q = self._spin_orbital_to_qubit(occ1)
+        occ2_q = self._spin_orbital_to_qubit(occ2)
+        virt1_q = self._spin_orbital_to_qubit(virt1)
+        virt2_q = self._spin_orbital_to_qubit(virt2)
 
-        # Ladder operator sequence: a†_v1 a†_v2 a_o2 a_o1
-        # Jordan-Wigner requires parity checks between operators
-
-        # Build ladder of CNOTs for parity tracking
-        qubits = sorted([occ1, occ2, virt1, virt2])
-
-        # Create superposition between |occ1,occ2,virt1,virt2⟩ states
-        # Using controlled rotations with proper phase tracking
-
-        # Step 1: Entangle occupied orbitals
-        circuit.cx(occ1, occ2)
-
-        # Step 2: Entangle virtual orbitals
-        circuit.cx(virt1, virt2)
-
-        # Step 3: Create parity chain
-        if occ2 < virt1:
-            for q in range(occ2 + 1, virt1):
-                circuit.cx(q, virt1)
-
-        # Step 4: Apply parametrized rotation (double excitation amplitude)
-        circuit.ry(theta, virt1)
-
-        # Step 5: Uncompute parity chain
-        if occ2 < virt1:
-            for q in reversed(range(occ2 + 1, virt1)):
-                circuit.cx(q, virt1)
-
-        # Step 6: Uncompute entanglements
-        circuit.cx(virt1, virt2)
-        circuit.cx(occ1, occ2)
+        # Apply correct fermionic double excitation using Jordan-Wigner
+        apply_double_excitation_jw(
+            circuit, virt1_q, virt2_q, occ2_q, occ1_q, theta, self.n_qubits
+        )
 
     def get_excitation_list(self) -> List[Tuple[List[int], List[int]]]:
         """Get list of excitations."""

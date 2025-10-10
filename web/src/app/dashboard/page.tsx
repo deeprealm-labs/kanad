@@ -267,6 +267,7 @@ export default function DashboardPage() {
 
   // Home view
   return (
+  
     <DashboardHome
       onNewExperiment={() => setCurrentStep("create")}
       onViewExperiment={(experimentId, config) => {
@@ -276,5 +277,7 @@ export default function DashboardPage() {
       }}
       experiments={experiments}
     />
+       
+
   );
 }

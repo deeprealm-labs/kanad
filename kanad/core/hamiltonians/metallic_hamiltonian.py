@@ -374,20 +374,20 @@ class MetallicHamiltonian(MolecularHamiltonian):
 
     def to_fermionic_operator(self):
         """
-        Convert to Qiskit Nature FermionicOp.
+        Convert to OpenFermion FermionOperator (qiskit-nature removed).
 
         This allows integration with VQE and quantum algorithms.
 
         Returns:
-            qiskit_nature.second_q.operators.FermionicOp
+            openfermion.FermionOperator
         """
         try:
-            from qiskit_nature.second_q.operators import FermionicOp
+            from openfermion import FermionOperator
         except ImportError:
-            raise ImportError("Qiskit Nature required for fermionic operators")
+            raise ImportError("OpenFermion required. Install with: pip install openfermion")
 
         # Build fermionic operator: H = Σ h_ij a†_i a_j
-        # In Qiskit Nature format: "+_i -_j" means a†_i a_j
+        # OpenFermion format: FermionOperator(((i, 1), (j, 0)), coeff) = coeff * a†_i a_j
 
         terms = {}
 

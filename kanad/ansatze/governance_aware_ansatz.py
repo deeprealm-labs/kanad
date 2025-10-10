@@ -92,19 +92,25 @@ class IonicGovernanceAnsatz(BaseAnsatz):
                     circuit.x(qubit)
             circuit.barrier()
         else:
-            # Default: Hartree-Fock state with interleaved spin ordering
-            # Qubit ordering: q0=orb0↑, q1=orb1↑, ..., qN=orb0↓, qN+1=orb1↓, ...
+            # Default: Hartree-Fock state with PAIRED spin ordering
+            # CRITICAL: Uses [0↑, 0↓, 1↑, 1↓, ...] to match OpenFermion/UCC
             n_orbitals = self.n_qubits // 2
-            n_up = (self.n_electrons + 1) // 2  # Spin-up electrons
-            n_down = self.n_electrons // 2      # Spin-down electrons
 
-            # Fill spin-up orbitals (qubits 0, 1, 2, ...)
-            for i in range(min(n_up, n_orbitals)):
-                circuit.x(i)
-
-            # Fill spin-down orbitals (qubits n_orbitals, n_orbitals+1, ...)
-            for i in range(min(n_down, n_orbitals)):
-                circuit.x(n_orbitals + i)
+            # Fill electrons using paired ordering
+            if self.n_electrons % 2 == 0:
+                # Even number: fill pairs
+                n_pairs = self.n_electrons // 2
+                for i in range(min(n_pairs, n_orbitals)):
+                    circuit.x(2*i)      # Spin-up in orbital i
+                    circuit.x(2*i + 1)  # Spin-down in orbital i
+            else:
+                # Odd number: fill pairs then add one spin-up
+                n_pairs = self.n_electrons // 2
+                for i in range(min(n_pairs, n_orbitals)):
+                    circuit.x(2*i)
+                    circuit.x(2*i + 1)
+                if n_pairs < n_orbitals:
+                    circuit.x(2*n_pairs)
 
             circuit.barrier()
 
@@ -274,19 +280,25 @@ class CovalentGovernanceAnsatz(BaseAnsatz):
                     circuit.x(qubit)
             circuit.barrier()
         else:
-            # Default: Hartree-Fock state with interleaved spin ordering
-            # Qubit ordering: q0=orb0↑, q1=orb1↑, ..., qN=orb0↓, qN+1=orb1↓, ...
+            # Default: Hartree-Fock state with PAIRED spin ordering
+            # CRITICAL: Uses [0↑, 0↓, 1↑, 1↓, ...] to match OpenFermion/UCC
             n_orbitals = self.n_qubits // 2
-            n_up = (self.n_electrons + 1) // 2  # Spin-up electrons
-            n_down = self.n_electrons // 2      # Spin-down electrons
 
-            # Fill spin-up orbitals (qubits 0, 1, 2, ...)
-            for i in range(min(n_up, n_orbitals)):
-                circuit.x(i)
-
-            # Fill spin-down orbitals (qubits n_orbitals, n_orbitals+1, ...)
-            for i in range(min(n_down, n_orbitals)):
-                circuit.x(n_orbitals + i)
+            # Fill electrons using paired ordering
+            if self.n_electrons % 2 == 0:
+                # Even number: fill pairs
+                n_pairs = self.n_electrons // 2
+                for i in range(min(n_pairs, n_orbitals)):
+                    circuit.x(2*i)      # Spin-up in orbital i
+                    circuit.x(2*i + 1)  # Spin-down in orbital i
+            else:
+                # Odd number: fill pairs then add one spin-up
+                n_pairs = self.n_electrons // 2
+                for i in range(min(n_pairs, n_orbitals)):
+                    circuit.x(2*i)
+                    circuit.x(2*i + 1)
+                if n_pairs < n_orbitals:
+                    circuit.x(2*n_pairs)
 
             circuit.barrier()
 

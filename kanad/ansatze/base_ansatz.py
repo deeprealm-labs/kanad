@@ -146,6 +146,7 @@ class QuantumCircuit:
 
         for param, value in zip(self.parameters, values):
             param.value = value
+            param._is_symbolic = False  # Mark as bound
 
     def to_qiskit(self):
         """
@@ -222,6 +223,28 @@ class QuantumCircuit:
                 qc.ryy(qiskit_params[0], qubits[0], qubits[1])
             elif gate_type == 'rzz':
                 qc.rzz(qiskit_params[0], qubits[0], qubits[1])
+            elif gate_type == 's':
+                qc.s(qubits[0])
+            elif gate_type == 'sdg':
+                qc.sdg(qubits[0])
+            elif gate_type == 't':
+                qc.t(qubits[0])
+            elif gate_type == 'tdg':
+                qc.tdg(qubits[0])
+            elif gate_type == 'sx':
+                qc.sx(qubits[0])
+            elif gate_type == 'sxdg':
+                qc.sxdg(qubits[0])
+            elif gate_type == 'p' or gate_type == 'phase':
+                qc.p(qiskit_params[0], qubits[0])
+            elif gate_type == 'u':
+                qc.u(qiskit_params[0], qiskit_params[1], qiskit_params[2], qubits[0])
+            elif gate_type == 'u1':
+                qc.p(qiskit_params[0], qubits[0])  # u1 is deprecated, use p
+            elif gate_type == 'u2':
+                qc.u(np.pi/2, qiskit_params[0], qiskit_params[1], qubits[0])
+            elif gate_type == 'u3':
+                qc.u(qiskit_params[0], qiskit_params[1], qiskit_params[2], qubits[0])
             else:
                 raise ValueError(f"Unsupported gate type for Qiskit conversion: {gate_type}")
 

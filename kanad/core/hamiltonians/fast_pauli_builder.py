@@ -35,79 +35,21 @@ def build_molecular_hamiltonian_pauli(
     Returns:
         SparsePauliOp representing the Hamiltonian
     """
+    # Use OpenFermion for Jordan-Wigner transformation (our validated implementation)
+    # This avoids the qiskit-nature dependency which has been removed
     try:
-        from qiskit.second_q.operators import FermionicOp
-        from qiskit.second_q.mappers import JordanWignerMapper
-    except ImportError:
-        # Fallback for older Qiskit versions
-        try:
-            from qiskit_nature.second_q.operators import FermionicOp
-            from qiskit_nature.second_q.mappers import JordanWignerMapper
-        except ImportError:
-            raise ImportError(
-                "Qiskit 2.x required. Install with: pip install 'qiskit>=1.0'"
-            )
+        from kanad.core.hamiltonians.openfermion_jw import openfermion_jordan_wigner
+        logger.info("Using OpenFermion Jordan-Wigner transformation (validated reference)")
 
-    n_qubits = 2 * n_orbitals
-
-    logger.info(f"Building Hamiltonian using Qiskit FermionicOp...")
-    logger.info(f"  {n_orbitals} spatial orbitals → {n_qubits} spin orbitals")
-
-    # Build fermionic Hamiltonian using Qiskit's format
-    # Format: {label: coefficient} where label like "+_0 -_1" means a†_0 a_1
-
-    fermionic_terms = {}
-
-    # Nuclear repulsion (identity)
-    fermionic_terms[""] = nuclear_repulsion
-
-    # One-body terms: h[i,j] a†_i a_j
-    for i in range(n_orbitals):
-        for j in range(n_orbitals):
-            h_ij = h_core[i, j]
-            if abs(h_ij) > 1e-12:
-                # Alpha spin
-                label = f"+_{2*i} -_{2*j}"
-                fermionic_terms[label] = fermionic_terms.get(label, 0) + h_ij
-                # Beta spin
-                label = f"+_{2*i+1} -_{2*j+1}"
-                fermionic_terms[label] = fermionic_terms.get(label, 0) + h_ij
-
-    # Two-body terms: 0.5 * g[ijkl] a†_i a†_j a_l a_k
-    for i in range(n_orbitals):
-        for j in range(n_orbitals):
-            for k in range(n_orbitals):
-                for l in range(n_orbitals):
-                    g_ijkl = eri[i, k, j, l]
-                    if abs(g_ijkl) > 1e-12:
-                        coeff = 0.5 * g_ijkl
-
-                        # All spin combinations
-                        # Alpha-alpha
-                        label = f"+_{2*i} +_{2*j} -_{2*l} -_{2*k}"
-                        fermionic_terms[label] = fermionic_terms.get(label, 0) + coeff
-                        # Alpha-beta
-                        label = f"+_{2*i} +_{2*j+1} -_{2*l+1} -_{2*k}"
-                        fermionic_terms[label] = fermionic_terms.get(label, 0) + coeff
-                        # Beta-alpha
-                        label = f"+_{2*i+1} +_{2*j} -_{2*l} -_{2*k+1}"
-                        fermionic_terms[label] = fermionic_terms.get(label, 0) + coeff
-                        # Beta-beta
-                        label = f"+_{2*i+1} +_{2*j+1} -_{2*l+1} -_{2*k+1}"
-                        fermionic_terms[label] = fermionic_terms.get(label, 0) + coeff
-
-    logger.info(f"Built {len(fermionic_terms)} fermionic terms")
-
-    # Create FermionicOp
-    ferm_op = FermionicOp(fermionic_terms, num_spin_orbitals=n_qubits)
-
-    # Map to Pauli operators using Jordan-Wigner
-    mapper = JordanWignerMapper()
-    pauli_op = mapper.map(ferm_op)
-
-    # Simplify
-    pauli_op = pauli_op.simplify(atol=1e-12)
-
-    logger.info(f"✓ Final Pauli Hamiltonian: {len(pauli_op)} terms")
-
-    return pauli_op
+        # Use our OpenFermion-based implementation directly
+        return openfermion_jordan_wigner(
+            h_mo=h_core,
+            eri_mo=eri,
+            nuclear_repulsion=nuclear_repulsion,
+            n_electrons=0  # Not needed for Hamiltonian construction
+        )
+    except ImportError as e:
+        raise ImportError(
+            f"OpenFermion not available: {e}\n"
+            "Install with: pip install openfermion"
+        )

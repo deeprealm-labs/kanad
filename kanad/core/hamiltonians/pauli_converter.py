@@ -66,10 +66,22 @@ class PauliConverter:
 
         n_orbitals = hamiltonian.n_orbitals
 
-        # Use integrals directly (they are already in the correct basis from Hamiltonian construction)
-        # The Hamiltonian class handles basis transformations internally
-        h_core = hamiltonian.h_core
-        eri = hamiltonian.eri if hasattr(hamiltonian, 'eri') else None
+        # CRITICAL FIX: Transform AO basis integrals to MO basis
+        # VQE operates on MO basis, not AO basis!
+
+        # Get MO coefficients from HF calculation
+        mo_energies, C = hamiltonian.compute_molecular_orbitals()
+
+        # Transform h_core to MO basis: h_mo = C† h_ao C
+        h_core = C.T @ hamiltonian.h_core @ C
+
+        # Transform ERI to MO basis
+        if hasattr(hamiltonian, 'eri') and hamiltonian.eri is not None:
+            eri_ao = hamiltonian.eri
+            # Transform all 4 indices: eri_mo[i,j,k,l] = Σ_pqrs C[p,i] C[q,j] eri_ao[p,q,r,s] C[r,k] C[s,l]
+            eri = np.einsum('pi,qj,pqrs,rk,sl->ijkl', C, C, eri_ao, C, C, optimize=True)
+        else:
+            eri = None
 
         # For Jordan-Wigner and other mappers: need spin orbitals (alpha + beta)
         # Each spatial orbital has 2 spin orbitals (spin-up, spin-down)
@@ -144,6 +156,19 @@ class PauliConverter:
             pauli_dict[identity_string] += hamiltonian.nuclear_repulsion
         else:
             pauli_dict[identity_string] = hamiltonian.nuclear_repulsion
+
+        # Use OpenFermion's validated Jordan-Wigner transformation
+        logger.info("Using OpenFermion Jordan-Wigner transformation (validated reference)")
+
+        from kanad.core.hamiltonians.openfermion_jw import openfermion_jordan_wigner
+
+        # Return the validated transformation
+        return openfermion_jordan_wigner(
+            h_core,
+            eri,
+            hamiltonian.nuclear_repulsion,
+            hamiltonian.n_electrons
+        )
 
         # 4. Filter out negligible terms
         pauli_dict = {
@@ -372,74 +397,31 @@ class PauliConverter:
     @staticmethod
     def _to_pauli_qiskit_nature(hamiltonian, mapper):
         """
-        Convert Hamiltonian to Pauli using Qiskit Nature (CORRECT implementation!).
+        Legacy method - now uses OpenFermion instead of qiskit-nature.
 
-        This uses Qiskit Nature's battle-tested fermionic operators and mappers
-        to ensure mathematically correct two-electron terms.
-
-        CRITICAL: Qiskit Nature requires integrals in MO (molecular orbital) basis,
-        not AO (atomic orbital) basis. We transform AO→MO using HF MO coefficients.
+        The qiskit-nature dependency has been removed. This method now delegates
+        to OpenFermion-based implementation which provides the same correctness.
 
         Args:
             hamiltonian: MolecularHamiltonian with h_core and eri
-            mapper: Not used (Qiskit Nature has its own mappers)
+            mapper: Not used
 
         Returns:
             qiskit.quantum_info.SparsePauliOp
         """
-        try:
-            from kanad.external.qiskit_nature.operators import ElectronicIntegrals
-            from kanad.external.qiskit_nature.hamiltonians import ElectronicEnergy
-            from kanad.external.qiskit_nature.mappers import JordanWignerMapper
-            from qiskit.quantum_info import SparsePauliOp
-            from pyscf import ao2mo
-        except ImportError as e:
-            raise ImportError(f"External Qiskit Nature or PySCF not available: {e}")
+        # Use OpenFermion implementation instead (qiskit-nature removed)
+        from kanad.core.hamiltonians.openfermion_jw import openfermion_jordan_wigner
 
-        # CRITICAL FIX: Transform AO basis integrals to MO basis
-        # Qiskit Nature expects MO basis integrals!
-
-        # Get MO coefficients from HF calculation
+        # Get MO coefficients
         mo_energies, C = hamiltonian.compute_molecular_orbitals()
 
-        # Transform h_core to MO basis: h_mo = C† h_ao C
+        # Transform to MO basis
         h_core_mo = C.T @ hamiltonian.h_core @ C
+        eri_mo = np.einsum('pi,qj,pqrs,rk,sl->ijkl', C, C, hamiltonian.eri, C, C, optimize=True)
 
-        # Transform ERI to MO basis
-        # Use ao2mo.incore.general for direct transformation without needing mol object
-        # ERI in AO basis: eri_ao[p,q,r,s] (chemist notation)
-        # Transform: eri_mo = C.T @ eri_ao @ C for all 4 indices
-        # Use numpy einsum for efficiency: eri_mo[i,j,k,l] = Σ_pqrs C[p,i] C[q,j] eri_ao[p,q,r,s] C[r,k] C[s,l]
-
-        n = C.shape[1]  # Number of MOs
-        eri_ao = hamiltonian.eri
-
-        # Transform all 4 indices
-        eri_mo_chemist = np.einsum('pi,qj,pqrs,rk,sl->ijkl', C, C, eri_ao, C, C, optimize=True)
-
-        # IMPORTANT: Pass chemist notation directly and let Qiskit Nature auto-convert
-        # from_raw_integrals has auto_index_order=True by default, which detects and converts
-        # If we manually convert, it might double-convert!
-        integrals = ElectronicIntegrals.from_raw_integrals(
-            h_core_mo,
-            eri_mo_chemist  # Pass chemist notation, let it auto-convert
+        return openfermion_jordan_wigner(
+            h_mo=h_core_mo,
+            eri_mo=eri_mo,
+            nuclear_repulsion=hamiltonian.nuclear_repulsion,
+            n_electrons=hamiltonian.n_electrons
         )
-        qn_hamiltonian = ElectronicEnergy(integrals)
-
-        # Convert to fermionic operator
-        fermionic_op = qn_hamiltonian.second_q_op()
-
-        # Map to qubits using Jordan-Wigner
-        qn_mapper = JordanWignerMapper()
-        qubit_op = qn_mapper.map(fermionic_op)
-
-        # Add nuclear repulsion as constant term
-        # (fermionic_op contains electronic energy only)
-        e_nuc = hamiltonian.nuclear_repulsion
-        identity_op = SparsePauliOp(['I' * qubit_op.num_qubits], [e_nuc])
-        full_op = qubit_op + identity_op
-
-        # Simplify to combine like terms (though matrix is same either way)
-        full_op = full_op.simplify()
-
-        return full_op

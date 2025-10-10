@@ -179,7 +179,7 @@ class BaseSolver(ABC):
         opt_stats = {}
 
         # Circuit optimization stats (if applicable)
-        if hasattr(self, 'circuit') and self.circuit_optimizer:
+        if hasattr(self, 'circuit') and hasattr(self, 'circuit_optimizer') and self.circuit_optimizer:
             opt_stats['circuit'] = {
                 'gates_before': getattr(self, '_gates_before_opt', None),
                 'gates_after': getattr(self, '_gates_after_opt', None),

@@ -188,24 +188,37 @@ class TwoLocalAnsatz(BaseAnsatz):
         """
         Generate HF reference state.
 
-        Qubit ordering: interleaved (q0=orb0↑, q1=orb1↑, q2=orb0↓, q3=orb1↓, ...)
-        For H2 (2 electrons in orbital 0): |0101⟩ = [1,0,1,0]
+        CRITICAL: Uses PAIRED spin-orbital ordering to match OpenFermion/UCC:
+        [0↑, 0↓, 1↑, 1↓, 2↑, 2↓, ...]
+
+        For H2 (2 electrons, 2 spatial orbitals):
+        - Both electrons in lowest orbital (orbital 0)
+        - State: [1, 1, 0, 0] = |1100⟩ in qubit basis
+
+        This matches the Jordan-Wigner Hamiltonian from openfermion_jordan_wigner().
 
         Returns:
             Occupation list
         """
         state = [0] * self.n_qubits
         n_orbitals = self.n_qubits // 2
-        n_up = (self.n_electrons + 1) // 2  # Spin-up electrons
-        n_down = self.n_electrons // 2      # Spin-down electrons
 
-        # Fill spin-up orbitals (qubits 0, 1, 2, ...)
-        for i in range(min(n_up, n_orbitals)):
-            state[i] = 1
-
-        # Fill spin-down orbitals (qubits n_orbitals, n_orbitals+1, ...)
-        for i in range(min(n_down, n_orbitals)):
-            state[n_orbitals + i] = 1
+        # Fill electrons using paired ordering: [0↑, 0↓, 1↑, 1↓, ...]
+        if self.n_electrons % 2 == 0:
+            # Even number of electrons: fill pairs
+            n_pairs = self.n_electrons // 2
+            for i in range(min(n_pairs, n_orbitals)):
+                state[2*i] = 1      # Spin-up in orbital i
+                state[2*i + 1] = 1  # Spin-down in orbital i
+        else:
+            # Odd number of electrons: fill pairs then add one spin-up
+            n_pairs = self.n_electrons // 2
+            for i in range(min(n_pairs, n_orbitals)):
+                state[2*i] = 1
+                state[2*i + 1] = 1
+            # Add extra spin-up electron
+            if n_pairs < n_orbitals:
+                state[2*n_pairs] = 1
 
         return state
 

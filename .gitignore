@@ -48,5 +48,6 @@ Thumbs.db
 # Node (if present)
 node_modules/
 
+# Claude
 .claude
-
+CLAUDE.md

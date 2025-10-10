@@ -25,7 +25,7 @@ export default function Sidebar() {
           md:translate-x-0
           fixed md:relative
           z-40
-          w-64
+          w-72
           h-screen
           bg-black dark:bg-black
        31 -            text-white dark:text-white
@@ -63,7 +63,7 @@ export default function Sidebar() {
               href="/dashboard/history"
               className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition font-quando"
             >
-              Experimentation History
+             History
             </a>
             <a
               href="/dashboard/queue"
@@ -72,10 +72,10 @@ export default function Sidebar() {
               Job Queue
             </a>
             <a
-              href="/dashboard/settings"
+              href="/dashboard/backend"
               className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition font-quando"
             >
-              Settings
+              Backend
             </a>
             <div className="border-t border-gray-800 my-2"></div>
             <a

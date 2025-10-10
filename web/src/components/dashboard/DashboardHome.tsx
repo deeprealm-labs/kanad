@@ -98,6 +98,8 @@ export default function DashboardHome({
         </p>
       </div>
 
+     
+
       {/* Quick Stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-lg p-6">
@@ -108,7 +110,7 @@ export default function DashboardHome({
               </p>
               <p className="text-3xl font-quando font-bold">{experiments.length}</p>
             </div>
-            <TrendingUp className="w-8 h-8 text-brand-orange" />
+            <TrendingUp className="w-8 h-8 " />
           </div>
         </div>
 
@@ -118,11 +120,11 @@ export default function DashboardHome({
               <p className="text-sm text-muted-foreground font-quando mb-1">
                 Completed
               </p>
-              <p className="text-3xl font-quando font-bold text-green-600">
+              <p className="text-3xl font-quando font-bold ">
                 {completedCount}
               </p>
             </div>
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
+            <CheckCircle2 className="w-8 h-8 " />
           </div>
         </div>
 
@@ -132,11 +134,11 @@ export default function DashboardHome({
               <p className="text-sm text-muted-foreground font-quando mb-1">
                 Running
               </p>
-              <p className="text-3xl font-quando font-bold text-blue-600">
+              <p className="text-3xl font-quando font-bold ">
                 {runningCount}
               </p>
             </div>
-            <Play className="w-8 h-8 text-blue-600" />
+            <Play className="w-8 h-8 " />
           </div>
         </div>
 
@@ -146,11 +148,11 @@ export default function DashboardHome({
               <p className="text-sm text-muted-foreground font-quando mb-1">
                 In Queue
               </p>
-              <p className="text-3xl font-quando font-bold text-yellow-600">
+              <p className="text-3xl font-quando font-bold ">
                 {queuedCount}
               </p>
             </div>
-            <Clock className="w-8 h-8 text-yellow-600" />
+            <Clock className="w-8 h-8 " />
           </div>
         </div>
       </div>

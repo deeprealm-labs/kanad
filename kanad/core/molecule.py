@@ -206,6 +206,55 @@ class MolecularHamiltonian:
         """Get nuclear repulsion energy."""
         return self.mol.energy_nuc()
 
+    def to_sparse_hamiltonian(self):
+        """
+        Convert to sparse Hamiltonian representation using Pauli operators.
+
+        Uses PauliConverter with external Qiskit Nature for CORRECT transformation.
+        This is the RECOMMENDED method for VQE calculations (100-1000x faster than dense).
+
+        Returns:
+            Qiskit SparsePauliOp object ready for use in VQE
+        """
+        from kanad.core.hamiltonians.pauli_converter import PauliConverter
+        from kanad.core.mappers.jordan_wigner_mapper import JordanWignerMapper
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        n_qubits = 2 * self.n_orbitals
+
+        logger.info(f"Building sparse Hamiltonian using PauliConverter (FAST method)...")
+        logger.info(f"  {self.n_orbitals} orbitals → {n_qubits} qubits")
+        logger.info(f"  Bypassing {2**n_qubits}×{2**n_qubits} dense matrix construction")
+
+        # Use PauliConverter with external Qiskit Nature
+        mapper = JordanWignerMapper()
+
+        try:
+            # Try Qiskit Nature path (uses external qiskit_nature/operators)
+            sparse_pauli_op = PauliConverter.to_sparse_pauli_op(
+                self,
+                mapper,
+                use_qiskit_nature=True
+            )
+            logger.info("✓ Using external Qiskit Nature for Pauli conversion")
+        except Exception as e:
+            logger.warning(f"Qiskit Nature path failed ({e}), using manual Jordan-Wigner")
+            # Fallback to manual construction (works without external dependencies)
+            sparse_pauli_op = PauliConverter.to_sparse_pauli_op(
+                self,
+                mapper,
+                use_qiskit_nature=False
+            )
+            logger.info("✓ Using manual Jordan-Wigner transformation")
+
+        num_terms = len(sparse_pauli_op)
+        logger.info(f"✓ Sparse Hamiltonian: {num_terms} Pauli terms")
+        logger.info(f"✓ Memory savings: {(2**n_qubits)**2:,} matrix elements → {num_terms} Pauli terms")
+
+        return sparse_pauli_op
+
 
 class Molecule:
     """

@@ -763,3 +763,33 @@ class IonicHamiltonian(MolecularHamiltonian):
             )
         else:
             raise ValueError(f"Unknown ansatz type: {ansatz_type}")
+
+    def to_sparse_hamiltonian(self):
+        """
+        Convert to sparse Hamiltonian representation using Pauli operators.
+
+        Uses FAST direct construction from tight-binding model integrals.
+        Ionic bonding simplification: 1 orbital/atom (tight-binding approximation).
+
+        Returns:
+            Qiskit SparsePauliOp object ready for use in VQE
+        """
+        from kanad.core.hamiltonians.fast_pauli_builder import build_molecular_hamiltonian_pauli
+
+        n_qubits = 2 * self.n_orbitals
+
+        logger.info(f"Building sparse ionic Hamiltonian (tight-binding model)...")
+        logger.info(f"  {self.n_orbitals} sites → {n_qubits} qubits")
+
+        # Build Pauli operators directly from tight-binding integrals
+        sparse_pauli_op = build_molecular_hamiltonian_pauli(
+            h_core=self.h_core,
+            eri=self.eri,
+            nuclear_repulsion=self.nuclear_repulsion,
+            n_orbitals=self.n_orbitals
+        )
+
+        num_terms = len(sparse_pauli_op)
+        logger.info(f"✓ Sparse ionic Hamiltonian: {num_terms} Pauli terms")
+
+        return sparse_pauli_op
