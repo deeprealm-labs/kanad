@@ -86,7 +86,7 @@ export default function Home() {
 
           {/* Kanad Logo - Much Bigger, Covers Image Width, Centered */}
           <div className="absolute bottom-12 left-0 right-0 px-8 text-center">
-            <h1 className="font-bietro text-[12rem] md:text-[14rem] lg:text-[16rem] text-brand-orange font-bold leading-none relative">
+            <h1 className="font-bietro text-[clamp(3rem,12vw,16rem)] text-brand-orange font-bold leading-none relative w-full whitespace-nowrap">
               kanad
             </h1>
           </div>
