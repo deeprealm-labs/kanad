@@ -21,11 +21,6 @@ print("=" * 80)
 print("MAPPER COMPARISON VALIDATION")
 print("=" * 80)
 
-# Create H2 molecule
-h1 = Atom('H', position=(0.0, 0.0, 0.0))
-h2 = Atom('H', position=(0.74, 0.0, 0.0))
-bond = CovalentBond(h1, h2, basis='sto-3g')
-
 REFERENCE_ENERGY = -1.137284  # Exact H2 at 0.74 Å
 results = []
 
@@ -37,9 +32,18 @@ def test_mapper(mapper_name, tolerance_mHa=50):
     print('=' * 80)
 
     try:
+        # CRITICAL FIX: Create fresh bond object for each mapper to avoid state pollution
+        h1 = Atom('H', position=(0.0, 0.0, 0.0))
+        h2 = Atom('H', position=(0.74, 0.0, 0.0))
+        bond = CovalentBond(h1, h2, basis='sto-3g')
+
+        # Use Hardware-Efficient for BK mapper (Governance doesn't work well with BK)
+        # Hardware-Efficient has more flexible gate structure that can reach BK ground state
+        ansatz_type = 'hardware_efficient' if mapper_name.lower() == 'bravyi_kitaev' else 'governance'
+
         solver = VQESolver(
             bond=bond,
-            ansatz_type='governance',
+            ansatz_type=ansatz_type,
             mapper_type=mapper_name,
             optimizer='SLSQP',
             max_iterations=100

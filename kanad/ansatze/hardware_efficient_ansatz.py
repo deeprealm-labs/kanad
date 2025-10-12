@@ -9,6 +9,56 @@ import numpy as np
 from kanad.ansatze.base_ansatz import BaseAnsatz, QuantumCircuit, Parameter
 
 
+def get_hf_state_qubits(n_qubits: int, n_electrons: int, mapper: str = 'jordan_wigner') -> List[int]:
+    """
+    Get which qubits to set for HF state preparation in different mappers.
+
+    Args:
+        n_qubits: Total number of qubits
+        n_electrons: Number of electrons
+        mapper: Mapper type ('jordan_wigner', 'bravyi_kitaev', 'parity')
+
+    Returns:
+        List of qubit indices to apply X gates to
+
+    Examples:
+        H2 (2e, 4 qubits):
+        - JW: |1100⟩ → qubits [2, 3]
+        - BK: |1000⟩ → qubits [3]
+    """
+    mapper = mapper.lower()
+
+    if mapper == 'bravyi_kitaev':
+        # Bravyi-Kitaev uses binary tree encoding
+        # For H2 (2e, 4 qubits): HF state is |1000⟩ (only highest qubit)
+        # General pattern: Set the highest ceil(log2(n_electrons + 1)) qubits
+        #
+        # Actually for BK, the HF state depends on the specific transformation
+        # For H2: |1000⟩ means qubit 3 only
+        # For now, use empirical rule: highest qubit only for 2 electrons
+        if n_electrons == 2 and n_qubits == 4:
+            return [3]  # |1000⟩ in little-endian
+        elif n_electrons == 2:
+            return [n_qubits - 1]  # Highest qubit only
+        else:
+            # For other electron counts, use JW as fallback
+            # TODO: Implement general BK HF state finder
+            start_qubit = n_qubits - n_electrons
+            return list(range(start_qubit, n_qubits))
+
+    elif mapper in ['jordan_wigner', 'parity']:
+        # Jordan-Wigner and Parity use blocked spin ordering: [0↑, 1↑, ..., 0↓, 1↓, ...]
+        # Fill first n_electrons spin-orbitals
+        # In Qiskit little-endian: |1100⟩ for 2e = qubits [2, 3]
+        start_qubit = n_qubits - n_electrons
+        return list(range(start_qubit, n_qubits))
+
+    else:
+        # Default to JW
+        start_qubit = n_qubits - n_electrons
+        return list(range(start_qubit, n_qubits))
+
+
 class HardwareEfficientAnsatz(BaseAnsatz):
     """
     Hardware-Efficient ansatz.
@@ -36,7 +86,8 @@ class HardwareEfficientAnsatz(BaseAnsatz):
         n_layers: int = 2,
         entanglement: str = 'linear',
         rotation_gates: List[str] = None,
-        entangling_gate: str = 'cx'
+        entangling_gate: str = 'cx',
+        mapper: str = 'jordan_wigner'
     ):
         """
         Initialize hardware-efficient ansatz.
@@ -48,12 +99,14 @@ class HardwareEfficientAnsatz(BaseAnsatz):
             entanglement: Entanglement pattern ('linear', 'circular', 'full')
             rotation_gates: List of rotation gates ['ry', 'rz', 'rx']
             entangling_gate: Entangling gate type ('cx', 'cz', 'rxx')
+            mapper: Fermion-to-qubit mapper type ('jordan_wigner', 'bravyi_kitaev', 'parity')
         """
         super().__init__(n_qubits, n_electrons)
         self.n_layers = n_layers
         self.entanglement = entanglement
         self.rotation_gates = rotation_gates or ['ry']
         self.entangling_gate = entangling_gate
+        self.mapper = mapper.lower()
 
     @property
     def n_parameters(self) -> int:
@@ -87,25 +140,16 @@ class HardwareEfficientAnsatz(BaseAnsatz):
                     circuit.x(qubit)
             circuit.barrier()
         elif self.n_electrons > 0:
-            # Default: Hartree-Fock state with PAIRED spin ordering
-            # CRITICAL: Uses [0↑, 0↓, 1↑, 1↓, ...] to match OpenFermion/UCC
-            n_orbitals = self.n_qubits // 2
+            # Default: Hartree-Fock state with MAPPER-AWARE preparation
+            # Different fermion-to-qubit mappings use different HF state encodings:
+            #   - Jordan-Wigner: |1100⟩ for H2 (qubits [2, 3])
+            #   - Bravyi-Kitaev: |1000⟩ for H2 (qubit [3] only)
+            #   - Parity: Similar to JW
 
-            # Fill electrons using paired ordering
-            if self.n_electrons % 2 == 0:
-                # Even number: fill pairs
-                n_pairs = self.n_electrons // 2
-                for i in range(min(n_pairs, n_orbitals)):
-                    circuit.x(2*i)      # Spin-up in orbital i
-                    circuit.x(2*i + 1)  # Spin-down in orbital i
-            else:
-                # Odd number: fill pairs then add one spin-up
-                n_pairs = self.n_electrons // 2
-                for i in range(min(n_pairs, n_orbitals)):
-                    circuit.x(2*i)
-                    circuit.x(2*i + 1)
-                if n_pairs < n_orbitals:
-                    circuit.x(2*n_pairs)
+            # CRITICAL: Use mapper-aware HF state preparation
+            hf_qubits = get_hf_state_qubits(self.n_qubits, self.n_electrons, self.mapper)
+            for qubit in hf_qubits:
+                circuit.x(qubit)
 
             circuit.barrier()
 

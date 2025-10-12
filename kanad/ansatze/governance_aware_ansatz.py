@@ -10,6 +10,7 @@ import numpy as np
 from kanad.ansatze.base_ansatz import BaseAnsatz, QuantumCircuit, Parameter
 from kanad.governance.protocols.ionic_protocol import IonicGovernanceProtocol
 from kanad.governance.protocols.covalent_protocol import CovalentGovernanceProtocol
+from kanad.ansatze.hardware_efficient_ansatz import get_hf_state_qubits
 
 
 class IonicGovernanceAnsatz(BaseAnsatz):
@@ -38,7 +39,8 @@ class IonicGovernanceAnsatz(BaseAnsatz):
         n_qubits: int,
         n_electrons: int,
         n_layers: int = 2,
-        protocol: Optional[IonicGovernanceProtocol] = None
+        protocol: Optional[IonicGovernanceProtocol] = None,
+        mapper: str = 'jordan_wigner'
     ):
         """
         Initialize ionic governance ansatz.
@@ -48,10 +50,12 @@ class IonicGovernanceAnsatz(BaseAnsatz):
             n_electrons: Number of electrons
             n_layers: Number of ansatz layers
             protocol: IonicGovernanceProtocol (optional, will create default)
+            mapper: Fermion-to-qubit mapper type ('jordan_wigner', 'bravyi_kitaev', 'parity')
         """
         super().__init__(n_qubits, n_electrons)
         self.n_layers = n_layers
         self.protocol = protocol
+        self.mapper = mapper.lower()
         self._built = False
 
     @property
@@ -92,25 +96,16 @@ class IonicGovernanceAnsatz(BaseAnsatz):
                     circuit.x(qubit)
             circuit.barrier()
         else:
-            # Default: Hartree-Fock state with PAIRED spin ordering
-            # CRITICAL: Uses [0↑, 0↓, 1↑, 1↓, ...] to match OpenFermion/UCC
-            n_orbitals = self.n_qubits // 2
+            # Default: Hartree-Fock state with MAPPER-AWARE preparation
+            # Different fermion-to-qubit mappings use different HF state encodings:
+            #   - Jordan-Wigner: |1100⟩ for H2 (qubits [2, 3])
+            #   - Bravyi-Kitaev: |1000⟩ for H2 (qubit [3] only)
+            #   - Parity: Similar to JW
 
-            # Fill electrons using paired ordering
-            if self.n_electrons % 2 == 0:
-                # Even number: fill pairs
-                n_pairs = self.n_electrons // 2
-                for i in range(min(n_pairs, n_orbitals)):
-                    circuit.x(2*i)      # Spin-up in orbital i
-                    circuit.x(2*i + 1)  # Spin-down in orbital i
-            else:
-                # Odd number: fill pairs then add one spin-up
-                n_pairs = self.n_electrons // 2
-                for i in range(min(n_pairs, n_orbitals)):
-                    circuit.x(2*i)
-                    circuit.x(2*i + 1)
-                if n_pairs < n_orbitals:
-                    circuit.x(2*n_pairs)
+            # CRITICAL: Use mapper-aware HF state preparation
+            hf_qubits = get_hf_state_qubits(self.n_qubits, self.n_electrons, self.mapper)
+            for qubit in hf_qubits:
+                circuit.x(qubit)
 
             circuit.barrier()
 
@@ -219,7 +214,8 @@ class CovalentGovernanceAnsatz(BaseAnsatz):
         n_electrons: int,
         n_layers: int = 2,
         hybridization: str = 'sp3',
-        protocol: Optional[CovalentGovernanceProtocol] = None
+        protocol: Optional[CovalentGovernanceProtocol] = None,
+        mapper: str = 'jordan_wigner'
     ):
         """
         Initialize covalent governance ansatz.
@@ -230,11 +226,13 @@ class CovalentGovernanceAnsatz(BaseAnsatz):
             n_layers: Number of ansatz layers
             hybridization: Hybridization type ('sp', 'sp2', 'sp3')
             protocol: CovalentGovernanceProtocol (optional)
+            mapper: Fermion-to-qubit mapper type ('jordan_wigner', 'bravyi_kitaev', 'parity')
         """
         super().__init__(n_qubits, n_electrons)
         self.n_layers = n_layers
         self.hybridization = hybridization
         self.protocol = protocol
+        self.mapper = mapper.lower()
         self._built = False
 
         if n_qubits % 2 != 0:
@@ -280,25 +278,16 @@ class CovalentGovernanceAnsatz(BaseAnsatz):
                     circuit.x(qubit)
             circuit.barrier()
         else:
-            # Default: Hartree-Fock state with PAIRED spin ordering
-            # CRITICAL: Uses [0↑, 0↓, 1↑, 1↓, ...] to match OpenFermion/UCC
-            n_orbitals = self.n_qubits // 2
+            # Default: Hartree-Fock state with MAPPER-AWARE preparation
+            # Different fermion-to-qubit mappings use different HF state encodings:
+            #   - Jordan-Wigner: |1100⟩ for H2 (qubits [2, 3])
+            #   - Bravyi-Kitaev: |1000⟩ for H2 (qubit [3] only)
+            #   - Parity: Similar to JW
 
-            # Fill electrons using paired ordering
-            if self.n_electrons % 2 == 0:
-                # Even number: fill pairs
-                n_pairs = self.n_electrons // 2
-                for i in range(min(n_pairs, n_orbitals)):
-                    circuit.x(2*i)      # Spin-up in orbital i
-                    circuit.x(2*i + 1)  # Spin-down in orbital i
-            else:
-                # Odd number: fill pairs then add one spin-up
-                n_pairs = self.n_electrons // 2
-                for i in range(min(n_pairs, n_orbitals)):
-                    circuit.x(2*i)
-                    circuit.x(2*i + 1)
-                if n_pairs < n_orbitals:
-                    circuit.x(2*n_pairs)
+            # CRITICAL: Use mapper-aware HF state preparation
+            hf_qubits = get_hf_state_qubits(self.n_qubits, self.n_electrons, self.mapper)
+            for qubit in hf_qubits:
+                circuit.x(qubit)
 
             circuit.barrier()
 

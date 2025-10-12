@@ -857,7 +857,7 @@ class CovalentHamiltonian(MolecularHamiltonian):
 
         return analysis
 
-    def to_sparse_hamiltonian(self):
+    def to_sparse_hamiltonian(self, mapper: str = 'jordan_wigner'):
         """
         Convert to sparse Hamiltonian representation using Pauli operators.
 
@@ -866,6 +866,9 @@ class CovalentHamiltonian(MolecularHamiltonian):
         - ZERO accuracy loss (exact quantum mechanics)
         - 100-1000x faster for large molecules
         - Scales to 20+ qubits easily
+
+        Args:
+            mapper: Fermion-to-qubit mapping ('jordan_wigner' or 'bravyi_kitaev')
 
         Returns:
             Qiskit SparsePauliOp object ready for use in VQE
@@ -876,19 +879,29 @@ class CovalentHamiltonian(MolecularHamiltonian):
 
         logger.info(f"Building sparse Hamiltonian directly from integrals (FAST method)...")
         logger.info(f"  {self.n_orbitals} orbitals → {n_qubits} qubits")
+        logger.info(f"  Mapper: {mapper}")
         logger.info(f"  Bypassing {2**n_qubits}×{2**n_qubits} dense matrix construction")
 
-        # Build Pauli operators directly from molecular integrals
+        # Transform integrals to MO basis (required for fermionic transformations)
+        # OpenFermion expects MO integrals, not AO integrals!
+        mo_energies, C = self.compute_molecular_orbitals()
+        h_mo = C.T @ self.h_core @ C
+        eri_mo = np.einsum('pi,qj,pqrs,rk,sl->ijkl', C, C, self.eri, C, C)
+
+        logger.debug(f"Transformed integrals: AO → MO basis")
+
+        # Build Pauli operators directly from MO integrals
         # This is orders of magnitude faster than dense matrix approach!
         sparse_pauli_op = build_molecular_hamiltonian_pauli(
-            h_core=self.h_core,
-            eri=self.eri,
+            h_core=h_mo,
+            eri=eri_mo,
             nuclear_repulsion=self.nuclear_repulsion,
-            n_orbitals=self.n_orbitals
+            n_orbitals=self.n_orbitals,
+            mapper=mapper
         )
 
         num_terms = len(sparse_pauli_op)
-        logger.info(f"✓ Sparse Hamiltonian: {num_terms} Pauli terms")
+        logger.info(f"✓ Sparse Hamiltonian: {num_terms} Pauli terms ({mapper} mapping)")
         logger.info(f"✓ Memory savings: {(2**n_qubits)**2:,} matrix elements → {num_terms} Pauli terms")
 
         return sparse_pauli_op

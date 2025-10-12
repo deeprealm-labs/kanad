@@ -206,48 +206,47 @@ class MolecularHamiltonian:
         """Get nuclear repulsion energy."""
         return self.mol.energy_nuc()
 
-    def to_sparse_hamiltonian(self):
+    def to_sparse_hamiltonian(self, mapper: str = 'jordan_wigner'):
         """
         Convert to sparse Hamiltonian representation using Pauli operators.
 
-        Uses PauliConverter with external Qiskit Nature for CORRECT transformation.
+        Uses OpenFermion for CORRECT fermionic-to-qubit transformation.
         This is the RECOMMENDED method for VQE calculations (100-1000x faster than dense).
+
+        Args:
+            mapper: Fermion-to-qubit mapping ('jordan_wigner' or 'bravyi_kitaev')
 
         Returns:
             Qiskit SparsePauliOp object ready for use in VQE
         """
-        from kanad.core.hamiltonians.pauli_converter import PauliConverter
-        from kanad.core.mappers.jordan_wigner_mapper import JordanWignerMapper
+        from kanad.core.hamiltonians.fast_pauli_builder import build_molecular_hamiltonian_pauli
         import logging
+        import numpy as np
 
         logger = logging.getLogger(__name__)
 
         n_qubits = 2 * self.n_orbitals
 
-        logger.info(f"Building sparse Hamiltonian using PauliConverter (FAST method)...")
+        logger.info(f"Building sparse Hamiltonian using OpenFermion (FAST method)...")
         logger.info(f"  {self.n_orbitals} orbitals → {n_qubits} qubits")
+        logger.info(f"  Mapper: {mapper}")
         logger.info(f"  Bypassing {2**n_qubits}×{2**n_qubits} dense matrix construction")
 
-        # Use PauliConverter with external Qiskit Nature
-        mapper = JordanWignerMapper()
+        # Transform to MO basis (required for fermionic transformations)
+        mo_energies, C = self.compute_molecular_orbitals()
+        h_mo = C.T @ self.h_core @ C
+        eri_mo = np.einsum('pi,qj,pqrs,rk,sl->ijkl', C, C, self.eri, C, C)
 
-        try:
-            # Try Qiskit Nature path (uses external qiskit_nature/operators)
-            sparse_pauli_op = PauliConverter.to_sparse_pauli_op(
-                self,
-                mapper,
-                use_qiskit_nature=True
-            )
-            logger.info("✓ Using external Qiskit Nature for Pauli conversion")
-        except Exception as e:
-            logger.warning(f"Qiskit Nature path failed ({e}), using manual Jordan-Wigner")
-            # Fallback to manual construction (works without external dependencies)
-            sparse_pauli_op = PauliConverter.to_sparse_pauli_op(
-                self,
-                mapper,
-                use_qiskit_nature=False
-            )
-            logger.info("✓ Using manual Jordan-Wigner transformation")
+        logger.debug(f"Transformed integrals: AO → MO basis")
+
+        # Build Pauli operators using OpenFermion
+        sparse_pauli_op = build_molecular_hamiltonian_pauli(
+            h_core=h_mo,
+            eri=eri_mo,
+            nuclear_repulsion=self.nuclear_repulsion,
+            n_orbitals=self.n_orbitals,
+            mapper=mapper
+        )
 
         num_terms = len(sparse_pauli_op)
         logger.info(f"✓ Sparse Hamiltonian: {num_terms} Pauli terms")

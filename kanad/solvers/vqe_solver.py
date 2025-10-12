@@ -190,7 +190,9 @@ class VQESolver(BaseSolver):
         self.iteration_count = 0
 
         # Performance optimization: Cache sparse Pauli operator
+        # CRITICAL: Cache must be invalidated if mapper changes!
         self._sparse_pauli_op = None
+        self._cached_mapper = None  # Track which mapper was used for cache
         self._use_sparse = False
 
         logger.info(f"VQE Solver initialized: {self.ansatz_type} ansatz, {self.mapper_type} mapping, {self.backend_name} backend")
@@ -268,9 +270,10 @@ class VQESolver(BaseSolver):
                 n_qubits=n_qubits,
                 n_electrons=n_electrons,
                 n_layers=3,
-                entanglement='linear'
+                entanglement='linear',
+                mapper=self._mapper_type_param
             )
-            logger.info(f"Hardware-efficient ansatz: 3 layers, linear entanglement")
+            logger.info(f"Hardware-efficient ansatz: 3 layers, linear entanglement, {self._mapper_type_param} mapper")
 
         elif ansatz_type.lower() == 'governance':
             # Use governance-aware ansatz based on bond type or Hamiltonian protocol
@@ -300,9 +303,10 @@ class VQESolver(BaseSolver):
                     n_electrons=n_electrons,
                     n_layers=2,
                     hybridization=hybridization,
-                    protocol=protocol
+                    protocol=protocol,
+                    mapper=self._mapper_type_param
                 )
-                logger.info(f"Covalent governance ansatz (hybridization: {hybridization})")
+                logger.info(f"Covalent governance ansatz (hybridization: {hybridization}, {self._mapper_type_param} mapper)")
             else:
                 # Fallback to UCC
                 self.ansatz = UCCAnsatz(n_qubits=n_qubits, n_electrons=n_electrons)
@@ -438,10 +442,26 @@ class VQESolver(BaseSolver):
 
         # CRITICAL PERFORMANCE IMPROVEMENT: Use sparse Pauli operators instead of dense matrices
         # Check if Hamiltonian has sparse method (covalent, ionic, molecular hamiltonians)
-        if hasattr(self.hamiltonian, 'to_sparse_hamiltonian') and self._sparse_pauli_op is None:
+        # CRITICAL BUG FIX: Must check if cached Hamiltonian matches current mapper!
+
+        # Determine mapper type to pass to Hamiltonian
+        mapper_name = getattr(self, 'mapper_type', 'jordan_wigner')
+        if mapper_name.lower() in ['bravyikitaevmapper', 'bravyi_kitaev']:
+            mapper_arg = 'bravyi_kitaev'
+        else:
+            mapper_arg = 'jordan_wigner'
+
+        # Check if we need to rebuild Hamiltonian (cache miss or mapper changed)
+        cache_invalid = (self._sparse_pauli_op is None or
+                        self._cached_mapper != mapper_arg)
+
+        if hasattr(self.hamiltonian, 'to_sparse_hamiltonian') and cache_invalid:
             # Build sparse Pauli operator (FAST, memory-efficient)
-            logger.info("Using FAST sparse Pauli Hamiltonian (no dense matrix)")
-            self._sparse_pauli_op = self.hamiltonian.to_sparse_hamiltonian()
+            logger.info(f"Building sparse Pauli Hamiltonian with {mapper_arg} mapper")
+
+            # Build Hamiltonian with correct mapper
+            self._sparse_pauli_op = self.hamiltonian.to_sparse_hamiltonian(mapper=mapper_arg)
+            self._cached_mapper = mapper_arg  # Update cache tracker
             self._use_sparse = True
 
             # Check qubit count consistency

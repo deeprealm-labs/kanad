@@ -131,10 +131,16 @@ try:
     print(f"VQE:     {vqe_result['energy']:.6f} Ha")
     print(f"Corr:    {corr * 1000:.3f} mHa")
 
+    # CRITICAL: Check variational principle (VQE must be ≤ HF)
+    variational_ok = vqe_result['energy'] <= hf_result['energy']
+    if not variational_ok:
+        print(f"⚠️  VARIATIONAL PRINCIPLE VIOLATED: VQE ({vqe_result['energy']:.6f}) > HF ({hf_result['energy']:.6f})")
+
+    # Check both: correlation captured AND variational principle satisfied
     validate_test(
-        "Correlation captured",
-        abs(corr * 1000) > 5.0,
-        f"{corr * 1000:.3f} mHa > 5 mHa ✓"
+        "Correlation captured (with variational principle check)",
+        abs(corr * 1000) > 5.0 and variational_ok,
+        f"{corr * 1000:.3f} mHa captured, variational principle {'satisfied' if variational_ok else 'VIOLATED'}"
     )
 
 except Exception as e:

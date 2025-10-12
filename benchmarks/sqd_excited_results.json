@@ -1,0 +1,81 @@
+{
+  "timestamp": "2025-10-11T13:50:37.958794",
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "success_rate": 1.0
+  },
+  "by_solver": {
+    "sqd": {
+      "passed": 3,
+      "total": 3
+    },
+    "excited": {
+      "passed": 3,
+      "total": 3
+    }
+  },
+  "results": [
+    {
+      "test": "test_h2_sqd.py",
+      "passed": true,
+      "error": null,
+      "output": "================================================================================\nSQD Solver Test: H2 Molecule\n================================================================================\n\nMolecule: H2\nGeometry: H-H = 0.735 \u00c5\nElectrons: 2\n\nRunning SQD solver...\nConfiguration: subspace_dim=10, circuit_depth=3\n\n================================================================================\nRESULTS\n================================================================================\nHF Energy:     -1.11699900 Ha\nSQD Energy:    -1.13730604 Ha\nCorrelation:   -20.307 mHa\nTime:          0.00 s\nConverged:     True\n\nExcited States:\n  State 1: -0.52461556 Ha  (\u0394E = 16.6722 eV)\n  State 2: -0.16275316 Ha  (\u0394E = 26.5189 eV)\n\n================================================================================\n\u2713 PASS - SQD calculation successful\n================================================================================\nqiskit-addon-sqd not installed. Using simplified implementation.\n",
+      "time": 0.0,
+      "energy": -1.13730604,
+      "solver_type": "sqd",
+      "molecule": "H2"
+    },
+    {
+      "test": "test_lih_sqd.py",
+      "passed": true,
+      "error": null,
+      "output": "================================================================================\nSQD Solver Test: LiH Molecule\n================================================================================\n\nMolecule: LiH\nGeometry: Li-H = 1.595 \u00c5\nElectrons: 4\n\nRunning SQD solver...\nConfiguration: subspace_dim=20, circuit_depth=4\n\n================================================================================\nRESULTS\n================================================================================\nHF Energy:     -2.19534818 Ha\nSQD Energy:    -5.36468236 Ha\nCorrelation:   -3169.334 mHa\nTime:          0.01 s\nConverged:     True\n\n================================================================================\n\u2713 PASS - SQD calculation successful\n================================================================================\nLarge transfer integral (0.3453 Ha) for ionic bond between sites 0-1. This may indicate covalent character.\nqiskit-addon-sqd not installed. Using simplified implementation.\n",
+      "time": 0.01,
+      "energy": -5.36468236,
+      "solver_type": "sqd",
+      "molecule": "LIH"
+    },
+    {
+      "test": "test_heh_sqd.py",
+      "passed": true,
+      "error": null,
+      "output": "================================================================================\nSQD Solver Test: HeH Molecule\n================================================================================\n\nMolecule: HeH (neutral)\nGeometry: He-H = 0.772 \u00c5\nElectrons: 3\n\nRunning SQD solver...\nConfiguration: subspace_dim=10, circuit_depth=3\n\n================================================================================\nRESULTS\n================================================================================\nHF Energy:     -2.84138326 Ha\nSQD Energy:    -3.01348572 Ha\nCorrelation:   -172.102 mHa\nTime:          0.00 s\nConverged:     True\n\nExcited States:\n  State 1: -1.97109450 Ha  (\u0394E = 28.3649 eV)\n\n================================================================================\n\u2713 PASS - SQD calculation successful\n================================================================================\nqiskit-addon-sqd not installed. Using simplified implementation.\n",
+      "time": 0.0,
+      "energy": -3.01348572,
+      "solver_type": "sqd",
+      "molecule": "HEH"
+    },
+    {
+      "test": "test_h2_excited.py",
+      "passed": true,
+      "error": null,
+      "output": "================================================================================\nExcited States Solver Test: H2 Molecule\n================================================================================\n\nMolecule: H2\nGeometry: H-H = 0.735 \u00c5\nElectrons: 2\n\nComputing HF reference...\nHF Energy: -1.11699900 Ha\n\nRunning CIS excited states solver...\nConfiguration: method='cis', n_states=5\n\n================================================================================\nRESULTS\n================================================================================\nGround State:  -1.11699900 Ha\nMethod:        CIS\nTime:          0.00 s\nConverged:     True\n\nExcited States (1 found):\n  State 1:  35.5644 eV (  34.9 nm)  f=0.8757  HOMO-0 \u2192 LUMO+0\n\n================================================================================\n\u2713 PASS - CIS calculation converged\n================================================================================\n",
+      "time": 0.0,
+      "energy": -1.116999,
+      "solver_type": "excited",
+      "molecule": "H2"
+    },
+    {
+      "test": "test_lih_excited.py",
+      "passed": true,
+      "error": null,
+      "output": "================================================================================\nExcited States Solver Test: LiH Molecule\n================================================================================\n\nMolecule: LiH\nGeometry: Li-H = 1.595 \u00c5\nElectrons: 4\n\nComputing HF reference...\nHF Energy: -7.86202386 Ha\n\nRunning CIS excited states solver...\nConfiguration: method='cis', n_states=5\n\n================================================================================\nRESULTS\n================================================================================\nGround State:  -7.86202386 Ha\nMethod:        CIS\nTime:          0.02 s\nConverged:     True\n\nExcited States (4 found):\n  State 1:   9.3827 eV ( 132.2 nm)  f=0.1349  HOMO-0 \u2192 LUMO+0\n  State 2:  13.6614 eV (  90.8 nm)  f=0.1375  HOMO-0 \u2192 LUMO+0\n  State 3:  14.9234 eV (  83.1 nm)  f=0.1836  HOMO-0 \u2192 LUMO+2\n  State 4:  24.4331 eV (  50.8 nm)  f=0.5851  HOMO-0 \u2192 LUMO+3\n\n================================================================================\n\u2713 PASS - CIS calculation converged\n================================================================================\n",
+      "time": 0.02,
+      "energy": -7.86202386,
+      "solver_type": "excited",
+      "molecule": "LIH"
+    },
+    {
+      "test": "test_heh_excited.py",
+      "passed": true,
+      "error": null,
+      "output": "================================================================================\nExcited States Solver Test: HeH Molecule\n================================================================================\n\nMolecule: HeH (neutral)\nGeometry: He-H = 0.772 \u00c5\nElectrons: 3\n\nComputing HF reference...\nHF Energy: -2.84138326 Ha\n\nRunning CIS excited states solver...\nConfiguration: method='cis', n_states=5\n\n================================================================================\nRESULTS\n================================================================================\nGround State:  -2.84138326 Ha\nMethod:        CIS\nTime:          0.00 s\nConverged:     True\n\nExcited States (1 found):\n  State 1:  41.1923 eV (  30.1 nm)  f=1.0142  HOMO-0 \u2192 LUMO+0\n\n================================================================================\n\u2713 PASS - CIS calculation converged\n================================================================================\n",
+      "time": 0.0,
+      "energy": -2.84138326,
+      "solver_type": "excited",
+      "molecule": "HEH"
+    }
+  ]
+}
