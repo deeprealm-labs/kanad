@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, CheckCircle2, Settings } from "lucide-react";
 import ConfigurationSelector from "./ConfigurationSelector";
 import type { BackendSettings } from "@/lib/types";
@@ -11,6 +11,7 @@ interface PreviewWindowProps {
   onBack: () => void;
   onExecute: (config: any) => void;
   onQueue?: (config: any) => void;
+  onRefreshSettings?: () => Promise<void>;
 }
 
 export default function PreviewWindow({
@@ -19,10 +20,29 @@ export default function PreviewWindow({
   onBack,
   onExecute,
   onQueue,
+  onRefreshSettings,
 }: PreviewWindowProps) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [backendSettings, setBackendSettings] = useState<BackendSettings>(initialSettings);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  // Reload settings when component mounts and wait for them
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (onRefreshSettings) {
+        await onRefreshSettings();
+      }
+      setIsLoadingSettings(false);
+    };
+    loadSettings();
+  }, [onRefreshSettings]);
+
+  // Update local state when initialSettings prop changes
+  useEffect(() => {
+    console.log("PreviewWindow: Updating backend settings from prop:", initialSettings);
+    setBackendSettings(initialSettings);
+  }, [initialSettings]);
   const [analysis, setAnalysis] = useState({
     energyDecomposition: true,
     bondAnalysis: true,

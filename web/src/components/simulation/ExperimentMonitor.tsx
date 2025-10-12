@@ -99,8 +99,10 @@ export default function ExperimentMonitor({
         startPolling();
       }
     } else {
-      // No experiment ID, run simulation
-      simulateJob();
+      // No experiment ID - this shouldn't happen
+      console.error("ExperimentMonitor: No experiment ID provided");
+      setStatus("failed");
+      addLog("Error: No experiment ID provided");
     }
 
     return () => {
@@ -215,63 +217,6 @@ export default function ExperimentMonitor({
 
   const addLog = (message: string) => {
     setLogs((prev) => [...prev, message]);
-  };
-
-  // Simulate job execution (fallback when no experimentId)
-  const simulateJob = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setStatus("running");
-    setProgress(10);
-    addLog("Job started on quantum backend");
-
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setProgress(25);
-    addLog("Constructing molecular Hamiltonian...");
-
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setProgress(40);
-    addLog("Building quantum circuit...");
-
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setProgress(50);
-    addLog("Running VQE optimization...");
-
-    // Simulate convergence iterations
-    const baseEnergy = -1.137283;
-    for (let i = 1; i <= 42; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      const energy = baseEnergy + Math.exp(-i / 8) * 0.5 + (Math.random() - 0.5) * 0.01;
-      setConvergenceData((prev) => [...prev, { iteration: i, energy }]);
-      setCurrentIteration(i);
-      setProgress(50 + (i / 42) * 30);
-
-      if (i % 10 === 0) {
-        addLog(`Iteration ${i}/42 - Energy: ${energy.toFixed(6)} Ha`);
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setProgress(90);
-    addLog("Computing properties...");
-
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setProgress(95);
-    addLog("Finalizing results...");
-
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setProgress(100);
-    setStatus("completed");
-    addLog("Job completed successfully!");
-    toast.success("Experiment completed!");
-
-    // Set mock results
-    setResults({
-      energy: -1.137283,
-      dipoleMoment: 0.0,
-      bondLengths: [1.09, 1.09, 1.09, 1.09],
-      converged: true,
-      iterations: 42,
-    });
   };
 
   const formatTime = (seconds: number) => {

@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { X, Save } from "lucide-react";
+import * as api from "@/lib/api";
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSave?: () => void;
 }
 
 const DEFAULT_SETTINGS = {
@@ -23,36 +25,76 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
   const [method, setMethod] = useState(DEFAULT_SETTINGS.method);
   const [ansatz, setAnsatz] = useState(DEFAULT_SETTINGS.ansatz);
   const [mapper, setMapper] = useState(DEFAULT_SETTINGS.mapper);
   const [optimizer, setOptimizer] = useState(DEFAULT_SETTINGS.optimizer);
   const [backend, setBackend] = useState(DEFAULT_SETTINGS.backend);
   const [backendName, setBackendName] = useState(DEFAULT_SETTINGS.backendName);
+  const [hamiltonian, setHamiltonian] = useState("molecular");
+  const [basisSet, setBasisSet] = useState("sto-3g");
 
   const [optimization, setOptimization] = useState(DEFAULT_SETTINGS.optimization);
+  const [configOptions, setConfigOptions] = useState<any>(null);
 
-  // Load settings from localStorage on mount
+  // Load configuration options from API
   useEffect(() => {
-    const saved = localStorage.getItem("kanad_settings");
-    if (saved) {
+    const loadConfig = async () => {
       try {
-        const settings = JSON.parse(saved);
+        const options = await api.getConfigurationOptions();
+        setConfigOptions(options);
+      } catch (error) {
+        console.error("Failed to load configuration options:", error);
+      }
+    };
+    if (isOpen) {
+      loadConfig();
+    }
+  }, [isOpen]);
+
+  // Load settings from API and localStorage on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await api.getSettings();
         setMethod(settings.method || DEFAULT_SETTINGS.method);
         setAnsatz(settings.ansatz || DEFAULT_SETTINGS.ansatz);
         setMapper(settings.mapper || DEFAULT_SETTINGS.mapper);
         setOptimizer(settings.optimizer || DEFAULT_SETTINGS.optimizer);
         setBackend(settings.backend || DEFAULT_SETTINGS.backend);
         setBackendName(settings.backendName || DEFAULT_SETTINGS.backendName);
+        setHamiltonian(settings.hamiltonian || "molecular");
+        setBasisSet(settings.basisSet || "sto-3g");
         setOptimization(settings.optimization || DEFAULT_SETTINGS.optimization);
-      } catch (e) {
-        console.error("Failed to load settings:", e);
+      } catch (error) {
+        console.error("Failed to load settings from API:", error);
+        // Fallback to localStorage
+        const saved = localStorage.getItem("kanad_settings");
+        if (saved) {
+          try {
+            const settings = JSON.parse(saved);
+            setMethod(settings.method || DEFAULT_SETTINGS.method);
+            setAnsatz(settings.ansatz || DEFAULT_SETTINGS.ansatz);
+            setMapper(settings.mapper || DEFAULT_SETTINGS.mapper);
+            setOptimizer(settings.optimizer || DEFAULT_SETTINGS.optimizer);
+            setBackend(settings.backend || DEFAULT_SETTINGS.backend);
+            setBackendName(settings.backendName || DEFAULT_SETTINGS.backendName);
+            setHamiltonian(settings.hamiltonian || "molecular");
+            setBasisSet(settings.basisSet || "sto-3g");
+            setOptimization(settings.optimization || DEFAULT_SETTINGS.optimization);
+          } catch (e) {
+            console.error("Failed to parse localStorage settings:", e);
+          }
+        }
       }
+    };
+    if (isOpen) {
+      loadSettings();
     }
   }, [isOpen]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const settings = {
       method,
       ansatz,
@@ -60,10 +102,26 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       optimizer,
       backend,
       backendName,
+      hamiltonian,
+      basisSet,
       optimization,
     };
-    localStorage.setItem("kanad_settings", JSON.stringify(settings));
-    console.log("Saved settings:", settings);
+
+    try {
+      await api.updateSettings(settings);
+      console.log("Saved settings to API:", settings);
+    } catch (error) {
+      console.error("Failed to save settings to API:", error);
+      // Fallback to localStorage
+      localStorage.setItem("kanad_settings", JSON.stringify(settings));
+      console.log("Saved settings to localStorage:", settings);
+    }
+
+    // Notify parent that settings were saved
+    if (onSave) {
+      onSave();
+    }
+
     onClose();
   };
 
@@ -95,10 +153,18 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               onChange={(e) => setMethod(e.target.value)}
               className="w-full px-4 py-3 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
             >
-              <option value="HF">Hartree-Fock (HF)</option>
-              <option value="VQE">Variational Quantum Eigensolver (VQE)</option>
-              <option value="MP2">Møller-Plesset 2nd Order (MP2)</option>
-              <option value="FCI">Full Configuration Interaction (FCI)</option>
+              {configOptions?.methods?.map((m: any) => (
+                <option key={m.value} value={m.value}>
+                  {m.label} - {m.description}
+                </option>
+              )) || (
+                <>
+                  <option value="HF">Hartree-Fock (HF)</option>
+                  <option value="VQE">Variational Quantum Eigensolver (VQE)</option>
+                  <option value="SQD">Subspace Quantum Diagonalization</option>
+                  <option value="EXCITED_STATES">Excited States</option>
+                </>
+              )}
             </select>
           </div>
 
@@ -119,13 +185,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     onChange={(e) => setAnsatz(e.target.value)}
                     className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
                   >
-                    <option value="ucc">UCC (Higher accuracy)</option>
-                    <option value="hardware_efficient">
-                      Hardware-Efficient (Faster)
-                    </option>
-                    <option value="governance">
-                      Governance (Bonding-aware)
-                    </option>
+                    {configOptions?.ansatze?.map((a: any) => (
+                      <option key={a.value} value={a.value}>
+                        {a.label} - {a.description}
+                      </option>
+                    )) || (
+                      <>
+                        <option value="ucc">UCC (Higher accuracy)</option>
+                        <option value="hardware_efficient">Hardware-Efficient (Faster)</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -138,15 +207,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     onChange={(e) => setMapper(e.target.value)}
                     className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
                   >
-                    <option value="jordan_wigner">
-                      Jordan-Wigner (Standard)
-                    </option>
-                    <option value="bravyi_kitaev">
-                      Bravyi-Kitaev (Reduced gates)
-                    </option>
-                    <option value="hybrid_orbital">
-                      Hybrid Orbital (Advanced)
-                    </option>
+                    {configOptions?.mappers?.map((m: any) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label} - {m.description}
+                      </option>
+                    )) || (
+                      <>
+                        <option value="jordan_wigner">Jordan-Wigner (Standard)</option>
+                        <option value="bravyi_kitaev">Bravyi-Kitaev (Reduced gates)</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -159,10 +229,62 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     onChange={(e) => setOptimizer(e.target.value)}
                     className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
                   >
-                    <option value="SLSQP">SLSQP</option>
-                    <option value="COBYLA">COBYLA</option>
-                    <option value="L-BFGS-B">L-BFGS-B</option>
-                    <option value="ADAM">ADAM</option>
+                    {configOptions?.optimizers?.map((opt: any) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label} - {opt.description}
+                      </option>
+                    )) || (
+                      <>
+                        <option value="SLSQP">SLSQP</option>
+                        <option value="COBYLA">COBYLA</option>
+                        <option value="L-BFGS-B">L-BFGS-B</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-quando font-medium mb-2">
+                    Hamiltonian
+                  </label>
+                  <select
+                    value={hamiltonian}
+                    onChange={(e) => setHamiltonian(e.target.value)}
+                    className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+                  >
+                    {configOptions?.hamiltonians?.map((h: any) => (
+                      <option key={h.value} value={h.value}>
+                        {h.label} - {h.description}
+                      </option>
+                    )) || (
+                      <>
+                        <option value="molecular">Molecular</option>
+                        <option value="ionic">Ionic</option>
+                        <option value="covalent">Covalent</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-quando font-medium mb-2">
+                    Basis Set
+                  </label>
+                  <select
+                    value={basisSet}
+                    onChange={(e) => setBasisSet(e.target.value)}
+                    className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+                  >
+                    {configOptions?.basis_sets?.map((b: any) => (
+                      <option key={b.value} value={b.value}>
+                        {b.label}
+                      </option>
+                    )) || (
+                      <>
+                        <option value="sto-3g">STO-3G</option>
+                        <option value="6-31g">6-31G</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
@@ -217,13 +339,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       className="mt-2 w-full px-3 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <option value="ibm_torino">
-                        ibm_torino (133 qubits)
-                      </option>
-                      <option value="ibm_brisbane">
-                        ibm_brisbane (127 qubits)
-                      </option>
-                      <option value="ibm_kyoto">ibm_kyoto (127 qubits)</option>
+                      {configOptions?.ibm_backends?.map((b: any) => (
+                        <option key={b.value} value={b.value}>
+                          {b.label} ({b.qubits} qubits)
+                        </option>
+                      )) || (
+                        <>
+                          <option value="ibm_torino">ibm_torino (133 qubits)</option>
+                          <option value="ibm_brisbane">ibm_brisbane (127 qubits)</option>
+                          <option value="ibm_kyoto">ibm_kyoto (127 qubits)</option>
+                        </>
+                      )}
                     </select>
                   )}
                 </div>

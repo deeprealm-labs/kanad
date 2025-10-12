@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Zap, Cpu, Sparkles, Database } from "lucide-react";
+import * as api from "@/lib/api";
 
 type ComputationMethod = "HF" | "VQE" | "MP2" | "FCI";
 type BackendType = "classical" | "ibm_quantum" | "bluequbit";
@@ -48,6 +49,9 @@ export default function SimulationConfig({
   const [backend, setBackend] = useState<BackendType>("classical");
   const [backendName, setBackendName] = useState("ibm_torino");
 
+  // Configuration options from API
+  const [configOptions, setConfigOptions] = useState<any>(null);
+
   const [analysis, setAnalysis] = useState({
     energyDecomposition: true,
     bondAnalysis: true,
@@ -64,6 +68,19 @@ export default function SimulationConfig({
     circuit: true,
     adaptive: false,
   });
+
+  // Load configuration options from API
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const options = await api.getConfigurationOptions();
+        setConfigOptions(options);
+      } catch (error) {
+        console.error("Failed to load configuration options:", error);
+      }
+    };
+    loadConfig();
+  }, []);
 
   const handleSubmit = () => {
     const config: SimulationConfiguration = {
@@ -183,11 +200,17 @@ export default function SimulationConfig({
                   onChange={(e) => setAnsatz(e.target.value)}
                   className="w-full px-4 py-3 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
                 >
-                  <option value="ucc">UCC (Higher accuracy)</option>
-                  <option value="hardware_efficient">
-                    Hardware-Efficient (Faster)
-                  </option>
-                  <option value="governance">Governance (Bonding-aware)</option>
+                  {configOptions?.ansatze?.map((a: any) => (
+                    <option key={a.value} value={a.value}>
+                      {a.label} - {a.description}
+                    </option>
+                  )) || (
+                    <>
+                      <option value="ucc">UCC (Higher accuracy)</option>
+                      <option value="hardware_efficient">Hardware-Efficient (Faster)</option>
+                      <option value="governance">Governance (Bonding-aware)</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -200,11 +223,17 @@ export default function SimulationConfig({
                   onChange={(e) => setMapper(e.target.value)}
                   className="w-full px-4 py-3 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
                 >
-                  <option value="jordan_wigner">Jordan-Wigner (Standard)</option>
-                  <option value="bravyi_kitaev">
-                    Bravyi-Kitaev (Reduced gates)
-                  </option>
-                  <option value="hybrid_orbital">Hybrid Orbital (Advanced)</option>
+                  {configOptions?.mappers?.map((m: any) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label} - {m.description}
+                    </option>
+                  )) || (
+                    <>
+                      <option value="jordan_wigner">Jordan-Wigner (Standard)</option>
+                      <option value="bravyi_kitaev">Bravyi-Kitaev (Reduced gates)</option>
+                      <option value="hybrid_orbital">Hybrid Orbital (Advanced)</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -217,10 +246,17 @@ export default function SimulationConfig({
                   onChange={(e) => setOptimizer(e.target.value)}
                   className="w-full px-4 py-3 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
                 >
-                  <option value="SLSQP">SLSQP</option>
-                  <option value="COBYLA">COBYLA</option>
-                  <option value="L-BFGS-B">L-BFGS-B</option>
-                  <option value="ADAM">ADAM</option>
+                  {configOptions?.optimizers?.map((opt: any) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label} - {opt.description}
+                    </option>
+                  )) || (
+                    <>
+                      <option value="SLSQP">SLSQP</option>
+                      <option value="COBYLA">COBYLA</option>
+                      <option value="L-BFGS-B">L-BFGS-B</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -285,9 +321,17 @@ export default function SimulationConfig({
                     className="mt-2 w-full px-3 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <option value="ibm_torino">ibm_torino (133 qubits)</option>
-                    <option value="ibm_brisbane">ibm_brisbane (127 qubits)</option>
-                    <option value="ibm_kyoto">ibm_kyoto (127 qubits)</option>
+                    {configOptions?.ibm_backends?.map((b: any) => (
+                      <option key={b.value} value={b.value}>
+                        {b.label} ({b.qubits} qubits)
+                      </option>
+                    )) || (
+                      <>
+                        <option value="ibm_torino">ibm_torino (133 qubits)</option>
+                        <option value="ibm_brisbane">ibm_brisbane (127 qubits)</option>
+                        <option value="ibm_kyoto">ibm_kyoto (127 qubits)</option>
+                      </>
+                    )}
                   </select>
                 )}
               </div>

@@ -88,9 +88,9 @@ export default function DashboardPage() {
       // Create experiment via API
       const response = await api.createExperiment({
         molecule: exp.molecule!,
-        backendSettings: exp.backendSettings!,
+        configuration: exp.backendSettings!,
         analysis: exp.analysis,
-        executeNow: false, // Just save, don't execute
+        execute_now: false, // Just save, don't execute
       });
 
       toast.success("Experiment saved successfully!");
@@ -124,12 +124,12 @@ export default function DashboardPage() {
     try {
       setLoading(true);
 
-      // Submit to API (executeNow: false means add to queue)
+      // Submit to API (execute_now: false means add to queue)
       const response = await api.createExperiment({
         molecule: config.molecule,
-        backendSettings: config.backendSettings || backendSettings,
+        configuration: config.backendSettings || backendSettings,
         analysis: config.analysis,
-        executeNow: false,
+        execute_now: false,
       });
 
       toast.success("Experiment added to queue!");
@@ -185,15 +185,24 @@ export default function DashboardPage() {
 
       console.log("executeExperiment - using settings:", settings);
 
-      // Submit to API with executeNow: true
+      // Submit to API with execute_now: true
       const response = await api.createExperiment({
         molecule: config.molecule,
-        backendSettings: settings,
+        configuration: settings,
         analysis: config.analysis,
-        executeNow: true,
+        execute_now: true,
       });
 
-      setCurrentExperimentId(response.experimentId);
+      console.log("Experiment submitted successfully:", response);
+
+      // Get the experiment ID from response
+      const experimentId = response.experiment_id || response.experimentId || response.id;
+
+      if (!experimentId) {
+        throw new Error("No experiment ID returned from API");
+      }
+
+      setCurrentExperimentId(experimentId);
       setExperimentConfig(config);
       setCurrentStep("running");
       toast.success("Experiment started!");
@@ -201,9 +210,9 @@ export default function DashboardPage() {
       console.error("Failed to execute experiment:", error);
       toast.error(error.message || "Failed to start experiment");
 
-      // In offline mode, still show the monitor with simulation
-      setExperimentConfig(config);
-      setCurrentStep("running");
+      // Don't fall back to offline mode - show error
+      setLoading(false);
+      return;
     } finally {
       setLoading(false);
     }
@@ -246,6 +255,7 @@ export default function DashboardPage() {
         onQueue={(config) => {
           addToQueue(config);
         }}
+        onRefreshSettings={loadSettings}
       />
     );
   }
