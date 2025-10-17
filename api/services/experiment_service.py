@@ -21,6 +21,11 @@ from api.core.database import ExperimentDB, JobDB
 from api.core.config import get_settings
 
 
+class ExperimentCancelledException(Exception):
+    """Exception raised when an experiment is cancelled by the user."""
+    pass
+
+
 def create_molecule_from_config(molecule_config: Dict[str, Any]) -> Molecule:
     """Create Molecule object from configuration."""
     if molecule_config.get('smiles'):
@@ -141,12 +146,44 @@ def execute_hartree_fock(molecule: Molecule) -> Dict[str, Any]:
     }
 
 
+def check_cancellation(experiment_id: str, job_id: str):
+    """Check if experiment/job has been cancelled."""
+    experiment = ExperimentDB.get(experiment_id)
+    job = JobDB.get(job_id)
+
+    if experiment and experiment['status'] == 'cancelled':
+        raise ExperimentCancelledException(f"Experiment {experiment_id} was cancelled")
+    if job and job['status'] == 'cancelled':
+        raise ExperimentCancelledException(f"Job {job_id} was cancelled")
+
+
+def convert_numpy_types(obj):
+    """Recursively convert numpy types to native Python types for JSON serialization."""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_numpy_types(item) for item in obj]
+    else:
+        return obj
+
+
 def execute_vqe(
     molecule: Molecule,
     config: Dict[str, Any],
-    job_id: str
+    job_id: str,
+    experiment_id: str = None
 ) -> Dict[str, Any]:
     """Execute VQE calculation."""
+    # Check for cancellation before starting
+    if experiment_id:
+        check_cancellation(experiment_id, job_id)
+
     # Create bond (for VQE high-level API)
     if molecule.n_atoms == 2:
         # Diatomic molecule - use bond API
@@ -205,8 +242,12 @@ def execute_vqe(
             backend=create_backend(config)
         )
 
-    # Progress callback
+    # Progress callback with cancellation check
     def progress_callback(iteration: int, energy: float, parameters: np.ndarray):
+        # Check for cancellation
+        if experiment_id:
+            check_cancellation(experiment_id, job_id)
+
         max_iter = config.get('max_iterations', 1000)
         progress = min(100.0, (iteration / max_iter) * 100.0)
 
@@ -217,10 +258,11 @@ def execute_vqe(
             current_energy=float(energy)
         )
 
-    # Execute VQE
-    result = solver.solve()
+    # Execute VQE with callback
+    result = solver.solve(callback=progress_callback)
 
-    return {
+    # Build results dictionary with all data including analysis
+    results_dict = {
         'energy': float(result['energy']),
         'hf_energy': float(result.get('hf_energy', 0.0)),
         'correlation_energy': float(result.get('correlation_energy', 0.0)),
@@ -236,13 +278,23 @@ def execute_vqe(
         'mapper': config.get('mapper'),
     }
 
+    # Add analysis data if present (convert numpy types for JSON serialization)
+    if 'analysis' in result and result['analysis']:
+        results_dict['analysis'] = convert_numpy_types(result['analysis'])
+
+    return results_dict
+
 
 def execute_sqd(
     molecule: Molecule,
     config: Dict[str, Any],
-    job_id: str
+    job_id: str,
+    experiment_id: str = None
 ) -> Dict[str, Any]:
     """Execute SQD calculation."""
+    # Check for cancellation before starting
+    if experiment_id:
+        check_cancellation(experiment_id, job_id)
     # SQD requires bond API
     if molecule.n_atoms == 2:
         # Diatomic molecule - use bond API
@@ -295,9 +347,13 @@ def execute_sqd(
 def execute_excited_states(
     molecule: Molecule,
     config: Dict[str, Any],
-    job_id: str
+    job_id: str,
+    experiment_id: str = None
 ) -> Dict[str, Any]:
     """Execute excited states calculation."""
+    # Check for cancellation before starting
+    if experiment_id:
+        check_cancellation(experiment_id, job_id)
     # Excited states requires bond API
     if molecule.n_atoms == 2:
         # Diatomic molecule - use bond API
@@ -386,15 +442,15 @@ def execute_experiment(experiment_id: str, job_id: str):
 
         elif method == 'VQE':
             print("🔬 Running VQE calculation...")
-            results = execute_vqe(molecule, config, job_id)
+            results = execute_vqe(molecule, config, job_id, experiment_id)
 
         elif method == 'SQD':
             print("🔬 Running SQD calculation...")
-            results = execute_sqd(molecule, config, job_id)
+            results = execute_sqd(molecule, config, job_id, experiment_id)
 
         elif method == 'EXCITED_STATES':
             print("🔬 Running Excited States calculation...")
-            results = execute_excited_states(molecule, config, job_id)
+            results = execute_excited_states(molecule, config, job_id, experiment_id)
 
         else:
             raise ValueError(f"Unknown method: {method}")
@@ -419,6 +475,13 @@ def execute_experiment(experiment_id: str, job_id: str):
         # Update job
         JobDB.update_progress(job_id, progress=100.0)
         JobDB.update_status(job_id, 'completed')
+
+    except ExperimentCancelledException as e:
+        # Handle cancellation gracefully
+        print(f"⚠️  Experiment cancelled: {e}")
+        # Ensure both experiment and job are marked as cancelled
+        ExperimentDB.update_status(experiment_id, 'cancelled')
+        JobDB.update_status(job_id, 'cancelled')
 
     except Exception as e:
         print(f"❌ Experiment failed: {e}")

@@ -5,12 +5,15 @@ Models ionic bonding where electrons are transferred from donor to acceptor atom
 Integrates IonicGovernanceProtocol to ensure physical correctness.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 import numpy as np
 import logging
 from kanad.core.hamiltonians.molecular_hamiltonian import MolecularHamiltonian
 from kanad.core.atom import Atom
 from kanad.governance.protocols.ionic_protocol import IonicGovernanceProtocol
+
+if TYPE_CHECKING:
+    from kanad.core.representations.base_representation import Molecule, SecondQuantizationRepresentation
 
 logger = logging.getLogger(__name__)
 
@@ -764,7 +767,7 @@ class IonicHamiltonian(MolecularHamiltonian):
         else:
             raise ValueError(f"Unknown ansatz type: {ansatz_type}")
 
-    def to_sparse_hamiltonian(self):
+    def to_sparse_hamiltonian(self, mapper: str = 'jordan_wigner'):
         """
         Convert to sparse Hamiltonian representation using Pauli operators.
 
@@ -786,7 +789,8 @@ class IonicHamiltonian(MolecularHamiltonian):
             h_core=self.h_core,
             eri=self.eri,
             nuclear_repulsion=self.nuclear_repulsion,
-            n_orbitals=self.n_orbitals
+            n_orbitals=self.n_orbitals,
+            mapper=mapper
         )
 
         num_terms = len(sparse_pauli_op)

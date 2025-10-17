@@ -11,6 +11,43 @@ from contextlib import contextmanager
 from api.core.config import get_settings
 
 
+def cleanup_stuck_experiments():
+    """
+    Mark experiments stuck in 'running' or 'queued' status as 'failed'.
+    This is called on server startup to clean up zombie experiments from previous crashes.
+    """
+    from datetime import datetime, timedelta
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Mark old running/queued experiments as failed (older than 10 minutes)
+        ten_min_ago = (datetime.now() - timedelta(minutes=10)).isoformat()
+
+        cursor.execute('''
+            UPDATE experiments
+            SET status = 'failed',
+                error_message = 'Experiment was interrupted by server restart'
+            WHERE status IN ('running', 'queued')
+            AND created_at < ?
+        ''', (ten_min_ago,))
+
+        stuck_count = cursor.rowcount
+
+        # Also mark corresponding jobs as failed
+        cursor.execute('''
+            UPDATE jobs
+            SET status = 'failed'
+            WHERE status IN ('running', 'queued')
+            AND created_at < ?
+        ''', (ten_min_ago,))
+
+        conn.commit()
+
+        if stuck_count > 0:
+            print(f"🧹 Cleaned up {stuck_count} stuck experiments from previous session")
+
+
 def init_db():
     """Initialize database schema."""
     settings = get_settings()
@@ -18,10 +55,27 @@ def init_db():
     with get_db() as conn:
         cursor = conn.cursor()
 
+        # Campaigns table (for batch/queue executions)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS campaigns (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL,
+                total_experiments INTEGER DEFAULT 0,
+                completed_experiments INTEGER DEFAULT 0,
+                failed_experiments INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT
+            )
+        """)
+
         # Experiments table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS experiments (
                 id TEXT PRIMARY KEY,
+                campaign_id TEXT,
                 molecule_data TEXT NOT NULL,
                 configuration TEXT NOT NULL,
                 status TEXT NOT NULL,
@@ -29,9 +83,11 @@ def init_db():
                 backend TEXT NOT NULL,
                 results TEXT,
                 error_message TEXT,
+                sequence_order INTEGER DEFAULT 0,
                 created_at TEXT NOT NULL,
                 started_at TEXT,
-                completed_at TEXT
+                completed_at TEXT,
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(id)
             )
         """)
 
@@ -130,6 +186,8 @@ class ExperimentDB:
                 'status': row['status'],
                 'method': row['method'],
                 'backend': row['backend'],
+                'campaign_id': row['campaign_id'],
+                'sequence_order': row['sequence_order'],
                 'results': json.loads(row['results']) if row['results'] else None,
                 'error_message': row['error_message'],
                 'created_at': row['created_at'],
@@ -170,6 +228,8 @@ class ExperimentDB:
                     'status': row['status'],
                     'method': row['method'],
                     'backend': row['backend'],
+                    'campaign_id': row['campaign_id'],
+                    'sequence_order': row['sequence_order'],
                     'results': json.loads(row['results']) if row['results'] else None,
                     'error_message': row['error_message'],
                     'created_at': row['created_at'],
@@ -221,6 +281,18 @@ class ExperimentDB:
                     experiment_id
                 ))
 
+            conn.commit()
+
+    @staticmethod
+    def update_campaign_info(experiment_id: str, campaign_id: str, sequence_order: int):
+        """Update experiment campaign info."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE experiments
+                SET campaign_id = ?, sequence_order = ?
+                WHERE id = ?
+            """, (campaign_id, sequence_order, experiment_id))
             conn.commit()
 
     @staticmethod
@@ -370,3 +442,147 @@ class JobDB:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
             conn.commit()
+
+
+class CampaignDB:
+    """Database operations for experiment campaigns."""
+
+    @staticmethod
+    def create(campaign_data: Dict[str, Any]) -> str:
+        """Create new campaign."""
+        import uuid
+        campaign_id = str(uuid.uuid4())
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO campaigns (
+                    id, name, description, status, total_experiments, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                campaign_id,
+                campaign_data.get('name', 'Unnamed Campaign'),
+                campaign_data.get('description', ''),
+                'pending',
+                campaign_data.get('total_experiments', 0),
+                datetime.utcnow().isoformat()
+            ))
+            conn.commit()
+
+        return campaign_id
+
+    @staticmethod
+    def get(campaign_id: str) -> Optional[Dict[str, Any]]:
+        """Get campaign by ID."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM campaigns WHERE id = ?
+            """, (campaign_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            return {
+                'id': row['id'],
+                'name': row['name'],
+                'description': row['description'],
+                'status': row['status'],
+                'total_experiments': row['total_experiments'],
+                'completed_experiments': row['completed_experiments'],
+                'failed_experiments': row['failed_experiments'],
+                'created_at': row['created_at'],
+                'started_at': row['started_at'],
+                'completed_at': row['completed_at']
+            }
+
+    @staticmethod
+    def list(limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        """List all campaigns."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM campaigns
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+
+            return [
+                {
+                    'id': row['id'],
+                    'name': row['name'],
+                    'description': row['description'],
+                    'status': row['status'],
+                    'total_experiments': row['total_experiments'],
+                    'completed_experiments': row['completed_experiments'],
+                    'failed_experiments': row['failed_experiments'],
+                    'created_at': row['created_at'],
+                    'started_at': row['started_at'],
+                    'completed_at': row['completed_at']
+                }
+                for row in cursor.fetchall()
+            ]
+
+    @staticmethod
+    def update_status(campaign_id: str, status: str):
+        """Update campaign status."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            if status == 'running':
+                cursor.execute("""
+                    UPDATE campaigns
+                    SET status = ?, started_at = ?
+                    WHERE id = ?
+                """, (status, datetime.utcnow().isoformat(), campaign_id))
+            elif status in ['completed', 'failed', 'cancelled']:
+                cursor.execute("""
+                    UPDATE campaigns
+                    SET status = ?, completed_at = ?
+                    WHERE id = ?
+                """, (status, datetime.utcnow().isoformat(), campaign_id))
+            else:
+                cursor.execute("""
+                    UPDATE campaigns SET status = ? WHERE id = ?
+                """, (status, campaign_id))
+
+            conn.commit()
+
+    @staticmethod
+    def update_progress(campaign_id: str, completed: int, failed: int):
+        """Update campaign progress."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE campaigns
+                SET completed_experiments = ?, failed_experiments = ?
+                WHERE id = ?
+            """, (completed, failed, campaign_id))
+            conn.commit()
+
+    @staticmethod
+    def get_experiments(campaign_id: str) -> List[Dict[str, Any]]:
+        """Get all experiments in a campaign."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM experiments
+                WHERE campaign_id = ?
+                ORDER BY sequence_order ASC
+            """, (campaign_id,))
+
+            return [
+                {
+                    'id': row['id'],
+                    'campaign_id': row['campaign_id'],
+                    'status': row['status'],
+                    'method': row['method'],
+                    'backend': row['backend'],
+                    'sequence_order': row['sequence_order'],
+                    'created_at': row['created_at'],
+                    'started_at': row['started_at'],
+                    'completed_at': row['completed_at']
+                }
+                for row in cursor.fetchall()
+            ]

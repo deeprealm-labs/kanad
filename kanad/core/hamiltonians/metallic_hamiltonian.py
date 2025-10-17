@@ -428,6 +428,31 @@ class MetallicHamiltonian(MolecularHamiltonian):
         """
         return self.h_tight_binding.copy()
 
+    def to_sparse_hamiltonian(self, mapper: str = 'jordan_wigner'):
+        """
+        Convert to sparse Hamiltonian representation using Pauli operators.
+
+        Uses fast direct construction from tight-binding/Hubbard parameters.
+
+        Args:
+            mapper: Fermion-to-qubit mapping ('jordan_wigner' or 'bravyi_kitaev')
+
+        Returns:
+            Qiskit SparsePauliOp object ready for use in VQE
+        """
+        from kanad.core.hamiltonians.fast_pauli_builder import build_molecular_hamiltonian_pauli
+
+        # Build Pauli operators directly from single-particle + Hubbard U terms
+        sparse_pauli_op = build_molecular_hamiltonian_pauli(
+            h_core=self.h_core,
+            eri=self.eri,
+            nuclear_repulsion=self.nuclear_repulsion,
+            n_orbitals=self.n_orbitals,
+            mapper=mapper
+        )
+
+        return sparse_pauli_op
+
     def compute_energy(self, density_matrix: np.ndarray) -> float:
         """
         Compute total energy from density matrix.

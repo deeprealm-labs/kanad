@@ -157,11 +157,50 @@ export async function getExperimentCircuit(experimentId: string) {
   };
 }
 
+export async function getExperimentStatistics() {
+  // Get ALL experiments (no limit) to calculate accurate stats
+  const response = await getExperiments({ limit: 1000 }); // Large limit to get all
+  const experiments = response.experiments || [];
+
+  return {
+    total: experiments.length,
+    completed: experiments.filter((e: any) => e.status === "completed").length,
+    running: experiments.filter((e: any) => e.status === "running").length,
+    failed: experiments.filter((e: any) => e.status === "failed").length,
+    pending: experiments.filter((e: any) => e.status === "pending").length,
+    queued: experiments.filter((e: any) => e.status === "queued").length,
+  };
+}
+
 // ===== JOBS =====
 
 export async function listJobs(status?: string) {
   const params = status ? `?status=${status}` : "";
   return apiCall(`/jobs/list${params}`);
+}
+
+export async function getQueue() {
+  // Get all pending/queued EXPERIMENTS (not jobs)
+  const response = await getExperiments({ limit: 1000 });
+  const experiments = response.experiments || [];
+
+  // Filter for queued/pending experiments (not yet executed, not part of a campaign)
+  const queue = experiments
+    .filter((e: any) =>
+      (e.status === "pending" || e.status === "queued") &&
+      !e.campaign_id
+    )
+    .map((e: any) => ({
+      id: e.id,
+      name: `${e.molecule?.atoms?.[0]?.symbol || "Custom"} Molecule`,
+      molecule: e.molecule,
+      method: e.method || "VQE",
+      backend: e.backend || "classical",
+      status: e.status,
+      createdAt: e.created_at,
+    }));
+
+  return { queue };
 }
 
 export async function getQueueStatistics() {
@@ -194,6 +233,59 @@ export async function deleteJob(jobId: string) {
   return apiCall(`/jobs/${jobId}`, { method: "DELETE" });
 }
 
+// ===== CAMPAIGNS =====
+
+export async function createCampaign(data: {
+  name: string;
+  description?: string;
+  experiment_ids: string[];
+}) {
+  return apiCall("/campaigns/create", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function executeCampaign(campaignId: string) {
+  return apiCall(`/campaigns/${campaignId}/execute`, {
+    method: "POST",
+  });
+}
+
+export async function getCampaign(campaignId: string) {
+  return apiCall(`/campaigns/${campaignId}`);
+}
+
+export async function listCampaigns(limit: number = 100, offset: number = 0) {
+  return apiCall(`/campaigns/list?limit=${limit}&offset=${offset}`);
+}
+
+export async function cancelCampaign(campaignId: string) {
+  return apiCall(`/campaigns/${campaignId}/cancel`, {
+    method: "POST",
+  });
+}
+
+export function pollCampaignProgress(
+  campaignId: string,
+  callback: (campaign: any) => void,
+  interval: number = 2000
+): () => void {
+  const poll = async () => {
+    try {
+      const response = await getCampaign(campaignId);
+      callback(response);
+    } catch (error) {
+      console.error("Campaign polling error:", error);
+    }
+  };
+
+  poll(); // Initial call
+  const intervalId = setInterval(poll, interval);
+
+  return () => clearInterval(intervalId);
+}
+
 // ===== MOLECULES =====
 
 export async function createMolecule(data: any) {
@@ -219,7 +311,8 @@ export async function getBondInfo(atom1: string, atom2: string) {
 // ===== SETTINGS =====
 
 export async function getSettings() {
-  return apiCall("/settings/defaults");
+  const response = await apiCall("/settings/defaults");
+  return response.settings; // Extract settings from response
 }
 
 export async function updateSettings(settings: any) {
@@ -256,10 +349,45 @@ export async function getCredentials(provider: string) {
   return apiCall(`/cloud/credentials/${provider}`);
 }
 
+export async function getCloudCredentialsStatus() {
+  return apiCall("/cloud/status");
+}
+
+export async function saveIBMCredentials(crn: string, apiKey: string) {
+  return apiCall("/cloud/credentials", {
+    method: "POST",
+    body: JSON.stringify({ provider: "ibm", credentials: { crn, api_key: apiKey } }),
+  });
+}
+
+export async function saveBlueQubitCredentials(token: string) {
+  return apiCall("/cloud/credentials", {
+    method: "POST",
+    body: JSON.stringify({ provider: "bluequbit", credentials: { token } }),
+  });
+}
+
+export async function deleteIBMCredentials() {
+  return apiCall("/cloud/credentials/ibm", { method: "DELETE" });
+}
+
+export async function deleteBlueQubitCredentials() {
+  return apiCall("/cloud/credentials/bluequbit", { method: "DELETE" });
+}
+
 // ===== CONFIGURATION =====
 
 export async function getConfigurationOptions() {
   return apiCall("/configuration/options");
+}
+
+// ===== CIRCUITS =====
+
+export async function getCircuitPreview(molecule: any, configuration: any) {
+  return apiCall("/circuits/preview", {
+    method: "POST",
+    body: JSON.stringify({ molecule, configuration }),
+  });
 }
 
 // ===== WEBSOCKET =====

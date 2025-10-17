@@ -24,6 +24,7 @@ import { useToast } from "@/components/ui/toast";
 import * as api from "@/lib/api";
 import type { Experiment, ConvergencePoint, ExperimentStatus } from "@/lib/types";
 import CancelConfirmationDialog from "@/components/experiment/CancelConfirmationDialog";
+import AnalysisResults from "@/components/simulation/AnalysisResults";
 
 interface ExperimentMonitorProps {
   experimentId?: string | null;
@@ -58,13 +59,19 @@ export default function ExperimentMonitor({
 
   const wsRef = useRef<WebSocket | null>(null);
   const pollingRef = useRef<(() => void) | null>(null);
+  const previousStatusRef = useRef<ExperimentStatus>("queued");
   const toast = useToast();
 
   // Monitor experiment progress
   useEffect(() => {
-    const timer = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
-    }, 1000);
+    let timer: NodeJS.Timeout | null = null;
+
+    // Only run timer if experiment is not completed/failed/cancelled
+    if (status !== "completed" && status !== "failed" && status !== "cancelled") {
+      timer = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+    }
 
     if (experimentId) {
       // Try WebSocket connection first
@@ -106,7 +113,9 @@ export default function ExperimentMonitor({
     }
 
     return () => {
-      clearInterval(timer);
+      if (timer) {
+        clearInterval(timer);
+      }
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -114,7 +123,7 @@ export default function ExperimentMonitor({
         pollingRef.current();
       }
     };
-  }, [experimentId, startTime]);
+  }, [experimentId, startTime, status]);
 
   const startPolling = () => {
     if (!experimentId) return;
@@ -122,6 +131,11 @@ export default function ExperimentMonitor({
     const stopPolling = api.pollExperimentStatus(
       experimentId,
       async (exp) => {
+        const previousStatus = previousStatusRef.current;
+
+        // Update refs first
+        previousStatusRef.current = exp.status;
+
         setExperiment(exp);
         setStatus(exp.status);
 
@@ -136,12 +150,29 @@ export default function ExperimentMonitor({
         }
 
         if (exp.results) {
+          console.log("Received results:", exp.results);
           setResults(exp.results);
-          if (exp.convergenceData) {
+
+          // Handle convergence data from different sources
+          if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
+            console.log("Processing convergence_history:", exp.results.convergence_history.length, "points");
+            setConvergenceData(exp.results.convergence_history);
+          } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
+            console.log("Processing energy_history:", exp.results.energy_history.length, "points");
+            // Convert energy_history array to convergence data format
+            const convergence = exp.results.energy_history.map((energy: number, index: number) => ({
+              iteration: index + 1,
+              energy: energy
+            }));
+            setConvergenceData(convergence);
+          } else if (exp.convergenceData) {
+            console.log("Using exp.convergenceData");
             setConvergenceData(exp.convergenceData);
-          }
-          if (exp.results.convergenceData) {
+          } else if (exp.results.convergenceData) {
+            console.log("Using exp.results.convergenceData");
             setConvergenceData(exp.results.convergenceData);
+          } else {
+            console.log("No convergence data found in:", Object.keys(exp.results));
           }
         }
 
@@ -160,9 +191,32 @@ export default function ExperimentMonitor({
           }
         } else if (exp.status === "completed") {
           setProgress(100);
+          if (previousStatus !== "completed") {
+            addLog(`Experiment completed successfully`);
+          }
+        } else if (exp.status === "failed" && previousStatus !== "failed") {
+          addLog(`Experiment failed`);
         }
 
-        addLog(`Status: ${exp.status}`);
+        // Only log status changes, not every poll
+        if (previousStatus !== exp.status) {
+          addLog(`Status: ${exp.status}`);
+        }
+
+        // Stop polling AFTER processing all data if experiment is done
+        if (exp.status === "completed" || exp.status === "failed" || exp.status === "cancelled") {
+          console.log("Stopping polling - experiment done, results processed");
+
+          // Reset cancelling flag if experiment was cancelled
+          if (exp.status === "cancelled") {
+            setIsCancelling(false);
+          }
+
+          if (pollingRef.current) {
+            pollingRef.current();
+            pollingRef.current = null;
+          }
+        }
       },
       2000
     );
@@ -265,24 +319,18 @@ export default function ExperimentMonitor({
     try {
       setIsCancelling(true);
       const response = await api.cancelExperiment(experimentId);
-      setStatus("cancelled");
       setShowCancelDialog(false);
-      toast.success(response.message || "Experiment cancelled successfully");
-      addLog("Experiment cancelled by user");
+      toast.success(response.message || "Experiment is being cancelled...");
+      addLog("Cancellation requested - waiting for experiment to stop");
 
-      // Stop polling and websocket
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (pollingRef.current) {
-        pollingRef.current();
-      }
+      // DO NOT stop polling here - let it continue until backend confirms cancellation
+      // The polling callback will detect the "cancelled" status and stop automatically
     } catch (error: any) {
       console.error("Failed to cancel experiment:", error);
       toast.error(error.message || "Failed to cancel experiment");
-    } finally {
       setIsCancelling(false);
     }
+    // Note: setIsCancelling(false) will be called when polling detects "cancelled" status
   };
 
   const handleExport = async () => {
@@ -434,43 +482,38 @@ export default function ExperimentMonitor({
             )}
           </div>
 
-          {/* Live Metrics */}
-          <div className="bg-card border border-border rounded-lg p-4 flex-1 min-h-0">
-            <h3 className="text-sm font-quando font-semibold mb-3">
-              Live Metrics
+          {/* Results & Analysis */}
+          <div className="bg-card border border-border rounded-lg p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
+            <h3 className="text-sm font-quando font-semibold mb-3 flex-shrink-0">
+              {status === "completed" ? "Analysis Results" : "Live Metrics"}
             </h3>
-            <div className="space-y-3">
-              <div className="bg-muted rounded-lg p-3">
-                <div className="text-xs text-muted-foreground mb-1">
-                  Current Energy
-                </div>
-                <div className="text-lg font-quando font-bold">
-                  {convergenceData.length > 0
-                    ? convergenceData[convergenceData.length - 1].energy.toFixed(6)
-                    : "---"}{" "}
-                  <span className="text-sm font-normal">Ha</span>
-                </div>
-              </div>
-              {status === "completed" && results && (
-                <>
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {status === "completed" && results ? (
+                <AnalysisResults results={results} />
+              ) : (
+                <div className="space-y-3">
                   <div className="bg-muted rounded-lg p-3">
                     <div className="text-xs text-muted-foreground mb-1">
-                      Dipole Moment
+                      Current Energy
                     </div>
                     <div className="text-lg font-quando font-bold">
-                      {(results.properties?.dipole_moment ?? results.dipoleMoment ?? 0).toFixed(4)}{" "}
-                      <span className="text-sm font-normal">D</span>
+                      {convergenceData.length > 0
+                        ? convergenceData[convergenceData.length - 1].energy.toFixed(6)
+                        : "---"}{" "}
+                      <span className="text-sm font-normal">Ha</span>
                     </div>
                   </div>
-                  <div className="bg-muted rounded-lg p-3">
-                    <div className="text-xs text-muted-foreground mb-1">
-                      Convergence
+                  {convergenceData.length > 0 && (
+                    <div className="bg-muted rounded-lg p-3">
+                      <div className="text-xs text-muted-foreground mb-1">
+                        Current Iteration
+                      </div>
+                      <div className="text-lg font-quando font-bold">
+                        {convergenceData.length}
+                      </div>
                     </div>
-                    <div className="text-lg font-quando font-bold text-green-600">
-                      {results.converged ? "Success" : "Failed"}
-                    </div>
-                  </div>
-                </>
+                  )}
+                </div>
               )}
             </div>
           </div>

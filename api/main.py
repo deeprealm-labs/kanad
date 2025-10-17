@@ -26,10 +26,12 @@ from api.routes import (
     library,
     cloud,
     health,
-    configuration
+    configuration,
+    campaigns,
+    circuits
 )
 from api.core.config import get_settings
-from api.core.database import init_db
+from api.core.database import init_db, cleanup_stuck_experiments
 
 
 @asynccontextmanager
@@ -43,6 +45,9 @@ async def lifespan(app: FastAPI):
     # Initialize database
     init_db()
     print("✅ Database initialized")
+
+    # Clean up stuck experiments from previous session
+    cleanup_stuck_experiments()
 
     yield
 
@@ -73,11 +78,13 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(molecules.router, prefix="/api/molecules", tags=["Molecules"])
 app.include_router(experiments.router, prefix="/api/experiments", tags=["Experiments"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
+app.include_router(campaigns.router, prefix="/api/campaigns", tags=["Campaigns"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])
 app.include_router(library.router, prefix="/api/library", tags=["Library"])
 app.include_router(cloud.router, prefix="/api/cloud", tags=["Cloud"])
 app.include_router(configuration.router, prefix="/api/configuration", tags=["Configuration"])
+app.include_router(circuits.router, prefix="/api/circuits", tags=["Circuits"])
 
 
 @app.exception_handler(HTTPException)

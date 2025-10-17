@@ -45,6 +45,7 @@ export default function ConfigurationSelector({
 
   // Helper function to format option names
   const formatOptionName = (name: string) => {
+    if (!name || typeof name !== 'string') return '';
     // Replace underscores with spaces and capitalize words
     return name
       .split("_")
@@ -64,9 +65,9 @@ export default function ConfigurationSelector({
           onChange={(e) => updateSetting("method", e.target.value)}
           className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
         >
-          {options?.methods?.map((method: string) => (
-            <option key={method} value={method}>
-              {method}
+          {options?.methods?.map((method: any) => (
+            <option key={method.value} value={method.value}>
+              {method.label}
             </option>
           ))}
         </select>
@@ -86,9 +87,9 @@ export default function ConfigurationSelector({
             onChange={(e) => updateSetting("ansatz", e.target.value)}
             className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
           >
-            {options?.ansatze?.map((ansatz: string) => (
-              <option key={ansatz} value={ansatz}>
-                {formatOptionName(ansatz)}
+            {options?.ansatze?.map((ansatz: any) => (
+              <option key={ansatz.value} value={ansatz.value}>
+                {ansatz.label}
               </option>
             ))}
           </select>
@@ -109,9 +110,9 @@ export default function ConfigurationSelector({
             onChange={(e) => updateSetting("mapper", e.target.value)}
             className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
           >
-            {options?.mappers?.map((mapper: string) => (
-              <option key={mapper} value={mapper}>
-                {formatOptionName(mapper)}
+            {options?.mappers?.map((mapper: any) => (
+              <option key={mapper.value} value={mapper.value}>
+                {mapper.label}
               </option>
             ))}
           </select>
@@ -131,9 +132,9 @@ export default function ConfigurationSelector({
           onChange={(e) => updateSetting("hamiltonian", e.target.value)}
           className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
         >
-          {options?.hamiltonians?.map((ham: string) => (
-            <option key={ham} value={ham}>
-              {formatOptionName(ham)}
+          {options?.hamiltonians?.map((ham: any) => (
+            <option key={ham.value} value={ham.value}>
+              {ham.label}
             </option>
           ))}
         </select>
@@ -153,9 +154,9 @@ export default function ConfigurationSelector({
             onChange={(e) => updateSetting("optimizer", e.target.value)}
             className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
           >
-            {options?.optimizers?.map((opt: string) => (
-              <option key={opt} value={opt}>
-                {opt}
+            {options?.optimizers?.map((opt: any) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </select>
@@ -175,9 +176,9 @@ export default function ConfigurationSelector({
           onChange={(e) => updateSetting("backend", e.target.value)}
           className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
         >
-          {options?.backends?.map((backend: string) => (
-            <option key={backend} value={backend}>
-              {formatOptionName(backend)}
+          {options?.backends?.map((backend: any) => (
+            <option key={backend.value} value={backend.value}>
+              {backend.label}
             </option>
           ))}
         </select>

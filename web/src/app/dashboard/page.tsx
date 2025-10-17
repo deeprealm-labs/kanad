@@ -63,8 +63,8 @@ export default function DashboardPage() {
 
   const loadSettings = async () => {
     try {
-      const response = await api.getSettings();
-      setBackendSettings(response.settings as any);
+      const settings = await api.getSettings();
+      setBackendSettings(settings as any);
     } catch (error) {
       console.error("Failed to load settings from API:", error);
 
@@ -256,6 +256,7 @@ export default function DashboardPage() {
           addToQueue(config);
         }}
         onRefreshSettings={loadSettings}
+        onOpenSettings={() => setCurrentStep("review")}
       />
     );
   }

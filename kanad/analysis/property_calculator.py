@@ -106,7 +106,7 @@ class PropertyCalculator:
         else:
             # Framework-native path (approximate)
             logger.warning("PySCF mol not available, using approximate dipole calculation")
-            # For now, use nuclear dipole only (electronic part requires dipole integrals)
+            # No dipole integrals; we'll approximate electronic dipole from site populations
             dip_ints = None
 
         # Electronic contribution: -Tr(P · r)
@@ -115,8 +115,25 @@ class PropertyCalculator:
             for i in range(3):
                 mu_elec[i] = -np.einsum('ij,ji->', density_matrix, dip_ints[i])
         else:
-            # Approximate electronic contribution (placeholder)
-            logger.warning("Electronic dipole contribution not calculated (requires integral evaluation)")
+            # Approximate electronic contribution using site populations (ionic/metallic models)
+            # Assumes one orbital per atom; density_matrix is in site basis
+            try:
+                n_sites = len(self.atoms)
+                if density_matrix.shape[0] == n_sites:
+                    from kanad.core.constants.conversion_factors import ConversionFactors
+                    for i_atom in range(n_sites):
+                        # Electron population on site i (spin-summed if provided as such)
+                        n_i = float(density_matrix[i_atom, i_atom])
+                        # Position in Bohr
+                        r_i_bohr = np.array(self.atoms[i_atom].position) * ConversionFactors.ANGSTROM_TO_BOHR - origin
+                        # Electronic dipole contribution: -n_i * r_i
+                        mu_elec += -n_i * r_i_bohr
+                else:
+                    logger.warning(
+                        "Electronic dipole approximation skipped: density matrix dims do not match number of atoms"
+                    )
+            except Exception as e:
+                logger.warning(f"Electronic dipole approximation failed: {e}")
 
         # Nuclear contribution: Σ Z_A (R_A - origin)
         mu_nuc = np.zeros(3)

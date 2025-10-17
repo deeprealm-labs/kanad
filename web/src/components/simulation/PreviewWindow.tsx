@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ArrowLeft, CheckCircle2, Settings } from "lucide-react";
-import ConfigurationSelector from "./ConfigurationSelector";
 import type { BackendSettings } from "@/lib/types";
+import * as api from "@/lib/api";
 
 interface PreviewWindowProps {
   molecule: any;
@@ -12,20 +12,26 @@ interface PreviewWindowProps {
   onExecute: (config: any) => void;
   onQueue?: (config: any) => void;
   onRefreshSettings?: () => Promise<void>;
+  onOpenSettings?: () => void;
 }
 
 export default function PreviewWindow({
   molecule,
-  backendSettings: initialSettings,
+  backendSettings,
   onBack,
   onExecute,
   onQueue,
   onRefreshSettings,
+  onOpenSettings,
 }: PreviewWindowProps) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [backendSettings, setBackendSettings] = useState<BackendSettings>(initialSettings);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+  const [circuitPreview, setCircuitPreview] = useState<any>(null);
+  const [isLoadingCircuit, setIsLoadingCircuit] = useState(false);
+
+  // Memoize stringified versions to prevent infinite loops
+  const moleculeKey = useMemo(() => JSON.stringify(molecule), [molecule]);
+  const settingsKey = useMemo(() => JSON.stringify(backendSettings), [backendSettings]);
 
   // Reload settings when component mounts and wait for them
   useEffect(() => {
@@ -38,11 +44,27 @@ export default function PreviewWindow({
     loadSettings();
   }, [onRefreshSettings]);
 
-  // Update local state when initialSettings prop changes
+  // Load circuit preview when molecule or settings change
   useEffect(() => {
-    console.log("PreviewWindow: Updating backend settings from prop:", initialSettings);
-    setBackendSettings(initialSettings);
-  }, [initialSettings]);
+    const loadCircuit = async () => {
+      if (!molecule || !backendSettings) return;
+
+      setIsLoadingCircuit(true);
+      try {
+        const response = await api.getCircuitPreview(molecule, backendSettings);
+        if (response.success) {
+          setCircuitPreview(response.preview);
+        }
+      } catch (error) {
+        console.error("Failed to load circuit preview:", error);
+        setCircuitPreview(null);
+      } finally {
+        setIsLoadingCircuit(false);
+      }
+    };
+
+    loadCircuit();
+  }, [moleculeKey, settingsKey]);
   const [analysis, setAnalysis] = useState({
     energyDecomposition: true,
     bondAnalysis: true,
@@ -66,6 +88,7 @@ export default function PreviewWindow({
       onQueue({ molecule, backendSettings, analysis });
     }
   };
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -84,10 +107,10 @@ export default function PreviewWindow({
         </div>
       </div>
 
-      {/* Main Content - 2 Columns */}
-      <div className="flex-1 grid grid-cols-2 gap-6 p-6 overflow-hidden">
-        {/* Left Column: Summary */}
-        <div className="flex flex-col h-full overflow-auto space-y-6">
+      {/* Main Content - 2 Columns with proper overflow */}
+      <div className="flex-1 flex gap-6 p-6 overflow-hidden">
+        {/* Left Column: Summary - Scrollable */}
+        <div className="flex-1 flex flex-col overflow-y-auto space-y-6 pr-2">
           {/* Molecular Configuration */}
           <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="text-lg font-quando font-semibold mb-4">
@@ -134,29 +157,26 @@ export default function PreviewWindow({
               <h3 className="text-lg font-quando font-semibold">
                 Backend Configuration
               </h3>
-              <button
-                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                className="flex items-center gap-2 px-3 py-1 text-sm border border-border rounded-lg hover:bg-accent transition font-quando"
-              >
-                <Settings className="w-4 h-4" />
-                {showAdvancedSettings ? "Hide" : "Show"} Settings
-              </button>
+              {onOpenSettings && (
+                <button
+                  onClick={onOpenSettings}
+                  className="flex items-center gap-2 px-3 py-1 text-sm border border-border rounded-lg hover:bg-accent transition font-quando"
+                >
+                  <Settings className="w-4 h-4" />
+                  Edit Settings
+                </button>
+              )}
             </div>
 
-            {showAdvancedSettings ? (
-              <ConfigurationSelector
-                settings={backendSettings}
-                onChange={setBackendSettings}
-              />
-            ) : (
-              <div className="space-y-3 text-sm">
+            <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Method:</span>
                   <span className="font-quando">
                     {backendSettings?.method || "VQE"}
                   </span>
                 </div>
-                {backendSettings?.ansatz && (
+                {/* Only show ansatz for VQE */}
+                {backendSettings?.method === "VQE" && backendSettings?.ansatz && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Ansatz:</span>
                     <span className="font-quando">
@@ -164,7 +184,8 @@ export default function PreviewWindow({
                     </span>
                   </div>
                 )}
-                {backendSettings?.mapper && (
+                {/* Only show mapper for VQE */}
+                {backendSettings?.method === "VQE" && backendSettings?.mapper && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Mapper:</span>
                     <span className="font-quando">
@@ -193,7 +214,8 @@ export default function PreviewWindow({
                       .join(" ") || "Classical"}
                   </span>
                 </div>
-                {backendSettings?.optimizer && (
+                {/* Only show optimizer for VQE */}
+                {backendSettings?.method === "VQE" && backendSettings?.optimizer && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Optimizer:</span>
                     <span className="font-quando">
@@ -202,7 +224,6 @@ export default function PreviewWindow({
                   </div>
                 )}
               </div>
-            )}
           </div>
 
           {/* Analysis Properties */}
@@ -232,80 +253,121 @@ export default function PreviewWindow({
           </div>
         </div>
 
-        {/* Right Column: Circuit Preview */}
-        <div className="flex flex-col h-full">
-          <div className="bg-card border border-border rounded-lg p-6 h-full flex flex-col">
-            <h3 className="text-lg font-quando font-semibold mb-4">
+        {/* Right Column: Circuit Preview - 2x width, Scrollable */}
+        <div className="flex-[2] flex flex-col overflow-hidden">
+          <div className="bg-card border border-border rounded-lg p-6 h-full flex flex-col overflow-hidden">
+            <h3 className="text-lg font-quando font-semibold mb-4 flex-shrink-0">
               Quantum Circuit Preview
             </h3>
 
-            {/* Circuit Diagram */}
-            <div className="flex-1 bg-muted rounded-lg p-6 overflow-auto">
-              <div className="font-mono text-sm space-y-2">
-                {backendSettings.method === "VQE" || backendSettings.method === "SQD" ? (
+            {/* Circuit Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="space-y-4">
+                {isLoadingCircuit ? (
+                  <div className="text-muted-foreground">Loading circuit preview...</div>
+                ) : circuitPreview && circuitPreview.circuit_diagram ? (
                   <>
-                    <div className="text-muted-foreground mb-4">
-                      Circuit will be generated when experiment starts
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-xs text-muted-foreground">Preview based on configuration:</div>
-                      <div className="mt-2">
-                        <span className="text-muted-foreground">Ansatz: </span>
-                        <span className="font-quando">{backendSettings.ansatz?.toUpperCase() || "UCC"}</span>
+                    {/* Note for non-VQE methods */}
+                    {circuitPreview.note && (
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-sm text-blue-700 dark:text-blue-300">
+                        {circuitPreview.note}
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Mapper: </span>
-                        <span className="font-quando">
-                          {backendSettings.mapper?.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("-") || "Jordan-Wigner"}
-                        </span>
-                      </div>
-                      {molecule.atoms && (
-                        <div>
-                          <span className="text-muted-foreground">Atoms: </span>
-                          <span className="font-quando">{molecule.atoms.length}</span>
-                        </div>
-                      )}
-                      <div className="mt-4 p-3 bg-background rounded border border-border">
-                        <div className="text-xs text-muted-foreground mb-2">
-                          Estimated Circuit Properties:
-                        </div>
-                        <div className="text-xs space-y-1">
-                          <div>Qubits: ~{molecule.atoms ? molecule.atoms.length * 2 : 4}-{molecule.atoms ? molecule.atoms.length * 4 : 8}</div>
-                          <div>Parameters: Depends on ansatz</div>
-                          <div>Gates: Generated at runtime</div>
-                        </div>
+                    )}
+
+                    {/* ASCII Circuit Diagram - Horizontally scrollable */}
+                    <div className="bg-background rounded border border-border overflow-x-auto max-w-full">
+                      <div className="p-4 min-w-max">
+                        <pre className="text-xs leading-relaxed whitespace-pre font-mono">
+                          {circuitPreview.circuit_diagram}
+                        </pre>
                       </div>
                     </div>
+
+                    {/* Circuit Statistics */}
+                    {circuitPreview.statistics && (
+                      <div className="p-4 bg-background rounded border border-border">
+                        <div className="text-sm font-semibold text-muted-foreground mb-3">
+                          Circuit Properties
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Qubits: </span>
+                            <span className="font-quando font-semibold">{circuitPreview.statistics.n_qubits}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Depth: </span>
+                            <span className="font-quando font-semibold">{circuitPreview.statistics.depth}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Parameters: </span>
+                            <span className="font-quando font-semibold">{circuitPreview.n_parameters || 0}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Total Gates: </span>
+                            <span className="font-quando font-semibold">{circuitPreview.statistics.total_gates || 0}</span>
+                          </div>
+                        </div>
+                        {circuitPreview.statistics.gate_counts && Object.keys(circuitPreview.statistics.gate_counts).length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-border">
+                            <div className="text-sm text-muted-foreground mb-2">Gate Distribution:</div>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(circuitPreview.statistics.gate_counts).map(([gate, count]) => (
+                                <span key={gate} className="px-2 py-1 bg-muted rounded text-sm font-mono">
+                                  {gate.toUpperCase()}: <span className="font-semibold">{String(count)}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Configuration Info - only for VQE */}
+                    {backendSettings.method === "VQE" && (
+                      <div className="p-4 bg-muted rounded border border-border">
+                        <div className="text-sm font-semibold mb-3">VQE Configuration</div>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Ansatz: </span>
+                            <span className="font-quando font-semibold">{backendSettings.ansatz?.toUpperCase().replace("_", "-") || "UCC"}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Mapper: </span>
+                            <span className="font-quando font-semibold">
+                              {backendSettings.mapper?.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("-") || "Jordan-Wigner"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
-                  <div className="text-muted-foreground">
-                    {backendSettings.method === "HF"
-                      ? "Hartree-Fock method does not use quantum circuits"
-                      : "Circuit preview available after experiment creation"}
+                  <div className="text-muted-foreground p-8 text-center">
+                    Unable to generate circuit preview
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Estimates */}
-            <div className="mt-6 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Method:</span>
-                <span className="font-quando">{backendSettings.method || "VQE"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Backend:</span>
-                <span className="font-quando">
-                  {backendSettings.backend?.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "Classical"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Estimated runtime:
-                </span>
-                <span className="font-quando">
-                  {backendSettings.method === "HF" ? "< 1 second" : "~30-60 seconds"}
-                </span>
+            {/* Estimates - Fixed at bottom */}
+            <div className="mt-4 p-4 bg-muted rounded border border-border flex-shrink-0">
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <div className="text-muted-foreground text-xs mb-1">Method</div>
+                  <div className="font-quando font-semibold">{backendSettings.method || "VQE"}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground text-xs mb-1">Backend</div>
+                  <div className="font-quando font-semibold">
+                    {backendSettings.backend?.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "Classical"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground text-xs mb-1">Est. Runtime</div>
+                  <div className="font-quando font-semibold">
+                    {backendSettings.method === "HF" ? "< 1s" : "~30-60s"}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

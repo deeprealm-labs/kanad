@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Save } from "lucide-react";
+import { X, Save, Check } from "lucide-react";
 import * as api from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
 
   const [optimization, setOptimization] = useState(DEFAULT_SETTINGS.optimization);
   const [configOptions, setConfigOptions] = useState<any>(null);
+  const toast = useToast();
 
   // Load configuration options from API
   useEffect(() => {
@@ -110,8 +112,10 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
     try {
       await api.updateSettings(settings);
       console.log("Saved settings to API:", settings);
+      toast.success("Settings saved successfully");
     } catch (error) {
       console.error("Failed to save settings to API:", error);
+      toast.error("Failed to save settings to database, saved locally instead");
       // Fallback to localStorage
       localStorage.setItem("kanad_settings", JSON.stringify(settings));
       console.log("Saved settings to localStorage:", settings);

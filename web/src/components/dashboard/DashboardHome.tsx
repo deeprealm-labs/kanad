@@ -17,6 +17,7 @@ export default function DashboardHome({
   onViewExperiment,
   experiments = [],
 }: DashboardHomeProps) {
+  const [experimentStats, setExperimentStats] = useState<any>(null);
   const [queueStats, setQueueStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -25,24 +26,30 @@ export default function DashboardHome({
   const toast = useToast();
 
   useEffect(() => {
-    loadQueueStats();
+    loadAllStats();
   }, []);
 
-  const loadQueueStats = async () => {
+  const loadAllStats = async () => {
     try {
       setLoadingStats(true);
-      const stats = await api.getQueueStatistics();
-      setQueueStats(stats);
+      const [expStats, qStats] = await Promise.all([
+        api.getExperimentStatistics(),
+        api.getQueueStatistics()
+      ]);
+      setExperimentStats(expStats);
+      setQueueStats(qStats);
     } catch (error) {
-      console.error("Failed to load queue stats:", error);
+      console.error("Failed to load stats:", error);
     } finally {
       setLoadingStats(false);
     }
   };
 
-  const completedCount = experiments.filter((e) => e.status === "completed").length;
-  const runningCount = experiments.filter((e) => e.status === "running").length;
-  const queuedCount = queueStats?.queued || experiments.filter((e) => e.status === "queued").length;
+  // Use stats from API if available, otherwise fallback to local experiments array
+  const totalCount = experimentStats?.total ?? experiments.length;
+  const completedCount = experimentStats?.completed ?? experiments.filter((e) => e.status === "completed").length;
+  const runningCount = experimentStats?.running ?? experiments.filter((e) => e.status === "running").length;
+  const queuedCount = experimentStats?.queued ?? queueStats?.queued ?? experiments.filter((e) => e.status === "queued").length;
 
   const recentExperiments = experiments.slice(0, 3);
   const runningExperiments = experiments.filter((e) => e.status === "running");
@@ -108,7 +115,7 @@ export default function DashboardHome({
               <p className="text-sm text-muted-foreground font-quando mb-1">
                 Total Experiments
               </p>
-              <p className="text-3xl font-quando font-bold">{experiments.length}</p>
+              <p className="text-3xl font-quando font-bold">{totalCount}</p>
             </div>
             <TrendingUp className="w-8 h-8 " />
           </div>

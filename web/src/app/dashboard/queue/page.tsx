@@ -4,43 +4,35 @@ import { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Plus,
-  Calendar,
-  Clock,
   Play,
-  Pause,
   Trash2,
-  MoveUp,
-  MoveDown,
-  XCircle,
+  GripVertical,
+  Loader2,
+  CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 import * as api from "@/lib/api";
-import { useToast } from "@/components/ui/toast";
-import CancelConfirmationDialog from "@/components/experiment/CancelConfirmationDialog";
+import { useRouter } from "next/navigation";
 
-interface QueuedJob {
+interface QueuedExperiment {
   id: string;
   name: string;
   molecule: any;
   method: string;
   backend: string;
-  scheduledTime?: string;
-  priority: number;
-  status: "queued" | "scheduled" | "running" | "paused";
+  status: string;
   createdAt: string;
 }
 
 export default function QueuePage() {
-  const [queue, setQueue] = useState<QueuedJob[]>([]);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<QueuedJob | null>(null);
-  const [scheduleDate, setScheduleDate] = useState("");
-  const [scheduleTime, setScheduleTime] = useState("");
+  const [queue, setQueue] = useState<QueuedExperiment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [jobToCancel, setJobToCancel] = useState<QueuedJob | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const toast = useToast();
+  const [campaignName, setCampaignName] = useState("");
+  const [showCampaignDialog, setShowCampaignDialog] = useState(false);
+  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     loadQueue();
@@ -52,393 +44,330 @@ export default function QueuePage() {
       const response = await api.getQueue();
       setQueue(response.queue || []);
     } catch (error) {
-      console.error("Failed to load queue from API:", error);
-
-      // Fallback to localStorage
-      const saved = localStorage.getItem("kanad_queue");
-      if (saved) {
-        try {
-          setQueue(JSON.parse(saved));
-        } catch (e) {
-          console.error("Failed to parse localStorage queue:", e);
-        }
-      }
+      console.error("Failed to load queue:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const saveQueue = (updatedQueue: QueuedJob[]) => {
-    setQueue(updatedQueue);
-    localStorage.setItem("kanad_queue", JSON.stringify(updatedQueue));
-  };
-
-  const handleSchedule = () => {
-    if (selectedJob && scheduleDate && scheduleTime) {
-      const scheduled = `${scheduleDate}T${scheduleTime}`;
-      const updated = queue.map((job) =>
-        job.id === selectedJob.id
-          ? { ...job, scheduledTime: scheduled, status: "scheduled" as const }
-          : job
-      );
-      saveQueue(updated);
-      setShowScheduleModal(false);
-      setSelectedJob(null);
-      setScheduleDate("");
-      setScheduleTime("");
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    const updated = queue.filter((job) => job.id !== id);
-    saveQueue(updated);
-  };
-
-  const handlePriorityChange = (id: string, direction: "up" | "down") => {
-    const index = queue.findIndex((job) => job.id === id);
-    if (index === -1) return;
-
-    const updated = [...queue];
-    if (direction === "up" && index > 0) {
-      [updated[index], updated[index - 1]] = [updated[index - 1], updated[index]];
-    } else if (direction === "down" && index < queue.length - 1) {
-      [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+  const handleCreateAndExecuteCampaign = async () => {
+    if (queue.length === 0) {
+      alert("No experiments in queue!");
+      return;
     }
 
-    // Update priority numbers
-    updated.forEach((job, i) => {
-      job.priority = i + 1;
-    });
-
-    saveQueue(updated);
-  };
-
-  const handleTogglePause = (id: string) => {
-    const updated = queue.map((job) =>
-      job.id === id
-        ? {
-            ...job,
-            status:
-              job.status === "paused"
-                ? ("queued" as const)
-                : ("paused" as const),
-          }
-        : job
-    );
-    saveQueue(updated);
-  };
-
-  const handleCancelClick = (job: QueuedJob) => {
-    setJobToCancel(job);
-    setShowCancelDialog(true);
-  };
-
-  const handleCancelConfirm = async () => {
-    if (!jobToCancel) return;
+    if (!campaignName.trim()) {
+      alert("Please enter a campaign name");
+      return;
+    }
 
     try {
-      setIsCancelling(true);
+      setIsCreatingCampaign(true);
 
-      // If it's a running or queued experiment with ID, use the cancel API
-      if (jobToCancel.status === "running" || jobToCancel.status === "queued") {
-        try {
-          await api.cancelExperiment(jobToCancel.id);
-          toast.success("Job cancelled successfully");
-        } catch (error) {
-          console.error("API cancel failed, removing from local queue:", error);
-          // Fallback to local deletion
-          handleDelete(jobToCancel.id);
-          toast.warning("Job removed from local queue");
-        }
-      } else {
-        // For scheduled/paused jobs, just delete from queue
-        handleDelete(jobToCancel.id);
-        toast.success("Job removed from queue");
-      }
+      // Create campaign
+      const campaignResponse = await api.createCampaign({
+        name: campaignName,
+        description: `Sequential execution of ${queue.length} experiments`,
+        experiment_ids: queue.map((exp) => exp.id),
+      });
 
-      setShowCancelDialog(false);
-      setJobToCancel(null);
+      const campaignId = campaignResponse.campaign_id;
 
-      // Reload queue
-      await loadQueue();
+      // Execute campaign
+      await api.executeCampaign(campaignId);
+
+      // Navigate to campaign monitor
+      router.push(`/dashboard/campaign/${campaignId}`);
     } catch (error: any) {
-      console.error("Failed to cancel job:", error);
-      toast.error(error.message || "Failed to cancel job");
+      console.error("Failed to execute campaign:", error);
+      alert(`Failed to execute campaign: ${error.message || "Unknown error"}`);
     } finally {
-      setIsCancelling(false);
+      setIsCreatingCampaign(false);
+      setShowCampaignDialog(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "running":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      case "scheduled":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-      case "paused":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-      default:
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+  const handleQuickExecute = async () => {
+    if (queue.length === 0) {
+      alert("No experiments in queue!");
+      return;
+    }
+
+    const name = `Campaign ${new Date().toLocaleString()}`;
+
+    try {
+      setIsExecuting(true);
+
+      // Create and execute campaign
+      const campaignResponse = await api.createCampaign({
+        name,
+        description: `Sequential execution of ${queue.length} experiments`,
+        experiment_ids: queue.map((exp) => exp.id),
+      });
+
+      const campaignId = campaignResponse.campaign_id;
+      await api.executeCampaign(campaignId);
+
+      // Navigate to campaign monitor
+      router.push(`/dashboard/campaign/${campaignId}`);
+    } catch (error: any) {
+      console.error("Failed to execute campaign:", error);
+      alert(`Failed to execute campaign: ${error.message || "Unknown error"}`);
+    } finally {
+      setIsExecuting(false);
     }
   };
+
+  const handleRemoveFromQueue = async (experimentId: string) => {
+    try {
+      await api.deleteExperiment(experimentId);
+      setQueue(queue.filter((exp) => exp.id !== experimentId));
+    } catch (error) {
+      console.error("Failed to remove experiment:", error);
+    }
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newQueue = [...queue];
+    const draggedItem = newQueue[draggedIndex];
+    newQueue.splice(draggedIndex, 1);
+    newQueue.splice(index, 0, draggedItem);
+
+    setQueue(newQueue);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Cancel Confirmation Dialog */}
-      {jobToCancel && (
-        <CancelConfirmationDialog
-          isOpen={showCancelDialog}
-          onClose={() => {
-            setShowCancelDialog(false);
-            setJobToCancel(null);
-          }}
-          onConfirm={handleCancelConfirm}
-          experimentName={jobToCancel.molecule?.smiles || jobToCancel.name || "Custom Job"}
-          isRunning={jobToCancel.status === "running"}
-          isLoading={isCancelling}
-        />
-      )}
+    <div className="min-h-screen bg-background p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard">
+              <button className="p-2 hover:bg-accent rounded-lg transition">
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+            </Link>
+            <div>
+              <h1 className="text-3xl font-quando font-bold">
+                Experiment Queue
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Manage and execute experiments sequentially
+              </p>
+            </div>
+          </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard"
-            className="p-2 hover:bg-accent rounded-md transition"
-          >
-            <ArrowLeft className="w-5 h-5" />
+          <Link href="/dashboard">
+            <button className="px-6 py-3 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              New Experiment
+            </button>
           </Link>
-          <h1 className="text-2xl font-quando font-bold">Job Queue</h1>
         </div>
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 px-4 py-2 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando"
-        >
-          <Plus className="w-5 h-5" />
-          New Experiment
-        </Link>
-      </div>
 
-      {/* Stats Bar */}
-      <div className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-border">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs text-muted-foreground font-quando mb-1">
-            Total in Queue
-          </p>
-          <p className="text-2xl font-quando font-bold">{queue.length}</p>
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          <div className="bg-card border border-border rounded-lg p-6">
+            <p className="text-sm text-muted-foreground font-quando mb-1">
+              Total in Queue
+            </p>
+            <p className="text-3xl font-quando font-bold">{queue.length}</p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-6">
+            <p className="text-sm text-muted-foreground font-quando mb-1">
+              Status
+            </p>
+            <p className="text-lg font-quando font-bold text-blue-600">
+              {queue.length > 0 ? "Ready" : "Empty"}
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-6">
+            <p className="text-sm text-muted-foreground font-quando mb-1">
+              Estimated Time
+            </p>
+            <p className="text-lg font-quando font-bold">
+              ~{queue.length * 2} min
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-6">
+            <p className="text-sm text-muted-foreground font-quando mb-1">
+              Mode
+            </p>
+            <p className="text-lg font-quando font-bold">Sequential</p>
+          </div>
         </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs text-muted-foreground font-quando mb-1">
-            Running
-          </p>
-          <p className="text-2xl font-quando font-bold text-blue-600">
-            {queue.filter((j) => j.status === "running").length}
-          </p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs text-muted-foreground font-quando mb-1">
-            Scheduled
-          </p>
-          <p className="text-2xl font-quando font-bold text-purple-600">
-            {queue.filter((j) => j.status === "scheduled").length}
-          </p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs text-muted-foreground font-quando mb-1">
-            Paused
-          </p>
-          <p className="text-2xl font-quando font-bold text-gray-600">
-            {queue.filter((j) => j.status === "paused").length}
-          </p>
-        </div>
-      </div>
 
-      {/* Queue List */}
-      <div className="flex-1 overflow-auto p-6">
+        {/* Execute Buttons */}
+        {queue.length > 0 && (
+          <div className="bg-card border border-border rounded-lg p-6 mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-quando font-semibold mb-2">
+                  Execute Campaign
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Run all {queue.length} experiments sequentially as one batch
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCampaignDialog(true)}
+                  className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition font-quando"
+                  disabled={isExecuting || isCreatingCampaign}
+                >
+                  Name & Execute
+                </button>
+                <button
+                  onClick={handleQuickExecute}
+                  className="px-6 py-3 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando flex items-center gap-2"
+                  disabled={isExecuting || isCreatingCampaign}
+                >
+                  {isExecuting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-5 h-5" />
+                      Quick Execute
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Queue List */}
         {queue.length === 0 ? (
           <div className="bg-card border border-border rounded-lg p-12 flex flex-col items-center justify-center text-center">
-            <Clock className="w-16 h-16 text-muted-foreground mb-4" />
-            <p className="text-lg font-quando font-semibold mb-2">
-              No jobs in queue
-            </p>
-            <p className="text-sm text-muted-foreground mb-6">
+            <CheckCircle className="w-16 h-16 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-quando font-semibold mb-2">
+              No experiments in queue
+            </h3>
+            <p className="text-muted-foreground mb-6">
               Start creating experiments to build your queue
             </p>
-            <Link
-              href="/dashboard"
-              className="px-6 py-3 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando"
-            >
-              Create Experiment
+            <Link href="/dashboard">
+              <button className="px-6 py-3 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando">
+                Create Experiment
+              </button>
             </Link>
           </div>
         ) : (
           <div className="space-y-3">
-            {queue.map((job, index) => (
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-quando font-semibold">
+                Queued Experiments ({queue.length})
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Drag to reorder execution sequence
+              </p>
+            </div>
+
+            {queue.map((exp, index) => (
               <div
-                key={job.id}
-                className="bg-card border border-border rounded-lg p-4 hover:border-brand-orange/50 transition"
+                key={exp.id}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`bg-card border border-border rounded-lg p-4 flex items-center gap-4 hover:border-brand-orange transition cursor-move ${
+                  draggedIndex === index ? "opacity-50" : ""
+                }`}
               >
-                <div className="flex items-center gap-4">
-                  {/* Priority Number */}
-                  <div className="flex flex-col items-center gap-1">
-                    <button
-                      onClick={() => handlePriorityChange(job.id, "up")}
-                      disabled={index === 0}
-                      className="p-1 hover:bg-accent rounded disabled:opacity-30"
-                    >
-                      <MoveUp className="w-4 h-4" />
-                    </button>
-                    <div className="text-lg font-quando font-bold text-muted-foreground">
-                      #{job.priority}
-                    </div>
-                    <button
-                      onClick={() => handlePriorityChange(job.id, "down")}
-                      disabled={index === queue.length - 1}
-                      className="p-1 hover:bg-accent rounded disabled:opacity-30"
-                    >
-                      <MoveDown className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Job Details */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-quando font-semibold">
-                        {job.molecule?.smiles || "Custom Molecule"}
-                      </h3>
-                      <span
-                        className={`px-2 py-1 text-xs rounded font-quando ${getStatusColor(
-                          job.status
-                        )}`}
-                      >
-                        {job.status}
-                      </span>
-                    </div>
-                    <div className="flex gap-6 text-xs text-muted-foreground">
-                      <span>Method: {job.method}</span>
-                      <span>Backend: {job.backend}</span>
-                      {job.scheduledTime && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(job.scheduledTime).toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    {job.status === "running" && (
-                      <button
-                        onClick={() => handleCancelClick(job)}
-                        className="p-2 border-2 border-red-600 rounded-lg hover:bg-red-600 hover:text-white transition text-red-600"
-                        title="Cancel Running Job"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </button>
-                    )}
-                    {job.status !== "running" && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setSelectedJob(job);
-                            setShowScheduleModal(true);
-                          }}
-                          className="p-2 border border-border rounded-lg hover:bg-accent transition"
-                          title="Schedule"
-                        >
-                          <Calendar className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleTogglePause(job.id)}
-                          className="p-2 border border-border rounded-lg hover:bg-accent transition"
-                          title={job.status === "paused" ? "Resume" : "Pause"}
-                        >
-                          {job.status === "paused" ? (
-                            <Play className="w-4 h-4" />
-                          ) : (
-                            <Pause className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(job.id)}
-                          className="p-2 border border-border rounded-lg hover:bg-red-100 dark:hover:bg-red-900 transition text-red-600"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
+                <div className="flex items-center gap-3">
+                  <GripVertical className="w-5 h-5 text-muted-foreground" />
+                  <div className="w-8 h-8 rounded-full bg-brand-orange/10 text-brand-orange flex items-center justify-center font-semibold">
+                    {index + 1}
                   </div>
                 </div>
+
+                <div className="flex-1">
+                  <h3 className="font-quando font-semibold">{exp.name || "Unnamed Experiment"}</h3>
+                  <div className="flex gap-4 text-sm text-muted-foreground mt-1">
+                    <span>Method: {exp.method}</span>
+                    <span>Backend: {exp.backend}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleRemoveFromQueue(exp.id)}
+                  className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition text-red-600"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Schedule Modal */}
-      {showScheduleModal && (
+      {/* Campaign Name Dialog */}
+      {showCampaignDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/20">
           <div className="bg-background border border-border rounded-lg w-full max-w-md p-6">
-            <h2 className="text-xl font-quando font-bold mb-4">
-              Schedule Experiment
-            </h2>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-quando font-medium mb-2">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  value={scheduleDate}
-                  onChange={(e) => setScheduleDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-quando font-medium mb-2">
-                  Time
-                </label>
-                <input
-                  type="time"
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                  className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
-                />
-              </div>
-
-              {selectedJob && (
-                <div className="bg-muted rounded-lg p-3 text-sm">
-                  <p className="font-quando">
-                    <strong>Molecule:</strong>{" "}
-                    {selectedJob.molecule?.smiles || "Custom"}
-                  </p>
-                  <p className="font-quando">
-                    <strong>Method:</strong> {selectedJob.method}
-                  </p>
-                </div>
-              )}
-            </div>
-
+            <h3 className="text-xl font-quando font-semibold mb-4">
+              Name Your Campaign
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Give this batch execution a memorable name
+            </p>
+            <input
+              type="text"
+              value={campaignName}
+              onChange={(e) => setCampaignName(e.target.value)}
+              placeholder="e.g., H2 Bond Length Scan"
+              className="w-full px-4 py-3 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando mb-6"
+              onKeyPress={(e) => {
+                if (e.key === "Enter") handleCreateAndExecuteCampaign();
+              }}
+            />
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setShowScheduleModal(false);
-                  setSelectedJob(null);
-                }}
+                onClick={() => setShowCampaignDialog(false)}
                 className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition font-quando"
+                disabled={isCreatingCampaign}
               >
                 Cancel
               </button>
               <button
-                onClick={handleSchedule}
-                disabled={!scheduleDate || !scheduleTime}
-                className="flex-1 px-4 py-2 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando disabled:opacity-50"
+                onClick={handleCreateAndExecuteCampaign}
+                className="flex-1 px-4 py-2 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando flex items-center justify-center gap-2"
+                disabled={isCreatingCampaign}
               >
-                Schedule
+                {isCreatingCampaign ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    Execute
+                  </>
+                )}
               </button>
             </div>
           </div>
