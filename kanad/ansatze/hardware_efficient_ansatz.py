@@ -29,22 +29,24 @@ def get_hf_state_qubits(n_qubits: int, n_electrons: int, mapper: str = 'jordan_w
     mapper = mapper.lower()
 
     if mapper == 'bravyi_kitaev':
-        # Bravyi-Kitaev uses binary tree encoding
-        # For H2 (2e, 4 qubits): HF state is |1000⟩ (only highest qubit)
-        # General pattern: Set the highest ceil(log2(n_electrons + 1)) qubits
+        # WARNING: Bravyi-Kitaev HF state is NOT a simple computational basis state!
+        # The HF state in BK encoding is a SUPERPOSITION, not |xxxx⟩.
+        # This is a fundamental limitation - cannot prepare HF as product state.
         #
-        # Actually for BK, the HF state depends on the specific transformation
-        # For H2: |1000⟩ means qubit 3 only
-        # For now, use empirical rule: highest qubit only for 2 electrons
-        if n_electrons == 2 and n_qubits == 4:
-            return [3]  # |1000⟩ in little-endian
-        elif n_electrons == 2:
-            return [n_qubits - 1]  # Highest qubit only
-        else:
-            # For other electron counts, use JW as fallback
-            # TODO: Implement general BK HF state finder
-            start_qubit = n_qubits - n_electrons
-            return list(range(start_qubit, n_qubits))
+        # For now, fall back to Jordan-Wigner state (will give wrong results!)
+        # RECOMMENDATION: Do NOT use hardware-efficient ansatz with BK mapper.
+        # Use Jordan-Wigner mapper instead, or use exact methods (SQD, FCI) with BK.
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            "Bravyi-Kitaev mapper with hardware-efficient ansatz is NOT SUPPORTED! "
+            "BK HF state is a superposition, not a product state. "
+            "Falling back to JW state encoding (results will be incorrect). "
+            "RECOMMENDATION: Use mapper_type='jordan_wigner' instead."
+        )
+        # Fall back to JW encoding
+        start_qubit = n_qubits - n_electrons
+        return list(range(start_qubit, n_qubits))
 
     elif mapper in ['jordan_wigner', 'parity']:
         # Jordan-Wigner and Parity use blocked spin ordering: [0↑, 1↑, ..., 0↓, 1↓, ...]
