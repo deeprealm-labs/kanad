@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/home/user/kanad/experiments/comparative_studies/bond_types/01_bond_type_comparison.py", line 23, in <module>
+    from kanad import BondFactory
+ModuleNotFoundError: No module named 'kanad'
