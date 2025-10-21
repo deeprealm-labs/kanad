@@ -98,9 +98,13 @@ class IonicGovernanceAnsatz(BaseAnsatz):
         else:
             # Default: Hartree-Fock state with MAPPER-AWARE preparation
             # Different fermion-to-qubit mappings use different HF state encodings:
-            #   - Jordan-Wigner: |1100⟩ for H2 (qubits [2, 3])
-            #   - Bravyi-Kitaev: |1000⟩ for H2 (qubit [3] only)
+            #   - Jordan-Wigner: |1100⟩ for H2 (qubits [2, 3]) - product state ✓
+            #   - Bravyi-Kitaev: SUPERPOSITION (not a computational basis state!)
             #   - Parity: Similar to JW
+            #
+            # WARNING: BK HF state cannot be prepared as a product state!
+            # See: BK_MAPPER_INVESTIGATION.md for detailed explanation.
+            # Use BK with exact methods (SQD, FCI), NOT with VQE.
 
             # CRITICAL: Use mapper-aware HF state preparation
             hf_qubits = get_hf_state_qubits(self.n_qubits, self.n_electrons, self.mapper)
@@ -280,9 +284,13 @@ class CovalentGovernanceAnsatz(BaseAnsatz):
         else:
             # Default: Hartree-Fock state with MAPPER-AWARE preparation
             # Different fermion-to-qubit mappings use different HF state encodings:
-            #   - Jordan-Wigner: |1100⟩ for H2 (qubits [2, 3])
-            #   - Bravyi-Kitaev: |1000⟩ for H2 (qubit [3] only)
+            #   - Jordan-Wigner: |1100⟩ for H2 (qubits [2, 3]) - product state ✓
+            #   - Bravyi-Kitaev: SUPERPOSITION (not a computational basis state!)
             #   - Parity: Similar to JW
+            #
+            # WARNING: BK HF state cannot be prepared as a product state!
+            # See: BK_MAPPER_INVESTIGATION.md for detailed explanation.
+            # Use BK with exact methods (SQD, FCI), NOT with VQE.
 
             # CRITICAL: Use mapper-aware HF state preparation
             hf_qubits = get_hf_state_qubits(self.n_qubits, self.n_electrons, self.mapper)
