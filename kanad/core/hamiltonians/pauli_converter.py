@@ -157,18 +157,28 @@ class PauliConverter:
         else:
             pauli_dict[identity_string] = hamiltonian.nuclear_repulsion
 
-        # Use OpenFermion's validated Jordan-Wigner transformation
-        logger.info("Using OpenFermion Jordan-Wigner transformation (validated reference)")
+        # Use OpenFermion's validated transformation with correct mapper
+        mapper_name = mapper.__class__.__name__
 
-        from kanad.core.hamiltonians.openfermion_jw import openfermion_jordan_wigner
-
-        # Return the validated transformation
-        return openfermion_jordan_wigner(
-            h_core,
-            eri,
-            hamiltonian.nuclear_repulsion,
-            hamiltonian.n_electrons
-        )
+        if 'BravyiKitaev' in mapper_name:
+            logger.info("Using OpenFermion Bravyi-Kitaev transformation")
+            from kanad.core.hamiltonians.openfermion_bk import openfermion_bravyi_kitaev
+            return openfermion_bravyi_kitaev(
+                h_core,
+                eri,
+                hamiltonian.nuclear_repulsion,
+                hamiltonian.n_electrons
+            )
+        else:
+            # Default to Jordan-Wigner (most reliable)
+            logger.info("Using OpenFermion Jordan-Wigner transformation (validated reference)")
+            from kanad.core.hamiltonians.openfermion_jw import openfermion_jordan_wigner
+            return openfermion_jordan_wigner(
+                h_core,
+                eri,
+                hamiltonian.nuclear_repulsion,
+                hamiltonian.n_electrons
+            )
 
         # 4. Filter out negligible terms
         pauli_dict = {
@@ -397,21 +407,17 @@ class PauliConverter:
     @staticmethod
     def _to_pauli_qiskit_nature(hamiltonian, mapper):
         """
-        Legacy method - now uses OpenFermion instead of qiskit-nature.
+        OpenFermion-based transformation with support for multiple mappers.
 
-        The qiskit-nature dependency has been removed. This method now delegates
-        to OpenFermion-based implementation which provides the same correctness.
+        Uses OpenFermion's validated implementations for correctness.
 
         Args:
             hamiltonian: MolecularHamiltonian with h_core and eri
-            mapper: Not used
+            mapper: Fermionic-to-qubit mapper (JordanWignerMapper, BravyiKitaevMapper, etc.)
 
         Returns:
             qiskit.quantum_info.SparsePauliOp
         """
-        # Use OpenFermion implementation instead (qiskit-nature removed)
-        from kanad.core.hamiltonians.openfermion_jw import openfermion_jordan_wigner
-
         # Get MO coefficients
         mo_energies, C = hamiltonian.compute_molecular_orbitals()
 
@@ -419,9 +425,25 @@ class PauliConverter:
         h_core_mo = C.T @ hamiltonian.h_core @ C
         eri_mo = np.einsum('pi,qj,pqrs,rk,sl->ijkl', C, C, hamiltonian.eri, C, C, optimize=True)
 
-        return openfermion_jordan_wigner(
-            h_mo=h_core_mo,
-            eri_mo=eri_mo,
-            nuclear_repulsion=hamiltonian.nuclear_repulsion,
-            n_electrons=hamiltonian.n_electrons
-        )
+        # Use correct OpenFermion transformation based on mapper type
+        mapper_name = mapper.__class__.__name__
+
+        if 'BravyiKitaev' in mapper_name:
+            logger.info("Using OpenFermion Bravyi-Kitaev transformation (qiskit-nature path)")
+            from kanad.core.hamiltonians.openfermion_bk import openfermion_bravyi_kitaev
+            return openfermion_bravyi_kitaev(
+                h_mo=h_core_mo,
+                eri_mo=eri_mo,
+                nuclear_repulsion=hamiltonian.nuclear_repulsion,
+                n_electrons=hamiltonian.n_electrons
+            )
+        else:
+            # Default to Jordan-Wigner
+            logger.info("Using OpenFermion Jordan-Wigner transformation (qiskit-nature path)")
+            from kanad.core.hamiltonians.openfermion_jw import openfermion_jordan_wigner
+            return openfermion_jordan_wigner(
+                h_mo=h_core_mo,
+                eri_mo=eri_mo,
+                nuclear_repulsion=hamiltonian.nuclear_repulsion,
+                n_electrons=hamiltonian.n_electrons
+            )

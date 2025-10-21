@@ -230,7 +230,32 @@ class VQESolver(BaseSolver):
         # Build circuit to get n_parameters
         if self.ansatz is not None:
             if self.ansatz.circuit is None:
-                self.ansatz.build_circuit()
+                # CRITICAL FIX: For non-JW mappers, find correct HF state
+                initial_state = None
+                if 'BravyiKitaev' in self.mapper_type:
+                    logger.info("Finding Hartree-Fock state for Bravyi-Kitaev encoding...")
+                    try:
+                        from kanad.utils.hf_state_finder import find_hf_state
+
+                        # Get HF energy
+                        hf_energy = self.hamiltonian.solve_scf()[1]
+
+                        # Build Hamiltonian with BK mapper to find HF state
+                        if hasattr(self.hamiltonian, 'to_sparse_hamiltonian'):
+                            pauli_ham = self.hamiltonian.to_sparse_hamiltonian(mapper=self.mapper)
+                        else:
+                            from kanad.core.hamiltonians.pauli_converter import PauliConverter
+                            pauli_ham = PauliConverter.to_sparse_pauli_op(self.hamiltonian, self.mapper)
+
+                        # Find HF state in BK encoding
+                        _, initial_state = find_hf_state(pauli_ham, self.molecule.n_electrons, hf_energy)
+                        logger.info(f"Found HF state for BK: {initial_state}")
+                    except Exception as e:
+                        logger.warning(f"Could not find BK HF state ({e}), using default")
+                        initial_state = None
+
+                # Build circuit with correct initial state
+                self.ansatz.build_circuit(initial_state=initial_state)
 
             # Get n_parameters from various possible sources
             if hasattr(self.ansatz, 'n_parameters'):
@@ -340,7 +365,34 @@ class VQESolver(BaseSolver):
 
     def _build_circuit(self):
         """Build parametrized quantum circuit."""
-        self.circuit = self.ansatz.build_circuit()
+        # CRITICAL FIX: For non-JW mappers, find correct HF state
+        initial_state = None
+        if hasattr(self, 'mapper') and self.mapper is not None:
+            mapper_name = type(self.mapper).__name__
+            if 'BravyiKitaev' in mapper_name:
+                logger.info("Finding Hartree-Fock state for Bravyi-Kitaev encoding...")
+                try:
+                    from kanad.utils.hf_state_finder import find_hf_state
+
+                    # Get HF energy
+                    hf_energy = self.hamiltonian.solve_scf()[1]
+
+                    # Build Hamiltonian with BK mapper to find HF state
+                    if hasattr(self.hamiltonian, 'to_sparse_hamiltonian'):
+                        # to_sparse_hamiltonian expects a string, not a mapper object
+                        pauli_ham = self.hamiltonian.to_sparse_hamiltonian(mapper='bravyi_kitaev')
+                    else:
+                        from kanad.core.hamiltonians.pauli_converter import PauliConverter
+                        pauli_ham = PauliConverter.to_sparse_pauli_op(self.hamiltonian, self.mapper)
+
+                    # Find HF state in BK encoding
+                    _, initial_state = find_hf_state(pauli_ham, self.molecule.n_electrons, hf_energy)
+                    logger.info(f"✓ Found HF state for BK encoding: {initial_state}")
+                except Exception as e:
+                    logger.warning(f"Could not find BK HF state ({e}), using default JW state")
+                    initial_state = None
+
+        self.circuit = self.ansatz.build_circuit(initial_state=initial_state)
         self.n_parameters = self.circuit.get_num_parameters()
 
         logger.info(f"Circuit built: {self.n_parameters} parameters")
