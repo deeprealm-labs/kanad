@@ -26,22 +26,31 @@ class BlueQubitBackend:
         result = backend.run_circuit(circuit, shots=1024)
     """
 
-    SUPPORTED_DEVICES = ['cpu', 'gpu', 'mps.cpu', 'mps.gpu']
+    SUPPORTED_DEVICES = ['cpu', 'gpu', 'mps.cpu', 'mps.gpu', 'pauli-path']
 
     def __init__(
         self,
         device: str = 'gpu',
         api_token: Optional[str] = None,
+        method: Optional[str] = None,  # Legacy parameter, maps to device
         **options
     ):
         """
         Initialize BlueQubit backend.
 
         Args:
-            device: Device type ('cpu', 'gpu', 'mps.cpu', 'mps.gpu')
+            device: Device type ('cpu', 'gpu', 'mps.cpu', 'mps.gpu', 'pauli-path')
             api_token: BlueQubit API token (or set BLUEQUBIT_API_TOKEN env var)
-            **options: Additional device options (e.g., mps_bond_dimension)
+            method: Legacy alias for device parameter
+            **options: Additional device options:
+                - mps_bond_dimension: For MPS devices (default: 100)
+                - pauli_path_truncation_threshold: For pauli-path (min: 1e-5)
+                - pauli_path_circuit_transpilation_level: Transpilation level
         """
+        # Support legacy 'method' parameter
+        if method is not None:
+            device = method
+
         self.device = device
         self.options = options
 
@@ -97,6 +106,8 @@ class BlueQubitBackend:
         job_name = job_name or f"kanad_{self.device}"
 
         logger.info(f"Submitting circuit to BlueQubit ({self.device})")
+        print(f"🔧 BlueQubit device selected: {self.device}")
+        print(f"   Circuit: {circuit.num_qubits} qubits, depth {circuit.depth()}")
         logger.info(f"  Qubits: {circuit.num_qubits}, Depth: {circuit.depth()}")
 
         try:
@@ -169,7 +180,8 @@ class BlueQubitBackend:
             'cpu': 34,
             'gpu': 36,
             'mps.cpu': 40,
-            'mps.gpu': 40
+            'mps.gpu': 40,
+            'pauli-path': 50  # Depends on truncation threshold
         }
         return limits.get(self.device, 30)
 

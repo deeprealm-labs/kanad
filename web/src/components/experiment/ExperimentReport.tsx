@@ -37,7 +37,8 @@ export default function ExperimentReport({
     try {
       setLoading(true);
       const data = await api.getExperimentReport(experimentId);
-      setReport(data);
+      // API returns { experiment: ... }, extract the experiment data
+      setReport(data.experiment as ReportType);
       setError(null);
     } catch (err: any) {
       console.error("Failed to load report:", err);

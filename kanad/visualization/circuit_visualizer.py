@@ -227,13 +227,35 @@ def create_preview_circuit(molecule_config: Dict[str, Any],
     # Convert multiplicity to spin (spin = 2S where multiplicity = 2S+1)
     multiplicity = molecule_config.get('multiplicity', 1)
     spin = multiplicity - 1
+    charge = molecule_config.get('charge', 0)
+    basis = molecule_config.get('basis', 'sto-3g')
 
-    molecule = Molecule(
-        atoms=atoms,
-        charge=molecule_config.get('charge', 0),
-        spin=spin,
-        basis=molecule_config.get('basis', 'sto-3g')
-    )
+    # Try to create molecule, auto-correct multiplicity for odd electrons if needed
+    try:
+        molecule = Molecule(
+            atoms=atoms,
+            charge=charge,
+            spin=spin,
+            basis=basis
+        )
+    except RuntimeError as e:
+        if "Electron number" in str(e) and "spin" in str(e) and "not consistent" in str(e):
+            # Auto-correct: odd electrons need multiplicity=2 (doublet)
+            # Calculate total electrons
+            total_electrons = sum(Atom.ATOMIC_NUMBERS.get(atom.symbol, 0) for atom in atoms) - charge
+            if total_electrons % 2 == 1:  # Odd number of electrons
+                # Use doublet state (multiplicity=2, spin=1)
+                spin = 1
+                molecule = Molecule(
+                    atoms=atoms,
+                    charge=charge,
+                    spin=spin,
+                    basis=basis
+                )
+            else:
+                raise  # Re-raise if it's a different issue
+        else:
+            raise  # Re-raise if it's a different error
 
     # Calculate qubits needed
     n_qubits = molecule.n_orbitals * 2  # Spin orbitals

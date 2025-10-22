@@ -25,6 +25,8 @@ export interface BackendSettings {
   optimizer?: "SLSQP" | "COBYLA" | "L-BFGS-B" | "ADAM" | "POWELL";
   backend: "classical" | "ibm_quantum" | "bluequbit";
   backendName?: string; // e.g., "ibm_torino", "ibm_brisbane"
+  bluequbitDevice?: "cpu" | "gpu" | "mps.cpu" | "mps.gpu" | "pauli-path"; // BlueQubit device selection
+  maxIterations?: number; // Maximum VQE iterations (default: 100)
   optimization?: {
     geometry: boolean;
     orbitals: boolean;
@@ -155,6 +157,8 @@ export interface UserSettings {
   optimizer: string;
   backend: string;
   backendName?: string;
+  bluequbitDevice?: string;
+  maxIterations?: number;
   optimization: {
     geometry: boolean;
     orbitals: boolean;

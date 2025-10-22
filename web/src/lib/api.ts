@@ -350,29 +350,48 @@ export async function getCredentials(provider: string) {
 }
 
 export async function getCloudCredentialsStatus() {
-  return apiCall("/cloud/status");
+  return apiCall("/cloud/credentials/status");
 }
 
 export async function saveIBMCredentials(crn: string, apiKey: string) {
   return apiCall("/cloud/credentials", {
     method: "POST",
-    body: JSON.stringify({ provider: "ibm", credentials: { crn, api_key: apiKey } }),
+    body: JSON.stringify({
+      provider: "ibm",
+      credentials: {
+        crn: crn,
+        api_token: apiKey
+      }
+    })
   });
 }
 
 export async function saveBlueQubitCredentials(token: string) {
   return apiCall("/cloud/credentials", {
     method: "POST",
-    body: JSON.stringify({ provider: "bluequbit", credentials: { token } }),
+    body: JSON.stringify({
+      provider: "bluequbit",
+      credentials: {
+        api_token: token
+      }
+    })
   });
 }
 
 export async function deleteIBMCredentials() {
-  return apiCall("/cloud/credentials/ibm", { method: "DELETE" });
+  return apiCall("/cloud/credentials/ibm", {
+    method: "DELETE"
+  });
 }
 
 export async function deleteBlueQubitCredentials() {
-  return apiCall("/cloud/credentials/bluequbit", { method: "DELETE" });
+  return apiCall("/cloud/credentials/bluequbit", {
+    method: "DELETE"
+  });
+}
+
+export async function getCloudBackends() {
+  return apiCall("/cloud/backends");
 }
 
 // ===== CONFIGURATION =====
@@ -393,9 +412,11 @@ export async function getCircuitPreview(molecule: any, configuration: any) {
 // ===== WEBSOCKET =====
 
 export function createWebSocket(experimentId: string): WebSocket {
-  // Note: WebSocket not yet implemented on backend, will use polling for now
-  const wsUrl = API_BASE_URL.replace('http', 'ws').replace('/api', '/ws');
-  return new WebSocket(`${wsUrl}/experiments/${experimentId}`);
+  // Convert HTTP URL to WebSocket URL
+  const wsUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
+  const fullWsUrl = `${wsUrl}/ws/experiments/${experimentId}`;
+  console.log("🔌 Creating WebSocket connection to:", fullWsUrl);
+  return new WebSocket(fullWsUrl);
 }
 
 // ===== HEALTH =====

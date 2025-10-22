@@ -39,7 +39,7 @@ class Settings:
     # Default computation settings
     DEFAULT_BASIS: str = "sto-3g"
     DEFAULT_OPTIMIZER: str = "SLSQP"
-    DEFAULT_MAX_ITERATIONS: int = 1000
+    DEFAULT_MAX_ITERATIONS: int = 100  # Reduced from 1000 for faster convergence
 
 
 @lru_cache()

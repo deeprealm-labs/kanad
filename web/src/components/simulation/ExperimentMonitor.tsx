@@ -76,32 +76,45 @@ export default function ExperimentMonitor({
     if (experimentId) {
       // Try WebSocket connection first
       try {
+        console.log("🔌 Attempting WebSocket connection for experiment:", experimentId);
         const ws = api.createWebSocket(experimentId);
         wsRef.current = ws;
 
         ws.onopen = () => {
-          console.log("WebSocket connected");
-          addLog("Connected to real-time updates");
+          console.log("✅ WebSocket connected successfully");
+          addLog("✅ Connected to real-time updates");
         };
 
         ws.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data);
+            console.log("📨 WebSocket message received:", message);
             handleWebSocketMessage(message);
           } catch (error) {
-            console.error("Failed to parse WebSocket message:", error);
+            console.error("❌ Failed to parse WebSocket message:", error);
           }
         };
 
-        ws.onerror = () => {
-          // WebSocket not available, fall back to polling
-          startPolling();
+        ws.onerror = (error) => {
+          console.error("❌ WebSocket error:", error);
+          // Don't immediately fall back to polling - wait for onclose
+          // Sometimes errors are transient
         };
 
-        ws.onclose = () => {
-          // Connection closed, polling will handle updates
+        ws.onclose = (event) => {
+          console.log("🔌 WebSocket closed:", event.code, event.reason);
+
+          // Only start polling if connection never opened (code 1006 = abnormal)
+          // and we haven't already started polling
+          if (event.code === 1006 && !pollingRef.current) {
+            addLog("⚠️  WebSocket failed, using polling");
+            startPolling();
+          }
+          // Otherwise, WebSocket opened successfully but closed naturally
         };
       } catch (error) {
+        console.error("❌ WebSocket creation failed:", error);
+        addLog("⚠️  WebSocket not available, using polling");
         // WebSocket not supported, fall back to polling
         startPolling();
       }
@@ -227,34 +240,42 @@ export default function ExperimentMonitor({
   const handleWebSocketMessage = (message: any) => {
     switch (message.type) {
       case "status":
-        setStatus(message.data.status);
-        if (message.data.progress !== undefined) {
-          setProgress(message.data.progress);
+        setStatus(message.status);
+        if (message.progress !== undefined) {
+          setProgress(message.progress);
         }
-        addLog(`Status updated: ${message.data.status}`);
+        addLog(`Status updated: ${message.status}`);
         break;
 
       case "progress":
-        setProgress(message.data.progress);
+        setProgress(message.progress);
         break;
 
       case "convergence":
         setConvergenceData((prev) => [
           ...prev,
           {
-            iteration: message.data.iteration,
-            energy: message.data.energy,
+            iteration: message.iteration,
+            energy: message.energy,
           },
         ]);
-        setCurrentIteration(message.data.iteration);
+        setCurrentIteration(message.iteration);
+
+        // Add log for convergence point
+        if (message.iteration % 10 === 0) {
+          const estIter = message.is_optimizer_iteration
+            ? message.iteration
+            : Math.floor(message.iteration / 40);
+          addLog(`Function eval ${message.iteration} (~iter ${estIter}): E = ${message.energy.toFixed(8)} Ha`);
+        }
         break;
 
       case "log":
-        addLog(message.data.message);
+        addLog(message.message);
         break;
 
       case "result":
-        setResults(message.data.results);
+        setResults(message.results);
         setStatus("completed");
         setProgress(100);
         addLog("Experiment completed successfully!");

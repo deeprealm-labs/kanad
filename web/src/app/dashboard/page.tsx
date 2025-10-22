@@ -25,7 +25,8 @@ export default function DashboardPage() {
     ansatz: "hardware_efficient",
     mapper: "jordan_wigner",
     backend: "classical",
-    optimizer: "SLSQP",
+    optimizer: "COBYLA",  // Default to COBYLA - better for cloud backends
+    maxIterations: 100,
   });
 
   const toast = useToast();

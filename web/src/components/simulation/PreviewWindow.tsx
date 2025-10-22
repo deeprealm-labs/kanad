@@ -42,7 +42,8 @@ export default function PreviewWindow({
       setIsLoadingSettings(false);
     };
     loadSettings();
-  }, [onRefreshSettings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount - onRefreshSettings reference changes don't matter
 
   // Load circuit preview when molecule or settings change
   useEffect(() => {

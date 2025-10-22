@@ -15,9 +15,10 @@ const DEFAULT_SETTINGS = {
   method: "VQE",
   ansatz: "hardware_efficient",
   mapper: "jordan_wigner",
-  optimizer: "SLSQP",
+  optimizer: "COBYLA",  // Default to COBYLA - better for cloud backends
   backend: "classical",
   backendName: "ibm_torino",
+  maxIterations: 100,
   optimization: {
     geometry: false,
     orbitals: false,
@@ -33,8 +34,10 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
   const [optimizer, setOptimizer] = useState(DEFAULT_SETTINGS.optimizer);
   const [backend, setBackend] = useState(DEFAULT_SETTINGS.backend);
   const [backendName, setBackendName] = useState(DEFAULT_SETTINGS.backendName);
+  const [bluequbitDevice, setBluequbitDevice] = useState("gpu");
   const [hamiltonian, setHamiltonian] = useState("molecular");
   const [basisSet, setBasisSet] = useState("sto-3g");
+  const [maxIterations, setMaxIterations] = useState(DEFAULT_SETTINGS.maxIterations);
 
   const [optimization, setOptimization] = useState(DEFAULT_SETTINGS.optimization);
   const [configOptions, setConfigOptions] = useState<any>(null);
@@ -66,8 +69,10 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
         setOptimizer(settings.optimizer || DEFAULT_SETTINGS.optimizer);
         setBackend(settings.backend || DEFAULT_SETTINGS.backend);
         setBackendName(settings.backendName || DEFAULT_SETTINGS.backendName);
+        setBluequbitDevice(settings.bluequbitDevice || "gpu");
         setHamiltonian(settings.hamiltonian || "molecular");
         setBasisSet(settings.basisSet || "sto-3g");
+        setMaxIterations(settings.maxIterations || DEFAULT_SETTINGS.maxIterations);
         setOptimization(settings.optimization || DEFAULT_SETTINGS.optimization);
       } catch (error) {
         console.error("Failed to load settings from API:", error);
@@ -84,6 +89,7 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
             setBackendName(settings.backendName || DEFAULT_SETTINGS.backendName);
             setHamiltonian(settings.hamiltonian || "molecular");
             setBasisSet(settings.basisSet || "sto-3g");
+            setMaxIterations(settings.maxIterations || DEFAULT_SETTINGS.maxIterations);
             setOptimization(settings.optimization || DEFAULT_SETTINGS.optimization);
           } catch (e) {
             console.error("Failed to parse localStorage settings:", e);
@@ -104,8 +110,10 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
       optimizer,
       backend,
       backendName,
+      bluequbitDevice,
       hamiltonian,
       basisSet,
+      maxIterations,
       optimization,
     };
 
@@ -239,12 +247,20 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
                       </option>
                     )) || (
                       <>
-                        <option value="SLSQP">SLSQP</option>
-                        <option value="COBYLA">COBYLA</option>
-                        <option value="L-BFGS-B">L-BFGS-B</option>
+                        <option value="COBYLA">COBYLA (Recommended for cloud - ~1-3x iterations)</option>
+                        <option value="POWELL">POWELL (Fast, ~1-2x iterations)</option>
+                        <option value="SLSQP">SLSQP (Gradient-based - ~40x iterations!)</option>
+                        <option value="L-BFGS-B">L-BFGS-B (Gradient-based - ~40x iterations!)</option>
                       </>
                     )}
                   </select>
+                  {backend !== "classical" && (optimizer === "SLSQP" || optimizer === "L-BFGS-B") && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                      ⚠️ Warning: {optimizer} uses ~40 function evaluations per iteration.
+                      With {maxIterations || 100} max iterations, this means ~{(maxIterations || 100) * 40} quantum jobs!
+                      Consider COBYLA or POWELL for fewer jobs.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -291,6 +307,24 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
                     )}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-quando font-medium mb-2">
+                    Maximum Iterations
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    max="1000"
+                    step="10"
+                    value={maxIterations}
+                    onChange={(e) => setMaxIterations(parseInt(e.target.value) || 100)}
+                    className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Maximum number of VQE optimization iterations (10-1000). Lower values = faster but less accurate.
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -320,6 +354,7 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
                 </div>
               </label>
 
+              {/* IBM Quantum - Now with real-time visualization */}
               <label className="flex items-center p-4 border border-border rounded-lg hover:bg-accent cursor-pointer transition">
                 <input
                   type="radio"
@@ -331,31 +366,11 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
                 />
                 <div className="flex-1">
                   <div className="font-quando font-medium">
-                    IBM Quantum (Cloud)
+                    IBM Quantum (Batch Mode + Live Updates)
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Run on real quantum hardware
+                    Real quantum hardware. Jobs run in batch mode with live convergence visualization.
                   </div>
-                  {backend === "ibm_quantum" && (
-                    <select
-                      value={backendName}
-                      onChange={(e) => setBackendName(e.target.value)}
-                      className="mt-2 w-full px-3 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {configOptions?.ibm_backends?.map((b: any) => (
-                        <option key={b.value} value={b.value}>
-                          {b.label} ({b.qubits} qubits)
-                        </option>
-                      )) || (
-                        <>
-                          <option value="ibm_torino">ibm_torino (133 qubits)</option>
-                          <option value="ibm_brisbane">ibm_brisbane (127 qubits)</option>
-                          <option value="ibm_kyoto">ibm_kyoto (127 qubits)</option>
-                        </>
-                      )}
-                    </select>
-                  )}
                 </div>
               </label>
 
@@ -373,8 +388,22 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
                     BlueQubit (GPU-accelerated)
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    10x faster simulation on GPUs
+                    Fast cloud simulation (requires account credits)
                   </div>
+                  {backend === "bluequbit" && (
+                    <select
+                      value={bluequbitDevice}
+                      onChange={(e) => setBluequbitDevice(e.target.value)}
+                      className="mt-2 w-full px-3 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value="gpu">GPU (36 qubits, fastest)</option>
+                      <option value="cpu">CPU (34 qubits)</option>
+                      <option value="mps.gpu">MPS GPU (40+ qubits)</option>
+                      <option value="mps.cpu">MPS CPU (40+ qubits)</option>
+                      <option value="pauli-path">Pauli-Path (50+ qubits, requires config)</option>
+                    </select>
+                  )}
                 </div>
               </label>
             </div>

@@ -28,7 +28,8 @@ from api.routes import (
     health,
     configuration,
     campaigns,
-    circuits
+    circuits,
+    websockets
 )
 from api.core.config import get_settings
 from api.core.database import init_db, cleanup_stuck_experiments
@@ -75,6 +76,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
+app.include_router(websockets.router, prefix="/api", tags=["WebSockets"])  # WebSocket endpoint
 app.include_router(molecules.router, prefix="/api/molecules", tags=["Molecules"])
 app.include_router(experiments.router, prefix="/api/experiments", tags=["Experiments"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])

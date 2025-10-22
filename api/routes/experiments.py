@@ -33,9 +33,18 @@ class BackendConfig(BaseModel):
     ansatz: Optional[str] = "hardware_efficient"
     mapper: Optional[str] = "jordan_wigner"
     optimizer: Optional[str] = "SLSQP"
-    max_iterations: Optional[int] = 1000
+    max_iterations: Optional[int] = 100  # Changed default from 1000 to 100
     backend: str = "classical"  # classical, ibm_quantum, bluequbit
     backend_name: Optional[str] = None
+    bluequbit_device: Optional[str] = "gpu"  # BlueQubit device: cpu, gpu, mps.cpu, mps.gpu, pauli-path
+
+    class Config:
+        # Allow both camelCase (frontend) and snake_case (backend) field names
+        populate_by_name = True
+        alias_generator = lambda field_name: ''.join(
+            word.capitalize() if i > 0 else word
+            for i, word in enumerate(field_name.split('_'))
+        )
 
 
 class AnalysisConfig(BaseModel):

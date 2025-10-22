@@ -19,6 +19,8 @@ from kanad.backends.bluequbit import BlueQubitBackend
 
 from api.core.database import ExperimentDB, JobDB
 from api.core.config import get_settings
+from api.routes.websockets import manager as ws_manager
+import asyncio
 
 
 class ExperimentCancelledException(Exception):
@@ -106,26 +108,129 @@ def create_molecule_from_config(molecule_config: Dict[str, Any]) -> Molecule:
     return molecule
 
 
-def create_backend(backend_config: Dict[str, Any]):
-    """Create backend object from configuration."""
+def get_cloud_credentials(provider: str) -> Dict[str, Any]:
+    """
+    Retrieve cloud credentials from database.
+
+    Args:
+        provider: 'ibm' or 'bluequbit'
+
+    Returns:
+        Dictionary with credentials
+
+    Raises:
+        ValueError: If credentials not found
+    """
+    from api.core.database import get_db
+    import json
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT credentials FROM cloud_credentials WHERE provider = ?",
+            (provider,)
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            raise ValueError(
+                f"{provider.upper()} credentials not configured. "
+                f"Please configure them in Settings → Backend"
+            )
+
+        return json.loads(row['credentials'])
+
+
+def get_backend_kwargs(backend_config: Dict[str, Any]) -> tuple:
+    """
+    Get backend type and kwargs for VQE solver.
+
+    Returns:
+        tuple: (backend_type: str, backend_kwargs: dict)
+    """
     backend_type = backend_config.get('backend', 'classical')
+    print(f"🔧 get_backend_kwargs called with backend_type: {backend_type}")
 
     if backend_type == 'classical' or backend_type == 'statevector':
-        return 'statevector'  # Classical simulation
+        print(f"📍 Using statevector simulation")
+        return ('statevector', {})
 
     elif backend_type == 'ibm_quantum':
-        settings = get_settings()
-        backend_name = backend_config.get('backend_name', 'ibm_torino')
+        print(f"🌐 Configuring IBM Quantum backend...")
+        # Try database first, fall back to environment variables
+        try:
+            credentials = get_cloud_credentials('ibm')
+            api_token = credentials.get('api_token')
+            crn = credentials.get('crn')
+            print(f"✅ IBM credentials loaded from database")
+        except ValueError:
+            # Fallback to environment variables
+            settings = get_settings()
+            api_token = settings.IBM_API_TOKEN
+            crn = settings.IBM_CRN
+            print(f"✅ IBM credentials loaded from environment")
 
-        return IBMBackend(
-            backend_name=backend_name,
-            token=settings.IBM_API_TOKEN,
-            instance=settings.IBM_CRN
-        )
+            if not api_token:
+                raise ValueError(
+                    "IBM Quantum credentials not configured. "
+                    "Please configure them in Settings → Backend or set IBM_API and IBM_CRN environment variables"
+                )
+
+        backend_name = backend_config.get('backend_name', 'ibm_torino')
+        print(f"📍 Using IBM Quantum backend: {backend_name}")
+
+        return ('ibm', {
+            'backend_name': backend_name,
+            'api_token': api_token,
+            'instance': crn
+        })
 
     elif backend_type == 'bluequbit':
-        settings = get_settings()
-        return BlueQubitBackend(token=settings.BLUEQUBIT_TOKEN)
+        print(f"🌐 Configuring BlueQubit backend...")
+        print(f"🔍 Backend config received: {backend_config}")
+
+        # Try database first, fall back to environment variables
+        try:
+            credentials = get_cloud_credentials('bluequbit')
+            api_token = credentials.get('api_token')
+            print(f"✅ BlueQubit credentials loaded from database")
+        except ValueError:
+            # Fallback to environment variables
+            settings = get_settings()
+            api_token = settings.BLUEQUBIT_API_TOKEN
+            print(f"✅ BlueQubit credentials loaded from environment")
+
+            if not api_token:
+                raise ValueError(
+                    "BlueQubit credentials not configured. "
+                    "Please configure them in Settings → Backend or set BLUE_TOKEN environment variable"
+                )
+
+        # Get BlueQubit device/method options
+        device = backend_config.get('bluequbit_device', 'gpu')
+        print(f"🔧 BlueQubit device from config: {device}")
+        bluequbit_options = {}
+
+        # Add device-specific options
+        if device.startswith('mps'):
+            bluequbit_options['mps_bond_dimension'] = backend_config.get('mps_bond_dimension', 100)
+            print(f"📊 MPS bond dimension: {bluequbit_options['mps_bond_dimension']}")
+        elif device == 'pauli-path':
+            truncation = backend_config.get('pauli_path_truncation_threshold')
+            if truncation is not None:
+                bluequbit_options['pauli_path_truncation_threshold'] = truncation
+            transpilation_level = backend_config.get('pauli_path_circuit_transpilation_level')
+            if transpilation_level is not None:
+                bluequbit_options['pauli_path_circuit_transpilation_level'] = transpilation_level
+            print(f"📊 Pauli-path options: {bluequbit_options}")
+
+        print(f"📍 Using BlueQubit backend: device={device}")
+        print(f"🎯 Backend kwargs: {{'device': '{device}', **bluequbit_options}}")
+        return ('bluequbit', {
+            'api_token': api_token,
+            'device': device,
+            **bluequbit_options
+        })
 
     else:
         raise ValueError(f"Unknown backend type: {backend_type}")
@@ -202,6 +307,9 @@ def execute_vqe(
         if ansatz_type in ['covalent_governance', 'ionic_governance', 'adaptive_governance', 'metallic_governance']:
             ansatz_type = 'governance'
 
+        # Get backend type and kwargs
+        backend_type, backend_kwargs = get_backend_kwargs(config)
+
         # Create VQE solver
         solver = VQESolver(
             bond=bond,
@@ -209,7 +317,9 @@ def execute_vqe(
             mapper_type=config.get('mapper', 'jordan_wigner'),
             optimizer=config.get('optimizer', 'SLSQP'),
             max_iterations=config.get('max_iterations', 1000),
-            backend=create_backend(config)
+            backend=backend_type,
+            shots=config.get('shots', 1024) if backend_type != 'statevector' else None,
+            **backend_kwargs
         )
 
     else:
@@ -233,33 +343,86 @@ def execute_vqe(
 
         mapper = JordanWignerMapper()
 
+        # Get backend type and kwargs
+        backend_type, backend_kwargs = get_backend_kwargs(config)
+
         solver = VQESolver(
             hamiltonian=hamiltonian,
             ansatz=ansatz,
             mapper=mapper,
+            molecule=molecule,  # Pass molecule for analysis
             optimizer=config.get('optimizer', 'SLSQP'),
             max_iterations=config.get('max_iterations', 1000),
-            backend=create_backend(config)
+            backend=backend_type,
+            shots=config.get('shots', 1024) if backend_type != 'statevector' else None,
+            enable_analysis=True,  # Explicitly enable analysis
+            **backend_kwargs
         )
 
-    # Progress callback with cancellation check
+    # Progress callback with cancellation check and real-time updates
+    function_eval_count = [0]  # Use list to allow modification in nested function
+
     def progress_callback(iteration: int, energy: float, parameters: np.ndarray):
         # Check for cancellation
         if experiment_id:
             check_cancellation(experiment_id, job_id)
 
-        max_iter = config.get('max_iterations', 1000)
-        progress = min(100.0, (iteration / max_iter) * 100.0)
+        # Track function evaluations
+        function_eval_count[0] = iteration
 
+        # Estimate actual optimizer iteration based on optimizer type
+        optimizer = config.get('optimizer', 'SLSQP')
+        if optimizer in ['SLSQP', 'L-BFGS-B']:
+            # Gradient-based optimizers use ~40 function evals per iteration
+            estimated_iteration = max(1, iteration // 40)
+        elif optimizer in ['COBYLA', 'POWELL']:
+            # Direct search optimizers use ~2-3 function evals per iteration
+            estimated_iteration = max(1, iteration // 2)
+        else:
+            estimated_iteration = iteration
+
+        max_iter = config.get('max_iterations', 1000)
+        progress = min(100.0, (estimated_iteration / max_iter) * 100.0)
+
+        # Update job database with estimated iteration
         JobDB.update_progress(
             job_id,
             progress=progress,
-            current_iteration=iteration,
+            current_iteration=estimated_iteration,  # Use estimated iteration, not function evals
             current_energy=float(energy)
         )
 
+        # Send real-time WebSocket update
+        if experiment_id:
+            try:
+                # Use asyncio.run() for better compatibility
+                import concurrent.futures
+
+                async def send_update():
+                    await ws_manager.broadcast_convergence(
+                        experiment_id,
+                        iteration=estimated_iteration,  # Send estimated iteration
+                        energy=float(energy),
+                        parameters=parameters.tolist() if parameters is not None else None
+                    )
+
+                # Run async code in a thread pool to avoid event loop conflicts
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, send_update())
+                    future.result(timeout=1.0)  # 1 second timeout
+
+            except Exception as e:
+                # Don't fail the experiment if WebSocket fails
+                print(f"⚠️  WebSocket broadcast failed: {e}")
+
     # Execute VQE with callback
     result = solver.solve(callback=progress_callback)
+
+    # Debug: Check if analysis was generated
+    if 'analysis' in result and result['analysis']:
+        print(f"✅ Analysis data generated: {list(result['analysis'].keys())}")
+    else:
+        print(f"⚠️  No analysis data in results. Keys: {list(result.keys())}")
 
     # Build results dictionary with all data including analysis
     results_dict = {
@@ -281,6 +444,9 @@ def execute_vqe(
     # Add analysis data if present (convert numpy types for JSON serialization)
     if 'analysis' in result and result['analysis']:
         results_dict['analysis'] = convert_numpy_types(result['analysis'])
+        print(f"✅ Added analysis to results_dict")
+    else:
+        print(f"⚠️  No analysis to add to results")
 
     return results_dict
 

@@ -34,9 +34,11 @@ async def get_defaults():
             "method": "VQE",
             "ansatz": "hardware_efficient",
             "mapper": "jordan_wigner",
-            "optimizer": "SLSQP",
+            "optimizer": "COBYLA",  # Default to COBYLA - better for cloud backends
             "backend": "classical",
             "backend_name": "ibm_torino",
+            "bluequbitDevice": "gpu",
+            "maxIterations": 100,
             "optimization": {
                 "geometry": False,
                 "orbitals": False,

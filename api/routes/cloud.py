@@ -38,12 +38,14 @@ async def get_available_backends():
                     {"name": "ibm_kyoto", "qubits": 127, "available": True},
                 ]
             },
-            {
-                "provider": "bluequbit",
-                "name": "BlueQubit",
-                "type": "gpu_simulator",
-                "available": True
-            }
+            # DISABLED - BlueQubit backend has freezing issues
+            # See IMMEDIATE_FIXES_REQUIRED.md for details
+            # {
+            #     "provider": "bluequbit",
+            #     "name": "BlueQubit",
+            #     "type": "gpu_simulator",
+            #     "available": True
+            # }
         ]
     }
 
@@ -73,6 +75,34 @@ async def store_credentials(request: CredentialsUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/credentials/status")
+async def get_credentials_status():
+    """Get configuration status for all cloud providers."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Check IBM
+        cursor.execute(
+            "SELECT updated_at FROM cloud_credentials WHERE provider = 'ibm'")
+        ibm_row = cursor.fetchone()
+
+        # Check BlueQubit
+        cursor.execute(
+            "SELECT updated_at FROM cloud_credentials WHERE provider = 'bluequbit'")
+        bluequbit_row = cursor.fetchone()
+
+        return {
+            "ibm": {
+                "configured": ibm_row is not None,
+                "updated_at": ibm_row['updated_at'] if ibm_row else None
+            },
+            "bluequbit": {
+                "configured": bluequbit_row is not None,
+                "updated_at": bluequbit_row['updated_at'] if bluequbit_row else None
+            }
+        }
+
+
 @router.get("/credentials/{provider}")
 async def get_credentials(provider: str):
     """Get stored credentials (returns only metadata, not actual credentials)."""
@@ -95,3 +125,26 @@ async def get_credentials(provider: str):
         "provider": provider,
         "has_credentials": False
     }
+
+
+@router.delete("/credentials/{provider}")
+async def delete_credentials(provider: str):
+    """Delete stored credentials for a provider."""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM cloud_credentials WHERE provider = ?",
+                (provider,)
+            )
+            conn.commit()
+
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=404, detail=f"No credentials found for {provider}")
+
+        return {"message": f"Credentials for {provider} deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

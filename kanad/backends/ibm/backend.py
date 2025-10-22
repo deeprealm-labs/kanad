@@ -142,6 +142,7 @@ class IBMBackend:
             Results dictionary
         """
         from qiskit_ibm_runtime import Batch, SamplerV2 as Sampler, EstimatorV2 as Estimator
+        from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
         # Ensure circuits is a list
         if not isinstance(circuits, list):
@@ -150,6 +151,38 @@ class IBMBackend:
         logger.info(f"Running batch on {self.backend.name}")
         logger.info(f"  Circuits: {len(circuits)}")
         logger.info(f"  Shots: {shots}")
+
+        # Transpile circuits for target hardware
+        logger.info(f"  Transpiling circuits (optimization_level={optimization_level})...")
+        pm = generate_preset_pass_manager(
+            backend=self.backend,
+            optimization_level=optimization_level
+        )
+        transpiled_circuits = pm.run(circuits)
+        logger.info(f"  Transpilation complete")
+
+        # Expand observables to match transpiled circuit size if needed
+        if observables is not None:
+            transpiled_observables = []
+            for i, (circuit, observable) in enumerate(zip(transpiled_circuits, observables)):
+                original_qubits = circuits[i].num_qubits
+                transpiled_qubits = circuit.num_qubits
+
+                if transpiled_qubits > original_qubits:
+                    # Pad observable with identity operators
+                    padding = "I" * (transpiled_qubits - original_qubits)
+                    padded_terms = []
+                    for pauli_str, coeff in observable.to_list():
+                        padded_pauli = pauli_str + padding
+                        padded_terms.append((padded_pauli, coeff))
+
+                    from qiskit.quantum_info import SparsePauliOp
+                    padded_observable = SparsePauliOp.from_list(padded_terms)
+                    transpiled_observables.append(padded_observable)
+                else:
+                    transpiled_observables.append(observable)
+
+            observables = transpiled_observables
 
         try:
             with Batch(backend=self.backend) as batch:
@@ -164,8 +197,8 @@ class IBMBackend:
 
                     logger.info("Using Estimator primitive")
 
-                    # Build pub (circuit, observable) tuples
-                    pubs = [(circuits[i], observables[i]) for i in range(len(circuits))]
+                    # Build pub (circuit, observable) tuples with transpiled circuits
+                    pubs = [(transpiled_circuits[i], observables[i]) for i in range(len(transpiled_circuits))]
 
                     job = estimator.run(pubs)
 
@@ -185,7 +218,7 @@ class IBMBackend:
 
                     logger.info("Using Sampler primitive")
 
-                    job = sampler.run(circuits)
+                    job = sampler.run(transpiled_circuits)
 
                     # Return job immediately (non-blocking)
                     return {
@@ -227,7 +260,14 @@ class IBMBackend:
     def get_job_status(self, job_id: str) -> str:
         """Get status of a submitted job."""
         job = self.service.job(job_id)
-        return job.status().name
+        status = job.status()
+        # Handle different Qiskit versions - status might be string or enum
+        if isinstance(status, str):
+            return status
+        elif hasattr(status, 'name'):
+            return status.name
+        else:
+            return str(status)
 
     def get_job_result(self, job_id: str) -> Any:
         """Retrieve results for a completed job."""

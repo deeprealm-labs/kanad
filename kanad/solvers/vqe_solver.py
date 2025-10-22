@@ -160,29 +160,10 @@ class VQESolver(BaseSolver):
             self._init_backend(**kwargs)
         else:
             # Components mode - ansatz and mapper already set
-            # Initialize backend
+            # Initialize backend (this will set _use_statevector correctly)
             self._hamiltonian_matrix = None
-            self._use_statevector = True
-            # Determine if Qiskit backend is requested
-            self._use_qiskit = backend not in ['statevector', 'classical', None]
-
-            # If Qiskit backend, convert Hamiltonian to Pauli operators
-            if self._use_qiskit:
-                # Convert Hamiltonian matrix to Pauli operators using mapper
-                try:
-                    from qiskit.quantum_info import SparsePauliOp
-                    # Use mapper to convert fermionic Hamiltonian to qubit operators
-                    # For now, create a simple Pauli representation
-                    # TODO: Implement full Hamiltonian mapping
-                    self.pauli_hamiltonian = SparsePauliOp.from_list([("I" * self.ansatz.n_qubits, 1.0)])
-                    logger.info("Created placeholder Pauli Hamiltonian for Qiskit backend")
-                except ImportError:
-                    logger.warning("Qiskit not available for Pauli conversion")
-                    self.pauli_hamiltonian = None
-            else:
-                self.pauli_hamiltonian = None
-
-            logger.info(f"VQE initialized in component mode (for testing), use_qiskit={self._use_qiskit}")
+            self._init_backend(**kwargs)
+            logger.info(f"VQE initialized in components mode, backend={self.backend}, use_statevector={self._use_statevector}")
 
         # Optimization tracking
         self.energy_history = []
@@ -210,6 +191,19 @@ class VQESolver(BaseSolver):
         # Disable analysis features unless molecule is available
         self.enable_analysis = enable_analysis if self.molecule is not None else False
         self.enable_optimization = enable_optimization
+
+        # Initialize analysis tools if enabled and molecule available
+        if self.enable_analysis and self.molecule is not None:
+            try:
+                from kanad.analysis import EnergyAnalyzer, BondingAnalyzer, MolecularPropertyAnalyzer
+                self.energy_analyzer = EnergyAnalyzer(self.hamiltonian)
+                self.bonding_analyzer = BondingAnalyzer(self.molecule)
+                self.property_analyzer = MolecularPropertyAnalyzer(self.molecule)
+                self.atoms = self.molecule.atoms
+                logger.info("Analysis tools initialized in components mode")
+            except Exception as e:
+                logger.warning(f"Failed to initialize analysis tools: {e}")
+                self.enable_analysis = False
 
         # Initialize ansatz (from object or type string)
         if ansatz is not None:
@@ -356,37 +350,49 @@ class VQESolver(BaseSolver):
 
     def _init_backend(self, **kwargs):
         """Initialize quantum backend."""
+        logger.info(f"Initializing backend: {self.backend}")
+        print(f"🔧 Initializing backend: {self.backend}")
+
         if self.backend == 'statevector':
             # Classical statevector simulation (exact, fast)
             self._use_statevector = True
             self._pauli_hamiltonian = None
             self._hamiltonian_matrix = None
             logger.info("Using statevector simulation (exact)")
+            print(f"📍 Using statevector simulation")
 
         elif self.backend == 'bluequbit':
             # BlueQubit cloud backend
             try:
+                print(f"🌐 Initializing BlueQubit backend with kwargs: {list(kwargs.keys())}")
                 from kanad.backends.bluequbit import BlueQubitBackend
                 self._bluequbit_backend = BlueQubitBackend(**kwargs)
                 self._use_statevector = False
                 logger.info("BlueQubit backend initialized")
+                print(f"✅ BlueQubit backend initialized successfully")
             except Exception as e:
                 logger.error(f"BlueQubit initialization failed: {e}")
+                print(f"❌ BlueQubit initialization failed: {e}")
                 raise
 
         elif self.backend == 'ibm':
             # IBM Quantum backend
             try:
-                from kanad.backends.ibm import IBMRuntimeBackend
-                self._ibm_backend = IBMRuntimeBackend(**kwargs)
+                print(f"🌐 Initializing IBM backend with kwargs: {list(kwargs.keys())}")
+                from kanad.backends.ibm import IBMBackend
+                self._ibm_backend = IBMBackend(**kwargs)
                 self._use_statevector = False
                 logger.info("IBM Quantum backend initialized")
+                print(f"✅ IBM Quantum backend initialized successfully")
+                print(f"   Backend name: {kwargs.get('backend_name', 'N/A')}")
             except Exception as e:
                 logger.error(f"IBM backend initialization failed: {e}")
+                print(f"❌ IBM backend initialization failed: {e}")
                 raise
 
         else:
             logger.warning(f"Unknown backend {self.backend}, using statevector")
+            print(f"⚠️ Unknown backend {self.backend}, falling back to statevector")
             self._use_statevector = True
 
     def _compute_energy(self, parameters: np.ndarray) -> float:
@@ -539,12 +545,221 @@ class VQESolver(BaseSolver):
 
         return float(energy)
 
+    def _compute_energy_from_counts(self, counts: dict, pauli_hamiltonian) -> float:
+        """
+        Compute energy expectation value from measurement counts.
+
+        IMPORTANT: This is a simplified implementation that only accurately measures
+        Z-basis Pauli terms. For X and Y terms, proper basis rotation is needed.
+
+        For molecular Hamiltonians with Jordan-Wigner mapping, the majority of terms
+        are Z-basis, so this provides a reasonable approximation. For production use,
+        consider using statevector mode (shots=None) or implementing full Pauli measurements.
+
+        For a Hamiltonian H = Σ c_i P_i where P_i are Pauli strings,
+        we compute <H> = Σ c_i <P_i> where <P_i> is estimated from counts.
+
+        Args:
+            counts: Measurement counts dict (bitstring -> count)
+            pauli_hamiltonian: SparsePauliOp representing the Hamiltonian
+
+        Returns:
+            Estimated energy expectation value (approximate for non-Z terms)
+        """
+        # Get total number of shots
+        total_shots = sum(counts.values())
+
+        # Convert counts to probabilities
+        probabilities = {bitstring: count / total_shots for bitstring, count in counts.items()}
+
+        # Energy is weighted sum of Pauli term expectations
+        energy = 0.0
+
+        # Separate Z-only terms from terms with X/Y (for diagnostic purposes)
+        z_terms_weight = 0.0
+        xy_terms_weight = 0.0
+
+        # Iterate over Pauli terms in Hamiltonian
+        for pauli_str, coeff in zip(pauli_hamiltonian.paulis, pauli_hamiltonian.coeffs):
+            # Compute expectation value of this Pauli term from counts
+            expectation = 0.0
+
+            pauli_string = str(pauli_str)
+            has_xy = any(c in pauli_string for c in ['X', 'Y'])
+
+            if has_xy:
+                xy_terms_weight += abs(float(np.real(coeff)))
+            else:
+                z_terms_weight += abs(float(np.real(coeff)))
+
+            for bitstring, prob in probabilities.items():
+                # Compute eigenvalue of Pauli string for this bitstring
+                # Pauli operators have eigenvalues ±1
+                eigenvalue = 1.0
+
+                # Convert bitstring to list of bits (reverse order for Qiskit convention)
+                bits = [int(b) for b in bitstring[::-1]]
+
+                # For each qubit, check if Pauli operator is Z
+                # Z|0> = +|0>, Z|1> = -|1>
+                for i, pauli_char in enumerate(pauli_string[::-1]):  # Reverse to match qubit ordering
+                    if pauli_char == 'Z' and i < len(bits):
+                        if bits[i] == 1:
+                            eigenvalue *= -1
+                    elif pauli_char in ['X', 'Y'] and i < len(bits):
+                        # X and Y terms need basis rotation for accurate measurement
+                        # For now, we treat them as averaging to 0 contribution
+                        # This is inaccurate but prevents complete nonsense results
+                        eigenvalue = 0.0
+                        break
+
+                expectation += prob * eigenvalue
+
+            # Add weighted contribution to energy
+            energy += float(np.real(coeff)) * expectation
+
+        # Log diagnostic info
+        if xy_terms_weight > 0.01:
+            logger.warning(
+                f"Hamiltonian has significant X/Y terms (weight: {xy_terms_weight:.4f} vs Z: {z_terms_weight:.4f}). "
+                f"Counts-based estimation may be inaccurate. Consider using shots=None for statevector mode."
+            )
+
+        return energy
+
     def _compute_energy_quantum(self, parameters: np.ndarray) -> float:
-        """Compute energy using quantum backend (sampling-based)."""
-        # This would use actual quantum backend
-        # For now, placeholder
-        logger.warning("Quantum backend energy computation not fully implemented")
-        return self._compute_energy_statevector(parameters)
+        """
+        Compute energy using quantum backend (sampling-based).
+
+        Supports IBM Quantum and BlueQubit backends.
+        """
+        from qiskit.quantum_info import SparsePauliOp
+
+        # Build circuit if not already built
+        if self.ansatz.circuit is None:
+            self.ansatz.build_circuit()
+
+        # Bind parameters to circuit
+        self.ansatz.circuit.bind_parameters(parameters)
+
+        # Convert to Qiskit circuit
+        qiskit_circuit = self.ansatz.circuit.to_qiskit()
+
+        # Bind parameters if circuit has them
+        if qiskit_circuit.num_parameters > 0:
+            param_dict = {qiskit_circuit.parameters[i]: parameters[i]
+                         for i in range(len(parameters))}
+            bound_circuit = qiskit_circuit.assign_parameters(param_dict)
+        else:
+            bound_circuit = qiskit_circuit
+
+        # Get Pauli representation of Hamiltonian
+        try:
+            from kanad.core.hamiltonians.pauli_converter import PauliConverter
+            pauli_hamiltonian = PauliConverter.to_sparse_pauli_op(
+                self.hamiltonian,
+                self.mapper,
+                use_qiskit_nature=True
+            )
+        except Exception as e:
+            logger.error(f"Failed to convert Hamiltonian to Pauli operators: {e}")
+            logger.warning("Falling back to statevector simulation")
+            import traceback
+            traceback.print_exc()
+            return self._compute_energy_statevector(parameters)
+
+        # Use IBM backend if available
+        if hasattr(self, '_ibm_backend') and self._ibm_backend is not None:
+            logger.info(f"Submitting to IBM Quantum (iteration {self.iteration_count})")
+            print(f"🚀 Submitting job to IBM Quantum (function eval {self.iteration_count})")
+
+            try:
+                # Submit job to IBM
+                result = self._ibm_backend.run_batch(
+                    circuits=[bound_circuit],
+                    observables=[pauli_hamiltonian],
+                    shots=self.shots
+                )
+
+                job_id = result['job_id']
+                logger.info(f"IBM job submitted: {job_id}")
+                print(f"✅ IBM job submitted: {job_id}")
+
+                # Wait for job to complete
+                job = self._ibm_backend.service.job(job_id)
+                logger.info(f"Waiting for IBM job {job_id}...")
+
+                job_result = job.result()
+
+                # Extract energy from Estimator result
+                energy = float(job_result.values[0])
+
+                logger.info(f"IBM job {job_id} completed: E = {energy:.8f} Ha")
+                return energy
+
+            except Exception as e:
+                logger.error(f"IBM backend execution failed: {e}")
+                logger.warning("Falling back to statevector simulation")
+                return self._compute_energy_statevector(parameters)
+
+        # Use BlueQubit backend if available
+        elif hasattr(self, '_bluequbit_backend') and self._bluequbit_backend is not None:
+            logger.info(f"Submitting to BlueQubit (iteration {self.iteration_count})")
+            print(f"🚀 Submitting job to BlueQubit (function eval {self.iteration_count})")
+
+            try:
+                # For BlueQubit CPU/MPS devices, use statevector mode for accuracy
+                # (counts-based measurement requires basis rotation which is complex)
+                use_shots = self.shots
+                if hasattr(self._bluequbit_backend, 'device'):
+                    device = self._bluequbit_backend.device
+                    if device in ['cpu', 'mps.cpu', 'mps.gpu']:
+                        use_shots = None  # Force statevector mode
+                        logger.info(f"Using statevector mode for {device} (more accurate than sampling)")
+
+                # Submit to BlueQubit (synchronous for VQE iterations)
+                result = self._bluequbit_backend.run_circuit(
+                    circuit=bound_circuit,
+                    shots=use_shots,  # None = statevector mode
+                    asynchronous=False
+                )
+                print(f"✅ BlueQubit job completed")
+
+                # Extract statevector or counts
+                if 'statevector' in result:
+                    statevector = np.array(result['statevector'])
+
+                    # Convert Pauli operator to matrix
+                    pauli_matrix = pauli_hamiltonian.to_matrix()
+
+                    # Compute expectation value: <ψ|H|ψ>
+                    energy = float(np.real(np.conj(statevector) @ pauli_matrix @ statevector))
+
+                elif 'counts' in result:
+                    # Sampling-based energy estimation
+                    counts = result['counts']
+                    logger.info(f"Computing energy from counts: {sum(counts.values())} total shots")
+
+                    # Compute expectation value from Pauli measurements
+                    energy = self._compute_energy_from_counts(
+                        counts=counts,
+                        pauli_hamiltonian=pauli_hamiltonian
+                    )
+                    logger.info(f"Counts-based energy: {energy:.8f} Ha")
+                else:
+                    raise ValueError("BlueQubit result missing statevector or counts")
+
+                logger.info(f"BlueQubit energy: {energy:.8f} Ha")
+                return energy
+
+            except Exception as e:
+                logger.error(f"BlueQubit backend execution failed: {e}")
+                logger.warning("Falling back to statevector simulation")
+                return self._compute_energy_statevector(parameters)
+
+        else:
+            logger.warning("No quantum backend available, using statevector")
+            return self._compute_energy_statevector(parameters)
 
     def compute_energy(self, parameters: np.ndarray) -> float:
         """
@@ -660,9 +875,12 @@ class VQESolver(BaseSolver):
         if hasattr(self, '_callback') and self._callback is not None:
             self._callback(self.iteration_count, energy, parameters)
 
-        # Log progress
+        # Log progress (every 10 function evals)
         if self.iteration_count % 10 == 0:
-            logger.info(f"Iteration {self.iteration_count}: E = {energy:.8f} Ha")
+            # Estimate optimizer iteration (rough approximation)
+            est_iter = self.iteration_count // 40 if self.optimizer_method in ['SLSQP', 'L-BFGS-B'] else self.iteration_count
+            logger.info(f"Function eval {self.iteration_count} (~iter {est_iter}): E = {energy:.8f} Ha")
+            print(f"📊 Progress: {self.iteration_count} function evals (~{est_iter} iterations), E = {energy:.8f} Ha")
 
         return energy
 
@@ -707,6 +925,21 @@ class VQESolver(BaseSolver):
         self.parameter_history = []
         self.iteration_count = 0
 
+        # Warn if using cloud backend with gradient-based optimizer
+        if self.backend in ['ibm', 'bluequbit'] and self.optimizer_method in ['SLSQP', 'L-BFGS-B']:
+            estimated_jobs = self.max_iterations * 40
+            warning_msg = (
+                f"⚠️  OPTIMIZER WARNING ⚠️\n"
+                f"   Optimizer: {self.optimizer_method} (gradient-based)\n"
+                f"   Max iterations: {self.max_iterations}\n"
+                f"   Estimated quantum jobs: ~{estimated_jobs} function evaluations\n"
+                f"   \n"
+                f"   SLSQP uses ~40 function evaluations per iteration.\n"
+                f"   Consider using COBYLA or POWELL for fewer job submissions (~1-3x iterations)."
+            )
+            logger.warning(warning_msg)
+            print(warning_msg)
+
         # Classical optimization
         result = minimize(
             self._objective_function,
@@ -721,7 +954,8 @@ class VQESolver(BaseSolver):
             'energy': result.fun,
             'parameters': result.x,
             'converged': result.success,
-            'iterations': self.iteration_count,
+            'iterations': result.nit if hasattr(result, 'nit') else self.iteration_count,  # Use optimizer iterations, not function evals
+            'function_evaluations': self.iteration_count,  # Track function evaluations separately
             'energy_history': np.array(self.energy_history),
             'parameter_history': np.array(self.parameter_history),
             'optimizer_message': result.message
