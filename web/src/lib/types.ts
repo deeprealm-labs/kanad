@@ -27,6 +27,10 @@ export interface BackendSettings {
   backendName?: string; // e.g., "ibm_torino", "ibm_brisbane"
   bluequbitDevice?: "cpu" | "gpu" | "mps.cpu" | "mps.gpu" | "pauli-path"; // BlueQubit device selection
   maxIterations?: number; // Maximum VQE iterations (default: 100)
+  // SQD-specific settings
+  subspaceDim?: number;
+  circuitDepth?: number;
+  nStates?: number;
   optimization?: {
     geometry: boolean;
     orbitals: boolean;
@@ -269,6 +273,10 @@ export interface ExperimentReport {
     properties?: {
       [key: string]: any;
     };
+    // SQD-specific fields
+    subspace_dim?: number;
+    circuit_depth?: number;
+    energies?: number[];
   };
   convergence_data?: ConvergencePoint[];
   circuit?: CircuitData;

@@ -192,30 +192,62 @@ export default function ExperimentReport({
                   {report.configuration.method}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Ansatz:</span>
-                <span className="font-quando font-medium">
-                  {report.configuration.ansatz || "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Mapper:</span>
-                <span className="font-quando font-medium">
-                  {report.configuration.mapper || "N/A"}
-                </span>
-              </div>
+
+              {/* VQE-specific parameters */}
+              {report.configuration.method === "VQE" && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ansatz:</span>
+                    <span className="font-quando font-medium">
+                      {report.configuration.ansatz || "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Mapper:</span>
+                    <span className="font-quando font-medium">
+                      {report.configuration.mapper || "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Optimizer:</span>
+                    <span className="font-quando font-medium">
+                      {report.configuration.optimizer || "N/A"}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* SQD-specific parameters */}
+              {report.configuration.method === "SQD" && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subspace Dim:</span>
+                    <span className="font-quando font-medium">
+                      {report.results?.subspace_dim || "10"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Circuit Depth:</span>
+                    <span className="font-quando font-medium">
+                      {report.results?.circuit_depth || "3"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">States Found:</span>
+                    <span className="font-quando font-medium">
+                      {report.results?.energies?.length || "N/A"}
+                    </span>
+                  </div>
+                </>
+              )}
+
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Backend:</span>
                 <span className="font-quando font-medium">
                   {report.configuration.backend}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Optimizer:</span>
-                <span className="font-quando font-medium">
-                  {report.configuration.optimizer || "N/A"}
-                </span>
-              </div>
+
               {report.configuration.hamiltonian && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Hamiltonian:</span>

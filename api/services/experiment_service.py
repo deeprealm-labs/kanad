@@ -477,27 +477,67 @@ def execute_sqd(
         # This is a workaround - SQD works best with diatomic molecules
         raise NotImplementedError("SQD currently only supports diatomic molecules")
 
+    # Get backend configuration
+    backend_type, backend_kwargs = get_backend_kwargs(config)
+    print(f"🔧 SQD backend_type: {backend_type}")
+    print(f"🔧 SQD backend_kwargs: {backend_kwargs}")
+
     # Create SQD solver
     solver = SQDSolver(
         bond=bond,
         subspace_dim=config.get('subspace_dim', 10),
         circuit_depth=config.get('circuit_depth', 3),
-        backend=create_backend(config),
+        backend=backend_type,
+        shots=config.get('shots', 1024) if backend_type != 'statevector' else None,
         enable_analysis=True,
-        enable_optimization=True
+        enable_optimization=True,
+        **backend_kwargs
     )
+    print(f"✅ SQD solver created with backend: {solver.backend}")
 
     # Update progress
-    JobDB.update_progress(job_id, progress=50.0)
+    JobDB.update_progress(job_id, progress=10.0)
 
-    # Execute SQD
+    # Define progress callback for real-time updates
     n_states = config.get('n_states', 3)
-    result = solver.solve(n_states=n_states)
+    total_stages = 4 + n_states  # 0=init, 1=basis, 2=projection, 3=diag, 4+=states
+
+    def sqd_progress_callback(stage: int, energy: float, message: str):
+        """Progress callback for SQD execution."""
+        # Calculate progress based on stage
+        progress = 10.0 + (stage / total_stages) * 85.0
+        progress = min(progress, 95.0)
+
+        # Update database
+        JobDB.update_progress(job_id, progress=progress, current_iteration=stage)
+
+        # Log progress
+        print(f"📊 SQD Progress: Stage {stage}/{total_stages-1} - {message}, E = {energy:.8f} Ha")
+
+        # Send WebSocket update
+        if experiment_id:
+            try:
+                import concurrent.futures
+                async def send_update():
+                    await ws_manager.broadcast_convergence(
+                        experiment_id,
+                        iteration=stage,
+                        energy=float(energy)
+                    )
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, send_update())
+                    future.result(timeout=1.0)
+            except Exception as e:
+                print(f"⚠️  WebSocket broadcast failed: {e}")
+
+    # Execute SQD with callback
+    result = solver.solve(n_states=n_states, callback=sqd_progress_callback)
 
     # Update progress
     JobDB.update_progress(job_id, progress=100.0)
 
-    return {
+    results_dict = {
         'energy': float(result['energy']),
         'hf_energy': float(result.get('hf_energy', 0.0)),
         'correlation_energy': float(result.get('correlation_energy', 0.0)),
@@ -507,7 +547,23 @@ def execute_sqd(
         'subspace_dim': result['subspace_dim'],
         'energies': [float(e) for e in result['energies']],
         'excited_state_energies': [float(e) for e in result.get('excited_state_energies', [])],
+        'circuit_depth': result.get('circuit_depth', 3),
     }
+
+    # Debug: Check what's in result
+    print(f"🔍 SQD result keys: {result.keys()}")
+    print(f"🔍 Has analysis: {'analysis' in result}")
+    if 'analysis' in result:
+        print(f"🔍 Analysis keys: {result['analysis'].keys() if result['analysis'] else 'None'}")
+
+    # Add analysis data if present
+    if 'analysis' in result and result['analysis']:
+        results_dict['analysis'] = convert_numpy_types(result['analysis'])
+        print(f"✅ Added analysis to results_dict: {list(results_dict['analysis'].keys())}")
+    else:
+        print(f"⚠️  No analysis data in SQD result!")
+
+    return results_dict
 
 
 def execute_excited_states(
@@ -536,8 +592,19 @@ def execute_excited_states(
         # This is a workaround - excited states works best with diatomic molecules
         raise NotImplementedError("EXCITED_STATES currently only supports diatomic molecules")
 
-    # Create excited states solver
-    method = config.get('excited_method', 'cis')  # CIS, TDDFT, QPE, VQE
+    # Check if using quantum backend
+    backend_type = config.get('backend', 'classical')
+
+    # For quantum backends, use SQD instead of classical excited states
+    if backend_type in ['bluequbit', 'ibm_quantum']:
+        print(f"⚠️  Excited States with quantum backend detected - using SQD instead")
+        print(f"📊 Quantum excited states computed via Subspace Quantum Diagonalization")
+
+        # Redirect to SQD execution
+        return execute_sqd(molecule, config, job_id, experiment_id)
+
+    # Classical excited states (CIS, TDDFT)
+    method = config.get('excited_method', 'cis')  # CIS, TDDFT
     n_states = config.get('n_states', 5)
 
     solver = ExcitedStatesSolver(
@@ -548,17 +615,73 @@ def execute_excited_states(
         enable_optimization=False
     )
 
-    # Update progress
-    JobDB.update_progress(job_id, progress=50.0)
+    # Update progress (no initial broadcast - CIS/TDDFT complete instantly)
+    JobDB.update_progress(job_id, progress=20.0, current_iteration=0)
+    print(f"📊 Excited States: Computing states using {method.upper()} (classical)...")
 
     # Execute
     result = solver.solve()
 
-    # Update progress
+    # Broadcast final energies
+    if experiment_id and 'energies' in result:
+        for i, energy in enumerate(result['energies'][:n_states]):
+            JobDB.update_progress(job_id, progress=50.0 + (i / n_states) * 50.0, current_iteration=i+1)
+            try:
+                import concurrent.futures
+                async def send_update():
+                    await ws_manager.broadcast_convergence(
+                        experiment_id,
+                        iteration=i+1,
+                        energy=float(energy)
+                    )
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, send_update())
+                    future.result(timeout=1.0)
+            except Exception as e:
+                print(f"⚠️  WebSocket broadcast failed: {e}")
+
+    # Update final progress
     JobDB.update_progress(job_id, progress=100.0)
 
+    # Generate analysis if not present in result
+    analysis_data = result.get('analysis')
+    if not analysis_data:
+        # Generate analysis using solver's built-in method
+        try:
+            # Get HF density matrix for analysis
+            density_matrix, _ = solver.hamiltonian.solve_scf(
+                max_iterations=100,
+                conv_tol=1e-8,
+                use_diis=True
+            )
+            # Use BaseSolver's analysis method
+            solver._add_analysis_to_results(
+                energy=result['ground_state_energy'],
+                density_matrix=density_matrix
+            )
+            analysis_data = solver.results.get('analysis')
+            if analysis_data:
+                print(f"✅ Generated analysis for EXCITED_STATES")
+            else:
+                print(f"⚠️  No analysis generated")
+        except Exception as e:
+            print(f"⚠️  Analysis generation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            analysis_data = None
+
+    # Build energy history from all states for graph
+    energy_history = []
+    if 'energies' in result and result['energies'] is not None:
+        # Include ground state and excited states
+        energy_history = [float(e) for e in result['energies'][:n_states]]
+    elif 'excited_state_energies' in result:
+        # Fallback: just ground state and first few excited states
+        energy_history = [float(result['ground_state_energy'])]
+        energy_history.extend([float(e) for e in result['excited_state_energies'][:n_states-1]])
+
     # Format results
-    return {
+    results_dict = {
         'energy': float(result['energy']),  # Ground state energy
         'ground_state_energy': float(result.get('ground_state_energy', result['energy'])),
         'excited_state_energies': [float(e) for e in result.get('excited_state_energies', [])],
@@ -570,7 +693,15 @@ def execute_excited_states(
         'method': 'EXCITED_STATES',
         'excited_method': method,
         'n_states': n_states,
+        'energy_history': energy_history,  # For graph display
     }
+
+    # Add analysis if available
+    if analysis_data:
+        results_dict['analysis'] = convert_numpy_types(analysis_data)
+        print(f"✅ Added analysis to EXCITED_STATES results")
+
+    return results_dict
 
 
 def execute_experiment(experiment_id: str, job_id: str):
@@ -641,6 +772,20 @@ def execute_experiment(experiment_id: str, job_id: str):
         # Update job
         JobDB.update_progress(job_id, progress=100.0)
         JobDB.update_status(job_id, 'completed')
+
+        # Broadcast completion status via WebSocket
+        try:
+            import asyncio
+            async def send_completion():
+                await ws_manager.broadcast_status(
+                    experiment_id,
+                    status='completed',
+                    progress=100.0
+                )
+            asyncio.run(send_completion())
+            print(f"✅ Broadcasted completion status via WebSocket")
+        except Exception as e:
+            print(f"⚠️  WebSocket completion broadcast failed: {e}")
 
     except ExperimentCancelledException as e:
         # Handle cancellation gracefully

@@ -62,6 +62,37 @@ export default function ExperimentMonitor({
   const previousStatusRef = useRef<ExperimentStatus>("queued");
   const toast = useToast();
 
+  // Reset state when experiment ID changes (new experiment)
+  useEffect(() => {
+    console.log("🔄 COMPONENT MOUNT/UPDATE - Experiment ID:", experimentId);
+    console.log("🔄 Current iteration before reset:", currentIteration);
+
+    // Reset all state
+    setCurrentIteration(0);
+    setConvergenceData([]);
+    setProgress(0);
+    setLogs([]);
+    setStatus("queued");
+    setResults(null);
+    setExperiment(null);
+
+    console.log("✅ State reset complete for experiment:", experimentId);
+
+    // Close any existing WebSocket
+    if (wsRef.current) {
+      console.log("🔌 Closing previous WebSocket");
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    // Stop any existing polling
+    if (pollingRef.current) {
+      console.log("⏹️  Stopping previous polling");
+      pollingRef.current();
+      pollingRef.current = null;
+    }
+  }, [experimentId]);
+
   // Monitor experiment progress
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
@@ -163,7 +194,11 @@ export default function ExperimentMonitor({
         }
 
         if (exp.results) {
-          console.log("Received results:", exp.results);
+          console.log("📊 Received results:", exp.results);
+          console.log("📊 Has analysis in results?", !!exp.results.analysis);
+          if (exp.results.analysis) {
+            console.log("📊 Analysis keys:", Object.keys(exp.results.analysis));
+          }
           setResults(exp.results);
 
           // Handle convergence data from different sources
@@ -198,12 +233,30 @@ export default function ExperimentMonitor({
               10 + (exp.convergenceData.length / maxIterations) * 80
             );
             setProgress(currentProgress);
-            setCurrentIteration(exp.convergenceData.length);
+            // Only update iteration if it's higher (don't go backwards with stale data)
+            setCurrentIteration((prev) => Math.max(prev, exp.convergenceData.length));
           } else {
             setProgress(Math.min(90, progress + 5));
           }
         } else if (exp.status === "completed") {
           setProgress(100);
+          // Set final iteration count based on convergence data from results
+          if (exp.results) {
+            let finalIterations = 0;
+            if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
+              finalIterations = exp.results.convergence_history.length;
+              console.log("📊 Setting final iterations from convergence_history:", finalIterations);
+            } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
+              finalIterations = exp.results.energy_history.length;
+              console.log("📊 Setting final iterations from energy_history:", finalIterations);
+            }
+            if (finalIterations > 0) {
+              console.log("✅ Setting currentIteration to:", finalIterations);
+              setCurrentIteration(finalIterations);
+            } else {
+              console.log("⚠️  No convergence data found in results");
+            }
+          }
           if (previousStatus !== "completed") {
             addLog(`Experiment completed successfully`);
           }
@@ -245,6 +298,38 @@ export default function ExperimentMonitor({
           setProgress(message.progress);
         }
         addLog(`Status updated: ${message.status}`);
+
+        // If experiment completed, fetch final results
+        if (message.status === 'completed' && experimentId) {
+          console.log("✅ Experiment completed - fetching final results");
+          api.getExperiment(experimentId).then((response) => {
+            const exp = response.experiment || response;
+            console.log("📊 Received results:", exp.results);
+            console.log("📊 Has analysis in results?", !!exp.results?.analysis);
+            if (exp.results?.analysis) {
+              console.log("📊 Analysis keys:", Object.keys(exp.results.analysis));
+            }
+
+            if (exp.results) {
+              setResults(exp.results);
+
+              // Handle convergence data
+              if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
+                setConvergenceData(exp.results.convergence_history);
+                setCurrentIteration(exp.results.convergence_history.length);
+              } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
+                const convergence = exp.results.energy_history.map((energy: number, index: number) => ({
+                  iteration: index + 1,
+                  energy: energy
+                }));
+                setConvergenceData(convergence);
+                setCurrentIteration(convergence.length);
+              }
+            }
+          }).catch((error) => {
+            console.error("❌ Failed to fetch final results:", error);
+          });
+        }
         break;
 
       case "progress":
@@ -252,6 +337,7 @@ export default function ExperimentMonitor({
         break;
 
       case "convergence":
+        console.log("📊 WebSocket convergence update - iteration:", message.iteration, "energy:", message.energy);
         setConvergenceData((prev) => [
           ...prev,
           {
@@ -259,10 +345,13 @@ export default function ExperimentMonitor({
             energy: message.energy,
           },
         ]);
+        console.log("✅ Setting currentIteration to:", message.iteration);
         setCurrentIteration(message.iteration);
 
         // Add log for convergence point
-        if (message.iteration % 10 === 0) {
+        // For SQD (low iteration count), log every stage. For VQE, log every 10 iterations
+        const shouldLog = message.iteration < 10 || message.iteration % 10 === 0;
+        if (shouldLog) {
           const estIter = message.is_optimizer_iteration
             ? message.iteration
             : Math.floor(message.iteration / 40);
@@ -467,15 +556,56 @@ export default function ExperimentMonitor({
                   {experimentConfig?.backendSettings?.backend || "Classical"}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Ansatz:</span>
-                <span className="font-quando font-medium">
-                  {experimentConfig?.backendSettings?.ansatz || "HEA"}
-                </span>
-              </div>
+
+              {/* VQE-specific fields */}
+              {experimentConfig?.backendSettings?.method === "VQE" && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ansatz:</span>
+                  <span className="font-quando font-medium">
+                    {experimentConfig?.backendSettings?.ansatz || "HEA"}
+                  </span>
+                </div>
+              )}
+
+              {/* SQD-specific fields */}
+              {experimentConfig?.backendSettings?.method === "SQD" && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subspace:</span>
+                    <span className="font-quando font-medium">
+                      {experimentConfig?.backendSettings?.subspaceDim || 10}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">States:</span>
+                    <span className="font-quando font-medium">
+                      {experimentConfig?.backendSettings?.nStates || 3}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* Excited States-specific fields */}
+              {experimentConfig?.backendSettings?.method === "EXCITED_STATES" && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">ES Method:</span>
+                    <span className="font-quando font-medium">
+                      {experimentConfig?.backendSettings?.excited_method?.toUpperCase() || "CIS"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">States:</span>
+                    <span className="font-quando font-medium">
+                      {experimentConfig?.backendSettings?.nStates || 5}
+                    </span>
+                  </div>
+                </>
+              )}
+
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Basis:</span>
-                <span className="font-quando font-medium">
+                <span className="font-quanto font-medium">
                   {experimentConfig?.molecule?.basis || "STO-3G"}
                 </span>
               </div>
@@ -498,7 +628,28 @@ export default function ExperimentMonitor({
             </div>
             {status === "running" && currentIteration > 0 && (
               <div className="mt-3 text-xs text-muted-foreground font-quando">
-                Iteration {currentIteration} / 42
+                {(() => {
+                  const method = experimentConfig?.backendSettings?.method;
+                  let maxIterations;
+
+                  if (method === "VQE") {
+                    maxIterations = experimentConfig?.backendSettings?.maxIterations || 100;
+                  } else if (method === "SQD") {
+                    maxIterations = 6; // SQD has 7 stages (0-6)
+                  } else if (method === "EXCITED_STATES") {
+                    // If using quantum backend, EXCITED_STATES redirects to SQD (7 stages)
+                    const backend = experimentConfig?.backendSettings?.backend;
+                    if (backend === "bluequbit" || backend === "ibm_quantum") {
+                      maxIterations = 6; // Redirected to SQD
+                    } else {
+                      maxIterations = experimentConfig?.backendSettings?.nStates || 5;
+                    }
+                  } else {
+                    maxIterations = 100;
+                  }
+
+                  return `Iteration ${currentIteration} / ${maxIterations}`;
+                })()}
               </div>
             )}
           </div>

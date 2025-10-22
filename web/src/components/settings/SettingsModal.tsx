@@ -39,7 +39,21 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
   const [basisSet, setBasisSet] = useState("sto-3g");
   const [maxIterations, setMaxIterations] = useState(DEFAULT_SETTINGS.maxIterations);
 
+  // SQD-specific settings
+  const [subspaceDim, setSubspaceDim] = useState(10);
+  const [circuitDepth, setCircuitDepth] = useState(3);
+  const [nStates, setNStates] = useState(3);
+
   const [optimization, setOptimization] = useState(DEFAULT_SETTINGS.optimization);
+  const [analysis, setAnalysis] = useState({
+    energy_decomposition: true,
+    bond_analysis: true,
+    dipole_moment: true,
+    polarizability: false,
+    thermochemistry: false,
+    spectroscopy: false,
+    vibrational: false,
+  });
   const [configOptions, setConfigOptions] = useState<any>(null);
   const toast = useToast();
 
@@ -73,7 +87,11 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
         setHamiltonian(settings.hamiltonian || "molecular");
         setBasisSet(settings.basisSet || "sto-3g");
         setMaxIterations(settings.maxIterations || DEFAULT_SETTINGS.maxIterations);
+        setSubspaceDim(settings.subspaceDim || 10);
+        setCircuitDepth(settings.circuitDepth || 3);
+        setNStates(settings.nStates || 3);
         setOptimization(settings.optimization || DEFAULT_SETTINGS.optimization);
+        setAnalysis(settings.analysis || analysis);
       } catch (error) {
         console.error("Failed to load settings from API:", error);
         // Fallback to localStorage
@@ -114,7 +132,11 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
       hamiltonian,
       basisSet,
       maxIterations,
+      subspaceDim,
+      circuitDepth,
+      nStates,
       optimization,
+      analysis,
     };
 
     try {
@@ -329,6 +351,74 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
             </div>
           )}
 
+          {/* SQD Settings */}
+          {method === "SQD" && (
+            <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+              <h3 className="text-lg font-quando font-semibold">
+                SQD Configuration
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Subspace Quantum Diagonalization - Finds multiple energy eigenstates
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-quando font-medium mb-2">
+                    Subspace Dimension
+                  </label>
+                  <input
+                    type="number"
+                    min="2"
+                    max="20"
+                    step="1"
+                    value={subspaceDim}
+                    onChange={(e) => setSubspaceDim(parseInt(e.target.value) || 10)}
+                    className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Size of quantum subspace (2-20). Higher = more accurate but slower.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-quando font-medium mb-2">
+                    Circuit Depth
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={circuitDepth}
+                    onChange={(e) => setCircuitDepth(parseInt(e.target.value) || 3)}
+                    className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Quantum circuit layers (1-10).
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-quando font-medium mb-2">
+                    Number of States
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={nStates}
+                    onChange={(e) => setNStates(parseInt(e.target.value) || 3)}
+                    className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Number of energy states to compute.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Backend Selection */}
           <div>
             <h3 className="text-lg font-quando font-semibold mb-3">
@@ -436,6 +526,95 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
                   </span>
                 </label>
               ))}
+            </div>
+          </div>
+
+          {/* Analysis Configuration */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h3 className="text-lg font-quando font-semibold mb-3">
+              Analysis Options
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Select which analyses to perform after computation
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={analysis.energy_decomposition}
+                  onChange={(e) =>
+                    setAnalysis({ ...analysis, energy_decomposition: e.target.checked })
+                  }
+                  className="mr-3"
+                />
+                <span className="font-quando text-sm">Energy Decomposition</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={analysis.bond_analysis}
+                  onChange={(e) =>
+                    setAnalysis({ ...analysis, bond_analysis: e.target.checked })
+                  }
+                  className="mr-3"
+                />
+                <span className="font-quando text-sm">Bond Analysis</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={analysis.dipole_moment}
+                  onChange={(e) =>
+                    setAnalysis({ ...analysis, dipole_moment: e.target.checked })
+                  }
+                  className="mr-3"
+                />
+                <span className="font-quando text-sm">Dipole Moment</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={analysis.polarizability}
+                  onChange={(e) =>
+                    setAnalysis({ ...analysis, polarizability: e.target.checked })
+                  }
+                  className="mr-3"
+                />
+                <span className="font-quando text-sm">Polarizability</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={analysis.thermochemistry}
+                  onChange={(e) =>
+                    setAnalysis({ ...analysis, thermochemistry: e.target.checked })
+                  }
+                  className="mr-3"
+                />
+                <span className="font-quando text-sm">Thermochemistry</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={analysis.spectroscopy}
+                  onChange={(e) =>
+                    setAnalysis({ ...analysis, spectroscopy: e.target.checked })
+                  }
+                  className="mr-3"
+                />
+                <span className="font-quando text-sm">Spectroscopy</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={analysis.vibrational}
+                  onChange={(e) =>
+                    setAnalysis({ ...analysis, vibrational: e.target.checked })
+                  }
+                  className="mr-3"
+                />
+                <span className="font-quando text-sm">Vibrational Analysis</span>
+              </label>
             </div>
           </div>
         </div>

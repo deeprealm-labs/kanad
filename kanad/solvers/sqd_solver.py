@@ -104,6 +104,15 @@ class SQDSolver(BaseSolver):
         if self.backend == 'statevector':
             self._use_statevector = True
             logger.info("Using statevector simulation")
+        elif self.backend == 'bluequbit':
+            try:
+                from kanad.backends.bluequbit import BlueQubitBackend
+                self._bluequbit_backend = BlueQubitBackend(**kwargs)
+                self._use_statevector = False
+                logger.info(f"BlueQubit backend initialized: device={kwargs.get('device', 'gpu')}")
+            except Exception as e:
+                logger.error(f"BlueQubit backend initialization failed: {e}")
+                raise
         elif self.backend == 'ibm':
             try:
                 from kanad.backends.ibm import IBMRuntimeBackend
@@ -304,12 +313,14 @@ class SQDSolver(BaseSolver):
 
         return H_sub
 
-    def solve(self, n_states: int = 3) -> Dict[str, Any]:
+    def solve(self, n_states: int = 3, callback=None) -> Dict[str, Any]:
         """
         Solve for ground and excited states using SQD.
 
         Args:
             n_states: Number of lowest eigenstates to return
+            callback: Optional callback function(stage: int, energy: float, message: str)
+                     Called at different stages: 0=init, 1=basis, 2=projection, 3=diag, 4+=states
 
         Returns:
             Dictionary with comprehensive results:
@@ -328,15 +339,27 @@ class SQDSolver(BaseSolver):
         hf_energy = self.get_reference_energy()
         if hf_energy is not None:
             logger.info(f"HF reference energy: {hf_energy:.8f} Hartree")
+            if callback:
+                callback(0, hf_energy, "HF reference computed")
 
         # Step 1: Generate quantum subspace
+        if callback:
+            callback(1, hf_energy if hf_energy else 0.0, "Generating subspace basis")
         basis = self._generate_subspace_basis()
+        if callback:
+            callback(1, hf_energy if hf_energy else 0.0, f"Subspace basis generated ({len(basis)} states)")
 
         # Step 2: Project Hamiltonian
+        if callback:
+            callback(2, hf_energy if hf_energy else 0.0, "Projecting Hamiltonian")
         H_sub = self._project_hamiltonian(basis)
+        if callback:
+            callback(2, hf_energy if hf_energy else 0.0, "Hamiltonian projection complete")
 
         # Step 3: Classical diagonalization
         logger.info("Diagonalizing projected Hamiltonian...")
+        if callback:
+            callback(3, hf_energy if hf_energy else 0.0, "Diagonalizing Hamiltonian")
         eigenvalues, eigenvectors = np.linalg.eigh(H_sub)
 
         # Take lowest n_states
@@ -346,6 +369,8 @@ class SQDSolver(BaseSolver):
         logger.info(f"Found {n_states} eigenvalues:")
         for i, E in enumerate(eigenvalues):
             logger.info(f"  State {i}: {E:.8f} Hartree")
+            if callback:
+                callback(4 + i, float(E), f"State {i} computed")
 
         # Store results
         self.results = {

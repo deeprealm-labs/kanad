@@ -265,6 +265,7 @@ export default function DashboardPage() {
   if (currentStep === "running") {
     return (
       <ExperimentMonitor
+        key={currentExperimentId} // Force remount when experiment ID changes
         experimentId={currentExperimentId}
         experimentConfig={experimentConfig}
         onComplete={async () => {

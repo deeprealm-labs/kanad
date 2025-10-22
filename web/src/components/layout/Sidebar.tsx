@@ -95,7 +95,7 @@ export default function Sidebar() {
 
         {/* Kanad Logo at Bottom - Much Bigger, Covers Sidebar Width */}
         <div className="p-4 border-t border-gray-800">
-          <h1 className="font-bietro text-7xl text-brand-orange leading-none">
+          <h1 className="font-bietro text-7xl text-brand-orange leading-none ">
             kanad
           </h1>
         </div>
