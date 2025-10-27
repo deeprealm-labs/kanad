@@ -245,6 +245,33 @@ class BondingAnalyzer:
                 analysis['homo_lumo_gap'] = gap
                 analysis['homo_lumo_gap_ev'] = gap * 27.211  # Convert to eV
 
+        # Support MolecularHamiltonian (multi-atom molecules)
+        elif hasattr(self.hamiltonian, 'mol') and hasattr(self.hamiltonian, 'atoms'):
+            # For multi-atom molecules, assume covalent bonding
+            analysis['bonding_type'] = 'molecular'
+            analysis['characteristics'] = [
+                'Multi-atom molecule',
+                'Covalent bonds between atoms',
+                'Molecular orbitals'
+            ]
+
+            # Get HOMO-LUMO gap from MO energies
+            if hasattr(self.hamiltonian, 'mf'):
+                mo_energies = self.hamiltonian.mf.mo_energy
+                n_electrons = self.hamiltonian.n_electrons
+
+                # HOMO is the highest occupied orbital
+                # For closed-shell: n_electrons/2 orbitals are occupied
+                n_occ = n_electrons // 2
+
+                if n_occ > 0 and n_occ < len(mo_energies):
+                    homo_energy = mo_energies[n_occ - 1]
+                    lumo_energy = mo_energies[n_occ]
+                    gap = lumo_energy - homo_energy
+
+                    analysis['homo_lumo_gap'] = gap
+                    analysis['homo_lumo_gap_ev'] = gap * 27.211  # Convert to eV
+
         return analysis
 
     def compute_mulliken_charges(
@@ -320,6 +347,40 @@ class BondingAnalyzer:
             analysis['bond_orders'] = bond_orders
             analysis['bond_classification'] = self._classify_bonds(bond_orders)
 
+        # Also support MolecularHamiltonian (from kanad.core.molecule)
+        elif hasattr(self.hamiltonian, 'mol') and hasattr(self.hamiltonian, 'atoms'):
+            # This is a MolecularHamiltonian using PySCF backend
+            n_atoms = len(self.hamiltonian.atoms)
+            bond_orders = np.zeros((n_atoms, n_atoms))
+
+            # Get overlap matrix from PySCF molecule
+            S = self.hamiltonian.mol.intor('int1e_ovlp')
+            n_orbitals = self.hamiltonian.n_orbitals
+
+            # Compute bond order for each atom pair using Mulliken analysis
+            # BO_ij = Σ_μ∈i Σ_ν∈j P_μν S_μν
+            for i in range(n_atoms):
+                for j in range(i + 1, n_atoms):
+                    # Get basis function indices for each atom
+                    # Simplified: assume contiguous basis functions per atom
+                    orbitals_per_atom = n_orbitals // n_atoms
+                    start_i = i * orbitals_per_atom
+                    end_i = (i + 1) * orbitals_per_atom
+                    start_j = j * orbitals_per_atom
+                    end_j = (j + 1) * orbitals_per_atom
+
+                    bond_order = 0.0
+                    for mu in range(start_i, end_i):
+                        for nu in range(start_j, end_j):
+                            bond_order += density_matrix[mu, nu] * S[mu, nu]
+
+                    bo = abs(bond_order)
+                    bond_orders[i, j] = bo
+                    bond_orders[j, i] = bo
+
+            analysis['bond_orders'] = bond_orders
+            analysis['bond_classification'] = self._classify_bonds(bond_orders)
+
         return analysis
 
     def _classify_bonds(self, bond_orders: np.ndarray) -> Dict:
@@ -330,10 +391,13 @@ class BondingAnalyzer:
             bond_orders: Bond order matrix
 
         Returns:
-            Bond classification
+            Bond classification with atom symbols
         """
         classification = {}
         n_atoms = len(bond_orders)
+
+        # Get atom symbols if available
+        atoms = getattr(self.hamiltonian, 'atoms', [])
 
         for i in range(n_atoms):
             for j in range(i + 1, n_atoms):
@@ -349,9 +413,18 @@ class BondingAnalyzer:
                     else:
                         bond_type = 'multiple'
 
+                    # Get atom symbols if available
+                    atom_i_symbol = atoms[i].symbol if i < len(atoms) and hasattr(atoms[i], 'symbol') else f'Atom{i}'
+                    atom_j_symbol = atoms[j].symbol if j < len(atoms) and hasattr(atoms[j], 'symbol') else f'Atom{j}'
+
                     classification[f'atom_{i}_atom_{j}'] = {
                         'type': bond_type,
-                        'order': bo
+                        'order': bo,
+                        'atom_i': i,
+                        'atom_j': j,
+                        'atom_i_symbol': atom_i_symbol,
+                        'atom_j_symbol': atom_j_symbol,
+                        'bond_label': f'{atom_i_symbol}-{atom_j_symbol}'
                     }
 
         return classification

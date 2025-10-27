@@ -62,6 +62,7 @@ class VQESolver(BaseSolver):
         shots: Optional[int] = None,
         enable_analysis: bool = True,
         enable_optimization: bool = True,
+        experiment_id: Optional[str] = None,  # For WebSocket broadcasting
         **kwargs
     ):
         """
@@ -122,7 +123,7 @@ class VQESolver(BaseSolver):
                 self._api_mode = 'hamiltonian_types'
             else:
                 # Low-level API: Initialize from components (for testing)
-                self._init_from_components_mode(hamiltonian, ansatz, mapper, enable_analysis, enable_optimization)
+                self._init_from_components_mode(hamiltonian, ansatz, mapper, molecule, enable_analysis, enable_optimization)
                 self._api_mode = 'components'
         elif bond is not None and hamiltonian is not None:
             raise ValueError("Cannot use both 'bond' and 'hamiltonian' parameters. Choose one API.")
@@ -137,6 +138,9 @@ class VQESolver(BaseSolver):
         self.backend_name = 'statevector' if backend == 'classical' else backend
         self.backend = self.backend_name  # Alias for backward compatibility
         self.shots = shots if shots is not None else 1024
+
+        # Store experiment_id for WebSocket broadcasting
+        self.experiment_id = experiment_id
 
         # This is a correlated method
         self._is_correlated = True
@@ -178,31 +182,37 @@ class VQESolver(BaseSolver):
 
         logger.info(f"VQE Solver initialized: {self.ansatz_type} ansatz, {self.mapper_type} mapping, {self.backend_name} backend")
 
-    def _init_from_components_mode(self, hamiltonian, ansatz, mapper, enable_analysis, enable_optimization):
+    def _init_from_components_mode(self, hamiltonian, ansatz, mapper, molecule, enable_analysis, enable_optimization):
         """Initialize VQE from individual components (low-level API for testing)."""
         # Store components directly
         self.hamiltonian = hamiltonian
         self.mapper = mapper if mapper is not None else JordanWignerMapper()
 
-        # Set molecule and bond to None (not available in this mode)
-        self.molecule = getattr(hamiltonian, 'molecule', None)
+        # Try to get molecule from parameter, then hamiltonian, then None
+        if molecule is not None:
+            self.molecule = molecule
+        else:
+            self.molecule = getattr(hamiltonian, 'molecule', None)
+
         self.bond = None
 
-        # Disable analysis features unless molecule is available
+        # Enable analysis features if molecule is available
         self.enable_analysis = enable_analysis if self.molecule is not None else False
         self.enable_optimization = enable_optimization
 
         # Initialize analysis tools if enabled and molecule available
         if self.enable_analysis and self.molecule is not None:
             try:
-                from kanad.analysis import EnergyAnalyzer, BondingAnalyzer, MolecularPropertyAnalyzer
+                from kanad.analysis import EnergyAnalyzer, BondingAnalyzer, PropertyCalculator
                 self.energy_analyzer = EnergyAnalyzer(self.hamiltonian)
-                self.bonding_analyzer = BondingAnalyzer(self.molecule)
-                self.property_analyzer = MolecularPropertyAnalyzer(self.molecule)
+                self.bonding_analyzer = BondingAnalyzer(self.molecule.hamiltonian)
+                self.property_calculator = PropertyCalculator(self.hamiltonian)
                 self.atoms = self.molecule.atoms
-                logger.info("Analysis tools initialized in components mode")
+                logger.info("✅ Analysis tools initialized in components mode")
             except Exception as e:
-                logger.warning(f"Failed to initialize analysis tools: {e}")
+                logger.warning(f"❌ Failed to initialize analysis tools: {e}")
+                import traceback
+                traceback.print_exc()
                 self.enable_analysis = False
 
         # Initialize ansatz (from object or type string)
@@ -368,8 +378,10 @@ class VQESolver(BaseSolver):
                 from kanad.backends.bluequbit import BlueQubitBackend
                 self._bluequbit_backend = BlueQubitBackend(**kwargs)
                 self._use_statevector = False
-                logger.info("BlueQubit backend initialized")
-                print(f"✅ BlueQubit backend initialized successfully")
+                device = kwargs.get('device', 'gpu')
+                logger.info(f"BlueQubit backend initialized: device={device}")
+                print(f"✅ Connected to BlueQubit cloud: device={device}")
+                print(f"🔗 Track your jobs at: https://app.bluequbit.io/jobs")
             except Exception as e:
                 logger.error(f"BlueQubit initialization failed: {e}")
                 print(f"❌ BlueQubit initialization failed: {e}")
@@ -382,9 +394,10 @@ class VQESolver(BaseSolver):
                 from kanad.backends.ibm import IBMBackend
                 self._ibm_backend = IBMBackend(**kwargs)
                 self._use_statevector = False
-                logger.info("IBM Quantum backend initialized")
-                print(f"✅ IBM Quantum backend initialized successfully")
-                print(f"   Backend name: {kwargs.get('backend_name', 'N/A')}")
+                backend_name = kwargs.get('backend_name', 'ibm_torino')
+                logger.info(f"IBM Quantum backend initialized: {backend_name}")
+                print(f"✅ Connected to IBM Quantum: {backend_name}")
+                print(f"🔗 Track your jobs at: https://quantum.ibm.com/jobs")
             except Exception as e:
                 logger.error(f"IBM backend initialization failed: {e}")
                 print(f"❌ IBM backend initialization failed: {e}")
@@ -671,7 +684,16 @@ class VQESolver(BaseSolver):
         # Use IBM backend if available
         if hasattr(self, '_ibm_backend') and self._ibm_backend is not None:
             logger.info(f"Submitting to IBM Quantum (iteration {self.iteration_count})")
-            print(f"🚀 Submitting job to IBM Quantum (function eval {self.iteration_count})")
+
+            # Broadcast to frontend if experiment_id is available
+            if self.experiment_id:
+                try:
+                    from api.utils import broadcast_log_sync
+                    broadcast_log_sync(self.experiment_id, f"🚀 Submitting job to IBM Quantum (function eval {self.iteration_count})")
+                except Exception:
+                    print(f"🚀 Submitting job to IBM Quantum (function eval {self.iteration_count})")
+            else:
+                print(f"🚀 Submitting job to IBM Quantum (function eval {self.iteration_count})")
 
             try:
                 # Submit job to IBM
@@ -683,16 +705,47 @@ class VQESolver(BaseSolver):
 
                 job_id = result['job_id']
                 logger.info(f"IBM job submitted: {job_id}")
-                print(f"✅ IBM job submitted: {job_id}")
+
+                # Broadcast job ID to frontend
+                if self.experiment_id:
+                    try:
+                        from api.utils import broadcast_log_sync
+                        broadcast_log_sync(self.experiment_id, f"✅ IBM job submitted: {job_id}")
+                        broadcast_log_sync(self.experiment_id, f"🔗 Track job at: https://quantum.ibm.com/jobs/{job_id}")
+                    except Exception:
+                        print(f"✅ IBM job submitted: {job_id}")
+                        print(f"🔗 Track job at: https://quantum.ibm.com/jobs/{job_id}")
+                else:
+                    print(f"✅ IBM job submitted: {job_id}")
+                    print(f"🔗 Track job at: https://quantum.ibm.com/jobs/{job_id}")
 
                 # Wait for job to complete
                 job = self._ibm_backend.service.job(job_id)
                 logger.info(f"Waiting for IBM job {job_id}...")
 
+                if self.experiment_id:
+                    try:
+                        from api.utils import broadcast_log_sync
+                        broadcast_log_sync(self.experiment_id, f"⏳ Waiting for IBM job to complete...")
+                    except Exception:
+                        print(f"⏳ Waiting for IBM job to complete...")
+                else:
+                    print(f"⏳ Waiting for IBM job to complete...")
+
                 job_result = job.result()
 
                 # Extract energy from Estimator result
-                energy = float(job_result.values[0])
+                # Handle both V1 and V2 primitive formats
+                if hasattr(job_result, 'values'):
+                    # V1 Estimator result format
+                    energy = float(job_result.values[0])
+                elif hasattr(job_result, '__getitem__'):
+                    # V2 Estimator result format (EstimatorV2)
+                    # Result is a PrimitiveResult object with PubResult items
+                    # Each PubResult has .data.evs (expectation values)
+                    energy = float(job_result[0].data.evs[0])
+                else:
+                    raise AttributeError(f"Unknown Estimator result format: {type(job_result)}")
 
                 logger.info(f"IBM job {job_id} completed: E = {energy:.8f} Ha")
                 return energy
@@ -705,7 +758,16 @@ class VQESolver(BaseSolver):
         # Use BlueQubit backend if available
         elif hasattr(self, '_bluequbit_backend') and self._bluequbit_backend is not None:
             logger.info(f"Submitting to BlueQubit (iteration {self.iteration_count})")
-            print(f"🚀 Submitting job to BlueQubit (function eval {self.iteration_count})")
+
+            # Broadcast to frontend if experiment_id is available
+            if self.experiment_id:
+                try:
+                    from api.utils import broadcast_log_sync
+                    broadcast_log_sync(self.experiment_id, f"🚀 Submitting job to BlueQubit (function eval {self.iteration_count})")
+                except Exception:
+                    print(f"🚀 Submitting job to BlueQubit (function eval {self.iteration_count})")
+            else:
+                print(f"🚀 Submitting job to BlueQubit (function eval {self.iteration_count})")
 
             try:
                 # For BlueQubit CPU/MPS devices, use statevector mode for accuracy
@@ -723,7 +785,30 @@ class VQESolver(BaseSolver):
                     shots=use_shots,  # None = statevector mode
                     asynchronous=False
                 )
-                print(f"✅ BlueQubit job completed")
+
+                # Log job ID if available and broadcast to frontend
+                if 'job_id' in result:
+                    job_id = result['job_id']
+                    if self.experiment_id:
+                        try:
+                            from api.utils import broadcast_log_sync
+                            broadcast_log_sync(self.experiment_id, f"✅ BlueQubit job submitted: {job_id}")
+                            broadcast_log_sync(self.experiment_id, f"🔗 Track job at: https://app.bluequbit.io/jobs/{job_id}")
+                        except Exception:
+                            print(f"✅ BlueQubit job submitted: {job_id}")
+                            print(f"🔗 Track job at: https://app.bluequbit.io/jobs/{job_id}")
+                    else:
+                        print(f"✅ BlueQubit job submitted: {job_id}")
+                        print(f"🔗 Track job at: https://app.bluequbit.io/jobs/{job_id}")
+                else:
+                    if self.experiment_id:
+                        try:
+                            from api.utils import broadcast_log_sync
+                            broadcast_log_sync(self.experiment_id, f"✅ BlueQubit job completed")
+                        except Exception:
+                            print(f"✅ BlueQubit job completed")
+                    else:
+                        print(f"✅ BlueQubit job completed")
 
                 # Extract statevector or counts
                 if 'statevector' in result:
@@ -941,11 +1026,21 @@ class VQESolver(BaseSolver):
             print(warning_msg)
 
         # Classical optimization
+        # Prepare optimizer options
+        opt_options = {'maxiter': self.max_iterations}
+
+        # COBYLA-specific: Set maxfun to ensure it's at least num_params + 2
+        if self.optimizer_method == 'COBYLA':
+            min_maxfun = self.n_parameters + 2
+            maxfun = max(self.max_iterations * 3, min_maxfun)  # Use 3x iterations as maxfun
+            opt_options['maxfun'] = maxfun
+            logger.info(f"COBYLA: Setting maxfun={maxfun} (min required: {min_maxfun})")
+
         result = minimize(
             self._objective_function,
             initial_parameters,
             method=self.optimizer_method,
-            options={'maxiter': self.max_iterations},
+            options=opt_options,
             tol=self.conv_threshold
         )
 
@@ -971,9 +1066,18 @@ class VQESolver(BaseSolver):
 
         # Add analysis if enabled
         if self.enable_analysis:
-            # Use HF density matrix for analysis (VQE doesn't give us density matrix directly)
-            density_matrix, _ = self.hamiltonian.solve_scf(max_iterations=50, conv_tol=1e-6)
-            self._add_analysis_to_results(result.fun, density_matrix)
+            logger.info(f"✅ Analysis enabled - generating analysis data...")
+            try:
+                # Use HF density matrix for analysis (VQE doesn't give us density matrix directly)
+                density_matrix, _ = self.hamiltonian.solve_scf(max_iterations=50, conv_tol=1e-6)
+                self._add_analysis_to_results(result.fun, density_matrix)
+                logger.info(f"✅ Analysis data added to results")
+            except Exception as e:
+                logger.error(f"❌ Analysis generation failed: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            logger.warning(f"⚠️  Analysis disabled - enable_analysis={self.enable_analysis}, molecule={self.molecule is not None}")
 
         # Add optimization stats if enabled
         if self.enable_optimization:

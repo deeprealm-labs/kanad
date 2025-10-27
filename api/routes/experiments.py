@@ -228,10 +228,16 @@ async def cancel_experiment(experiment_id: str):
     if not experiment:
         raise HTTPException(status_code=404, detail="Experiment not found")
 
-    if experiment['status'] in ['completed', 'failed', 'cancelled']:
+    # If already cancelled, just return success
+    if experiment['status'] == 'cancelled':
+        return {"message": "Experiment already cancelled"}
+
+    # Allow cancelling failed experiments (for cleanup)
+    # Only reject if completed successfully
+    if experiment['status'] == 'completed':
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot cancel experiment with status: {experiment['status']}"
+            detail="Cannot cancel a successfully completed experiment"
         )
 
     ExperimentDB.update_status(experiment_id, 'cancelled')

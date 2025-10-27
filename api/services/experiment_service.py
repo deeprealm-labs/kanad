@@ -20,12 +20,64 @@ from kanad.backends.bluequbit import BlueQubitBackend
 from api.core.database import ExperimentDB, JobDB
 from api.core.config import get_settings
 from api.routes.websockets import manager as ws_manager
+from api.utils import broadcast_log_sync as _broadcast_log_sync, set_main_event_loop
 import asyncio
+import threading
+
+# Store reference to main event loop (set during startup)
+_main_event_loop = None
 
 
 class ExperimentCancelledException(Exception):
     """Exception raised when an experiment is cancelled by the user."""
     pass
+
+
+def _broadcast_convergence_sync(experiment_id: str, iteration: int, energy: float):
+    """
+    Broadcast convergence update from sync context.
+
+    This function safely broadcasts WebSocket updates from synchronous code
+    by submitting the coroutine to the main event loop.
+    """
+    global _main_event_loop
+
+    try:
+        # Try to get the stored main loop first
+        loop = _main_event_loop
+
+        # Fallback: try to get running loop (works in async context)
+        if loop is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+
+        # If still no loop, we can't broadcast
+        if loop is None:
+            print(f"⚠️  No event loop available for WebSocket broadcast (iteration {iteration})")
+            return
+
+        # Create the coroutine
+        coro = ws_manager.broadcast_convergence(
+            experiment_id,
+            iteration=iteration,
+            energy=energy
+        )
+
+        # Schedule it on the main loop (thread-safe)
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
+
+        # Wait briefly for completion (non-blocking)
+        future.result(timeout=0.5)
+
+    except RuntimeError as e:
+        if "no running event loop" in str(e).lower() or "no current event loop" in str(e).lower():
+            print(f"⚠️  No event loop available for WebSocket broadcast (iteration {iteration})")
+        else:
+            print(f"⚠️  WebSocket broadcast failed: {e}")
+    except Exception as e:
+        print(f"⚠️  WebSocket broadcast failed: {e}")
 
 
 def create_molecule_from_config(molecule_config: Dict[str, Any]) -> Molecule:
@@ -141,7 +193,7 @@ def get_cloud_credentials(provider: str) -> Dict[str, Any]:
         return json.loads(row['credentials'])
 
 
-def get_backend_kwargs(backend_config: Dict[str, Any]) -> tuple:
+def get_backend_kwargs(backend_config: Dict[str, Any], experiment_id: str = None) -> tuple:
     """
     Get backend type and kwargs for VQE solver.
 
@@ -152,11 +204,20 @@ def get_backend_kwargs(backend_config: Dict[str, Any]) -> tuple:
     print(f"🔧 get_backend_kwargs called with backend_type: {backend_type}")
 
     if backend_type == 'classical' or backend_type == 'statevector':
-        print(f"📍 Using statevector simulation")
+        msg = f"📍 Using statevector simulation"
+        if experiment_id:
+            _broadcast_log_sync(experiment_id, msg)
+        else:
+            print(msg)
         return ('statevector', {})
 
     elif backend_type == 'ibm_quantum':
-        print(f"🌐 Configuring IBM Quantum backend...")
+        msg = f"🌐 Configuring IBM Quantum backend..."
+        if experiment_id:
+            _broadcast_log_sync(experiment_id, msg)
+        else:
+            print(msg)
+
         # Try database first, fall back to environment variables
         try:
             credentials = get_cloud_credentials('ibm')
@@ -177,7 +238,17 @@ def get_backend_kwargs(backend_config: Dict[str, Any]) -> tuple:
                 )
 
         backend_name = backend_config.get('backend_name', 'ibm_torino')
-        print(f"📍 Using IBM Quantum backend: {backend_name}")
+        msg = f"✅ Connected to IBM Quantum: {backend_name}"
+        if experiment_id:
+            _broadcast_log_sync(experiment_id, msg)
+        else:
+            print(msg)
+
+        msg = f"🔗 Track jobs at: https://quantum.ibm.com/jobs"
+        if experiment_id:
+            _broadcast_log_sync(experiment_id, msg)
+        else:
+            print(msg)
 
         return ('ibm', {
             'backend_name': backend_name,
@@ -186,7 +257,11 @@ def get_backend_kwargs(backend_config: Dict[str, Any]) -> tuple:
         })
 
     elif backend_type == 'bluequbit':
-        print(f"🌐 Configuring BlueQubit backend...")
+        msg = f"🌐 Configuring BlueQubit backend..."
+        if experiment_id:
+            _broadcast_log_sync(experiment_id, msg)
+        else:
+            print(msg)
         print(f"🔍 Backend config received: {backend_config}")
 
         # Try database first, fall back to environment variables
@@ -224,7 +299,17 @@ def get_backend_kwargs(backend_config: Dict[str, Any]) -> tuple:
                 bluequbit_options['pauli_path_circuit_transpilation_level'] = transpilation_level
             print(f"📊 Pauli-path options: {bluequbit_options}")
 
-        print(f"📍 Using BlueQubit backend: device={device}")
+        msg = f"✅ Connected to BlueQubit cloud: device={device}"
+        if experiment_id:
+            _broadcast_log_sync(experiment_id, msg)
+        else:
+            print(msg)
+
+        msg = f"🔗 Track jobs at: https://app.bluequbit.io/jobs"
+        if experiment_id:
+            _broadcast_log_sync(experiment_id, msg)
+        else:
+            print(msg)
         print(f"🎯 Backend kwargs: {{'device': '{device}', **bluequbit_options}}")
         return ('bluequbit', {
             'api_token': api_token,
@@ -308,7 +393,7 @@ def execute_vqe(
             ansatz_type = 'governance'
 
         # Get backend type and kwargs
-        backend_type, backend_kwargs = get_backend_kwargs(config)
+        backend_type, backend_kwargs = get_backend_kwargs(config, experiment_id)
 
         # Create VQE solver
         solver = VQESolver(
@@ -319,6 +404,7 @@ def execute_vqe(
             max_iterations=config.get('max_iterations', 1000),
             backend=backend_type,
             shots=config.get('shots', 1024) if backend_type != 'statevector' else None,
+            experiment_id=experiment_id,  # Pass for WebSocket broadcasting
             **backend_kwargs
         )
 
@@ -344,7 +430,7 @@ def execute_vqe(
         mapper = JordanWignerMapper()
 
         # Get backend type and kwargs
-        backend_type, backend_kwargs = get_backend_kwargs(config)
+        backend_type, backend_kwargs = get_backend_kwargs(config, experiment_id)
 
         solver = VQESolver(
             hamiltonian=hamiltonian,
@@ -356,6 +442,7 @@ def execute_vqe(
             backend=backend_type,
             shots=config.get('shots', 1024) if backend_type != 'statevector' else None,
             enable_analysis=True,  # Explicitly enable analysis
+            experiment_id=experiment_id,  # Pass for WebSocket broadcasting
             **backend_kwargs
         )
 
@@ -458,27 +545,32 @@ def execute_sqd(
     experiment_id: str = None
 ) -> Dict[str, Any]:
     """Execute SQD calculation."""
+    print(f"🚀 execute_sqd called for experiment {experiment_id}")
     # Check for cancellation before starting
     if experiment_id:
         check_cancellation(experiment_id, job_id)
-    # SQD requires bond API
-    if molecule.n_atoms == 2:
-        # Diatomic molecule - use bond API
-        atom_1, atom_2 = molecule.atoms
-        distance = atom_1.distance_to(atom_2)
-        bond = BondFactory.create_bond(
-            atom_1,
-            atom_2,
-            distance=distance,
-            basis=molecule.basis
+    print(f"📊 Starting SQD setup...")
+    # SQD requires bond API - only works for diatomic molecules
+    if molecule.n_atoms != 2:
+        raise NotImplementedError(
+            f"SQD currently only supports diatomic molecules. "
+            f"Your molecule has {molecule.n_atoms} atoms. "
+            f"Please use VQE for multi-atom molecules."
         )
-    else:
-        # For multi-atom molecules, create a pseudo-bond using the molecule
-        # This is a workaround - SQD works best with diatomic molecules
-        raise NotImplementedError("SQD currently only supports diatomic molecules")
+
+    # Diatomic molecule - use bond API
+    atom_1, atom_2 = molecule.atoms
+    distance = atom_1.distance_to(atom_2)
+    bond = BondFactory.create_bond(
+        atom_1,
+        atom_2,
+        distance=distance,
+        basis=molecule.basis
+    )
+    print(f"✅ Created bond for diatomic molecule: {atom_1.symbol}-{atom_2.symbol}")
 
     # Get backend configuration
-    backend_type, backend_kwargs = get_backend_kwargs(config)
+    backend_type, backend_kwargs = get_backend_kwargs(config, experiment_id)
     print(f"🔧 SQD backend_type: {backend_type}")
     print(f"🔧 SQD backend_kwargs: {backend_kwargs}")
 
@@ -491,6 +583,7 @@ def execute_sqd(
         shots=config.get('shots', 1024) if backend_type != 'statevector' else None,
         enable_analysis=True,
         enable_optimization=True,
+        experiment_id=experiment_id,  # Pass for WebSocket broadcasting
         **backend_kwargs
     )
     print(f"✅ SQD solver created with backend: {solver.backend}")
@@ -502,8 +595,15 @@ def execute_sqd(
     n_states = config.get('n_states', 3)
     total_stages = 4 + n_states  # 0=init, 1=basis, 2=projection, 3=diag, 4+=states
 
+    # Track energy history for convergence graph
+    energy_history = []
+
     def sqd_progress_callback(stage: int, energy: float, message: str):
         """Progress callback for SQD execution."""
+        # Check for cancellation
+        if experiment_id:
+            check_cancellation(experiment_id, job_id)
+
         # Calculate progress based on stage
         progress = 10.0 + (stage / total_stages) * 85.0
         progress = min(progress, 95.0)
@@ -514,22 +614,12 @@ def execute_sqd(
         # Log progress
         print(f"📊 SQD Progress: Stage {stage}/{total_stages-1} - {message}, E = {energy:.8f} Ha")
 
+        # Store energy for history
+        energy_history.append(float(energy))
+
         # Send WebSocket update
         if experiment_id:
-            try:
-                import concurrent.futures
-                async def send_update():
-                    await ws_manager.broadcast_convergence(
-                        experiment_id,
-                        iteration=stage,
-                        energy=float(energy)
-                    )
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, send_update())
-                    future.result(timeout=1.0)
-            except Exception as e:
-                print(f"⚠️  WebSocket broadcast failed: {e}")
+            _broadcast_convergence_sync(experiment_id, stage, float(energy))
 
     # Execute SQD with callback
     result = solver.solve(n_states=n_states, callback=sqd_progress_callback)
@@ -548,7 +638,10 @@ def execute_sqd(
         'energies': [float(e) for e in result['energies']],
         'excited_state_energies': [float(e) for e in result.get('excited_state_energies', [])],
         'circuit_depth': result.get('circuit_depth', 3),
+        'energy_history': energy_history,  # For convergence graph
     }
+
+    print(f"📊 SQD energy_history: {len(energy_history)} stages recorded")
 
     # Debug: Check what's in result
     print(f"🔍 SQD result keys: {result.keys()}")
@@ -576,7 +669,27 @@ def execute_excited_states(
     # Check for cancellation before starting
     if experiment_id:
         check_cancellation(experiment_id, job_id)
-    # Excited states requires bond API
+    # Check if using quantum backend
+    backend_type = config.get('backend', 'classical')
+
+    # For quantum backends, use SQD for diatomic or VQE for multi-atom molecules
+    if backend_type in ['bluequbit', 'ibm_quantum']:
+        if molecule.n_atoms == 2:
+            # Use SQD for diatomic molecules (more efficient)
+            print(f"⚠️  Excited States with quantum backend detected - using SQD")
+            print(f"📊 Quantum excited states computed via Subspace Quantum Diagonalization")
+            return execute_sqd(molecule, config, job_id, experiment_id)
+        else:
+            # Use VQE-based approach for multi-atom molecules
+            print(f"⚠️  Multi-atom molecule with quantum backend detected - using VQE-based excited states")
+            print(f"📊 Computing multiple eigenstates via repeated VQE with orthogonality constraints")
+
+            # For now, fall through to classical excited states
+            # TODO: Implement proper VQE-based excited states with orthogonality constraints
+            print(f"⚠️  VQE-based excited states not yet implemented - falling back to classical")
+            backend_type = 'classical'  # Override to use classical method
+
+    # Classical excited states (CIS/TDDFT) - create bond wrapper
     if molecule.n_atoms == 2:
         # Diatomic molecule - use bond API
         atom_1, atom_2 = molecule.atoms
@@ -587,25 +700,33 @@ def execute_excited_states(
             distance=distance,
             basis=molecule.basis
         )
+        print(f"✅ Created bond for diatomic molecule: {atom_1.symbol}-{atom_2.symbol}")
     else:
-        # For multi-atom molecules, create a pseudo-bond using the molecule
-        # This is a workaround - excited states works best with diatomic molecules
-        raise NotImplementedError("EXCITED_STATES currently only supports diatomic molecules")
+        # Multi-atom molecule - create a minimal bond wrapper
+        # CIS/TDDFT only need hamiltonian and molecule, not actual bond properties
+        print(f"⚠️  Multi-atom molecule ({molecule.n_atoms} atoms) - creating wrapper for Excited States")
 
-    # Check if using quantum backend
-    backend_type = config.get('backend', 'classical')
+        # Create a simple wrapper class that mimics a bond
+        class MoleculeBondWrapper:
+            def __init__(self, molecule):
+                self.molecule = molecule
+                self.hamiltonian = molecule.hamiltonian
+                self.atoms = molecule.atoms
+                self.bond_type = "molecular"  # Not a traditional bond
+                self.bond_order = None
+                self.distance = None
 
-    # For quantum backends, use SQD instead of classical excited states
-    if backend_type in ['bluequbit', 'ibm_quantum']:
-        print(f"⚠️  Excited States with quantum backend detected - using SQD instead")
-        print(f"📊 Quantum excited states computed via Subspace Quantum Diagonalization")
-
-        # Redirect to SQD execution
-        return execute_sqd(molecule, config, job_id, experiment_id)
+        bond = MoleculeBondWrapper(molecule)
+        print(f"✅ Created molecule wrapper for classical excited states")
 
     # Classical excited states (CIS, TDDFT)
     method = config.get('excited_method', 'cis')  # CIS, TDDFT
     n_states = config.get('n_states', 5)
+
+    # Broadcast initial status to frontend
+    if experiment_id:
+        _broadcast_log_sync(experiment_id, f"🔬 Starting {method.upper()} excited states calculation...")
+        _broadcast_log_sync(experiment_id, f"📊 Computing {n_states} excited states")
 
     solver = ExcitedStatesSolver(
         bond=bond,
@@ -619,26 +740,45 @@ def execute_excited_states(
     JobDB.update_progress(job_id, progress=20.0, current_iteration=0)
     print(f"📊 Excited States: Computing states using {method.upper()} (classical)...")
 
+    # Broadcast that calculation is running
+    if experiment_id:
+        _broadcast_log_sync(experiment_id, f"⚙️ Running {method.upper()} solver...")
+
     # Execute
     result = solver.solve()
 
-    # Broadcast final energies
+    # Broadcast completion
+    if experiment_id:
+        _broadcast_log_sync(experiment_id, f"✅ {method.upper()} calculation complete")
+
+    # DEBUG: Check result structure
+    print(f"🔍 DEBUG: Excited states result keys: {result.keys()}")
+    print(f"🔍 DEBUG: Has 'energies' key: {'energies' in result}")
+    if 'energies' in result:
+        print(f"🔍 DEBUG: energies type: {type(result['energies'])}, length: {len(result['energies'])}")
+        print(f"🔍 DEBUG: energies values: {result['energies']}")
+
+    # Broadcast final energies for all computed states
     if experiment_id and 'energies' in result:
-        for i, energy in enumerate(result['energies'][:n_states]):
-            JobDB.update_progress(job_id, progress=50.0 + (i / n_states) * 50.0, current_iteration=i+1)
-            try:
-                import concurrent.futures
-                async def send_update():
-                    await ws_manager.broadcast_convergence(
-                        experiment_id,
-                        iteration=i+1,
-                        energy=float(energy)
-                    )
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, send_update())
-                    future.result(timeout=1.0)
-            except Exception as e:
-                print(f"⚠️  WebSocket broadcast failed: {e}")
+        actual_states = len(result['energies'])
+        print(f"📊 Excited States result: requested={n_states}, found={actual_states} states (ground + {actual_states-1} excited)")
+        print(f"📊 Broadcasting {actual_states} state energies...")
+        _broadcast_log_sync(experiment_id, f"📊 Broadcasting {actual_states} state energies to frontend...")
+
+        for i, energy in enumerate(result['energies']):
+            # Check for cancellation during broadcasting
+            check_cancellation(experiment_id, job_id)
+
+            JobDB.update_progress(job_id, progress=50.0 + (i / actual_states) * 50.0, current_iteration=i+1)
+            print(f"📊 Broadcasting state {i+1}/{actual_states}: iter={i+1}, E={energy:.8f}")
+            _broadcast_convergence_sync(experiment_id, i+1, float(energy))
+            # Small delay to ensure WebSocket messages are sent sequentially
+            import time
+            time.sleep(0.1)
+
+        print(f"✅ Finished broadcasting {actual_states} convergence points")
+    else:
+        print(f"⚠️  WARNING: Cannot broadcast convergence - experiment_id={experiment_id}, has_energies={'energies' in result}")
 
     # Update final progress
     JobDB.update_progress(job_id, progress=100.0)
@@ -774,16 +914,26 @@ def execute_experiment(experiment_id: str, job_id: str):
         JobDB.update_status(job_id, 'completed')
 
         # Broadcast completion status via WebSocket
+        global _main_event_loop
         try:
-            import asyncio
-            async def send_completion():
-                await ws_manager.broadcast_status(
+            loop = _main_event_loop
+            if loop is None:
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    pass
+
+            if loop is not None:
+                coro = ws_manager.broadcast_status(
                     experiment_id,
                     status='completed',
                     progress=100.0
                 )
-            asyncio.run(send_completion())
-            print(f"✅ Broadcasted completion status via WebSocket")
+                future = asyncio.run_coroutine_threadsafe(coro, loop)
+                future.result(timeout=0.5)
+                print(f"✅ Broadcasted completion status via WebSocket")
+            else:
+                print(f"⚠️  No event loop available for completion broadcast")
         except Exception as e:
             print(f"⚠️  WebSocket completion broadcast failed: {e}")
 

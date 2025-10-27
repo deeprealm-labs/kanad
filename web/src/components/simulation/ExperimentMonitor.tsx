@@ -14,6 +14,8 @@ import {
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -58,6 +60,7 @@ export default function ExperimentMonitor({
   const [isCancelling, setIsCancelling] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const wsConnectedRef = useRef<boolean>(false);
   const pollingRef = useRef<(() => void) | null>(null);
   const previousStatusRef = useRef<ExperimentStatus>("queued");
   const toast = useToast();
@@ -105,6 +108,9 @@ export default function ExperimentMonitor({
     }
 
     if (experimentId) {
+      // Reset WebSocket connection tracking
+      wsConnectedRef.current = false;
+
       // Try WebSocket connection first
       try {
         console.log("🔌 Attempting WebSocket connection for experiment:", experimentId);
@@ -113,6 +119,7 @@ export default function ExperimentMonitor({
 
         ws.onopen = () => {
           console.log("✅ WebSocket connected successfully");
+          wsConnectedRef.current = true;
           addLog("✅ Connected to real-time updates");
         };
 
@@ -133,15 +140,19 @@ export default function ExperimentMonitor({
         };
 
         ws.onclose = (event) => {
-          console.log("🔌 WebSocket closed:", event.code, event.reason);
+          console.log("🔌 WebSocket closed:", event.code, event.reason, "wasConnected:", wsConnectedRef.current);
 
-          // Only start polling if connection never opened (code 1006 = abnormal)
-          // and we haven't already started polling
-          if (event.code === 1006 && !pollingRef.current) {
-            addLog("⚠️  WebSocket failed, using polling");
-            startPolling();
-          }
-          // Otherwise, WebSocket opened successfully but closed naturally
+          // Only show warning and start polling if WebSocket never connected
+          // Give a small delay to ensure onopen event had time to fire
+          setTimeout(() => {
+            if (!wsConnectedRef.current && !pollingRef.current) {
+              console.log("⚠️  WebSocket never connected, falling back to polling");
+              addLog("⚠️  WebSocket failed, using polling");
+              startPolling();
+            } else {
+              console.log("✅ WebSocket closed normally after successful connection");
+            }
+          }, 100);
         };
       } catch (error) {
         console.error("❌ WebSocket creation failed:", error);
@@ -202,32 +213,52 @@ export default function ExperimentMonitor({
           setResults(exp.results);
 
           // Handle convergence data from different sources
-          if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
-            console.log("Processing convergence_history:", exp.results.convergence_history.length, "points");
-            setConvergenceData(exp.results.convergence_history);
-          } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
-            console.log("Processing energy_history:", exp.results.energy_history.length, "points");
-            // Convert energy_history array to convergence data format
-            const convergence = exp.results.energy_history.map((energy: number, index: number) => ({
-              iteration: index + 1,
-              energy: energy
-            }));
-            setConvergenceData(convergence);
-          } else if (exp.convergenceData) {
-            console.log("Using exp.convergenceData");
-            setConvergenceData(exp.convergenceData);
-          } else if (exp.results.convergenceData) {
-            console.log("Using exp.results.convergenceData");
-            setConvergenceData(exp.results.convergenceData);
-          } else {
-            console.log("No convergence data found in:", Object.keys(exp.results));
-          }
+          // Only replace if we don't already have WebSocket data
+          setConvergenceData((prevData) => {
+            if (prevData.length > 0) {
+              console.log("Keeping existing WebSocket convergence data:", prevData.length, "points");
+              return prevData;
+            }
+
+            if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
+              console.log("Processing convergence_history:", exp.results.convergence_history.length, "points");
+              return exp.results.convergence_history;
+            } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
+              console.log("Processing energy_history:", exp.results.energy_history.length, "points");
+              // Convert energy_history array to convergence data format
+              const convergence = exp.results.energy_history.map((energy: number, index: number) => ({
+                iteration: index + 1,
+                energy: energy
+              }));
+              return convergence;
+            } else if (exp.convergenceData) {
+              console.log("Using exp.convergenceData");
+              return exp.convergenceData;
+            } else if (exp.results.convergenceData) {
+              console.log("Using exp.results.convergenceData");
+              return exp.results.convergenceData;
+            } else {
+              console.log("No convergence data found in:", Object.keys(exp.results));
+              return prevData;
+            }
+          });
         }
 
         // Update progress based on convergence data or status
         if (exp.status === "running") {
           if (exp.convergenceData && exp.convergenceData.length > 0) {
-            const maxIterations = 100; // default max
+            // Get actual max iterations from experiment config
+            const method = exp.config?.backendSettings?.method;
+            let maxIterations = 100;
+
+            if (method === "VQE") {
+              maxIterations = exp.config?.backendSettings?.maxIterations || 100;
+            } else if (method === "SQD") {
+              maxIterations = 6; // SQD has 7 stages (0-6)
+            } else if (method === "EXCITED_STATES") {
+              maxIterations = exp.config?.backendSettings?.nStates || 5;
+            }
+
             const currentProgress = Math.min(
               90,
               10 + (exp.convergenceData.length / maxIterations) * 80
@@ -313,18 +344,26 @@ export default function ExperimentMonitor({
             if (exp.results) {
               setResults(exp.results);
 
-              // Handle convergence data
-              if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
-                setConvergenceData(exp.results.convergence_history);
-                setCurrentIteration(exp.results.convergence_history.length);
-              } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
-                const convergence = exp.results.energy_history.map((energy: number, index: number) => ({
-                  iteration: index + 1,
-                  energy: energy
-                }));
-                setConvergenceData(convergence);
-                setCurrentIteration(convergence.length);
-              }
+              // Handle convergence data - only use if we don't have WebSocket data
+              setConvergenceData((prevData) => {
+                if (prevData.length > 0) {
+                  console.log("Keeping existing WebSocket data on completion:", prevData.length, "points");
+                  return prevData;
+                }
+
+                if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
+                  setCurrentIteration(exp.results.convergence_history.length);
+                  return exp.results.convergence_history;
+                } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
+                  const convergence = exp.results.energy_history.map((energy: number, index: number) => ({
+                    iteration: index + 1,
+                    energy: energy
+                  }));
+                  setCurrentIteration(convergence.length);
+                  return convergence;
+                }
+                return prevData;
+              });
             }
           }).catch((error) => {
             console.error("❌ Failed to fetch final results:", error);
@@ -694,42 +733,110 @@ export default function ExperimentMonitor({
         {/* Center Column - Convergence Chart */}
         <div className="bg-card border border-border rounded-lg p-4 min-h-0 flex flex-col">
           <h3 className="text-sm font-quando font-semibold mb-3">
-            Energy Convergence
+            {(() => {
+              const method = experimentConfig?.backendSettings?.method;
+              if (method === "SQD") return "Energy Spectrum";
+              if (method === "EXCITED_STATES") return "Excited States Spectrum";
+              return "Energy Convergence";
+            })()}
           </h3>
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={convergenceData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="iteration"
-                  label={{ value: "Iteration", position: "insideBottom", offset: -5 }}
-                  tick={{ fontSize: 11 }}
-                  stroke="hsl(var(--muted-foreground))"
-                />
-                <YAxis
-                  label={{ value: "Energy (Ha)", angle: -90, position: "insideLeft" }}
-                  tick={{ fontSize: 11 }}
-                  stroke="hsl(var(--muted-foreground))"
-                  domain={["auto", "auto"]}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                  formatter={(value: any) => [value.toFixed(6) + " Ha", "Energy"]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="energy"
-                  stroke="#ea580c"
-                  strokeWidth={2}
-                  dot={false}
-                  animationDuration={300}
-                />
-              </LineChart>
+              {(() => {
+                const method = experimentConfig?.backendSettings?.method;
+
+                // For SQD and Excited States, use BarChart to show energy levels
+                if (method === "SQD" || method === "EXCITED_STATES") {
+                  // For SQD: filter to show only eigenvalues (stages 4+)
+                  // For Excited States: show all data (already contains only states)
+                  let displayData = convergenceData;
+                  let stateOffset = 0;
+
+                  if (method === "SQD" && convergenceData.length > 4) {
+                    // SQD has 7 stages (0-6), we only want eigenvalues (4-6)
+                    displayData = convergenceData.filter(d => d.iteration >= 4);
+                    stateOffset = 4;
+                  } else if (method === "EXCITED_STATES") {
+                    // Excited States already sends only state data (iter 1, 2, 3...)
+                    stateOffset = 1; // States are labeled starting from 1
+                  }
+
+                  return (
+                    <BarChart data={displayData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="iteration"
+                        label={{
+                          value: "Energy State",
+                          position: "insideBottom",
+                          offset: -5
+                        }}
+                        tick={{ fontSize: 11 }}
+                        stroke="hsl(var(--muted-foreground))"
+                        tickFormatter={(value) => `S${value - stateOffset}`}
+                      />
+                      <YAxis
+                        label={{ value: "Energy (Ha)", angle: -90, position: "insideLeft" }}
+                        tick={{ fontSize: 11 }}
+                        stroke="hsl(var(--muted-foreground))"
+                        domain={["auto", "auto"]}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                        }}
+                        formatter={(value: any) => [value.toFixed(6) + " Ha", "Energy"]}
+                        labelFormatter={(label) => `State ${label - stateOffset}`}
+                      />
+                      <Bar
+                        dataKey="energy"
+                        fill="#ea580c"
+                        radius={[4, 4, 0, 0]}
+                        animationDuration={300}
+                      />
+                    </BarChart>
+                  );
+                }
+
+                // For VQE, use traditional LineChart
+                return (
+                  <LineChart data={convergenceData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="iteration"
+                      label={{ value: "Iteration", position: "insideBottom", offset: -5 }}
+                      tick={{ fontSize: 11 }}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
+                    <YAxis
+                      label={{ value: "Energy (Ha)", angle: -90, position: "insideLeft" }}
+                      tick={{ fontSize: 11 }}
+                      stroke="hsl(var(--muted-foreground))"
+                      domain={["auto", "auto"]}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                      }}
+                      formatter={(value: any) => [value.toFixed(6) + " Ha", "Energy"]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="energy"
+                      stroke="#ea580c"
+                      strokeWidth={2}
+                      dot={false}
+                      animationDuration={300}
+                    />
+                  </LineChart>
+                );
+              })()}
             </ResponsiveContainer>
           </div>
         </div>

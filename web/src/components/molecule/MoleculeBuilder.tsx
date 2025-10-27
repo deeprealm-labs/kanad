@@ -194,9 +194,9 @@ export default function MoleculeBuilder({
                 >
                   <option value="sto-3g">STO-3G</option>
                   <option value="6-31g">6-31G</option>
-                  <option value="6-31g*">6-31G*</option>
-                  <option value="cc-pvdz">cc-pVDZ</option>
-                  <option value="cc-pvtz">cc-pVTZ</option>
+                  <option value="6-31g*" disabled>6-31G* (not implemented)</option>
+                  <option value="cc-pvdz" disabled>cc-pVDZ (not implemented)</option>
+                  <option value="cc-pvtz" disabled>cc-pVTZ (not implemented)</option>
                 </select>
               </div>
 
@@ -345,9 +345,9 @@ export default function MoleculeBuilder({
                 >
                   <option value="sto-3g">STO-3G</option>
                   <option value="6-31g">6-31G</option>
-                  <option value="6-31g*">6-31G*</option>
-                  <option value="cc-pvdz">cc-pVDZ</option>
-                  <option value="cc-pvtz">cc-pVTZ</option>
+                  <option value="6-31g*" disabled>6-31G* (not implemented)</option>
+                  <option value="cc-pvdz" disabled>cc-pVDZ (not implemented)</option>
+                  <option value="cc-pvtz" disabled>cc-pVTZ (not implemented)</option>
                 </select>
               </div>
 

@@ -53,6 +53,7 @@ class SQDSolver(BaseSolver):
         enable_analysis: bool = True,
         enable_optimization: bool = True,
         random_seed: Optional[int] = None,
+        experiment_id: Optional[str] = None,  # For WebSocket broadcasting
         **kwargs
     ):
         """
@@ -76,6 +77,9 @@ class SQDSolver(BaseSolver):
         self.backend = backend
         self.shots = shots if shots is not None else 8192  # SQD needs more shots
         self.random_seed = random_seed
+
+        # Store experiment_id for WebSocket broadcasting
+        self.experiment_id = experiment_id
 
         # This is a correlated method
         self._is_correlated = True
@@ -109,16 +113,22 @@ class SQDSolver(BaseSolver):
                 from kanad.backends.bluequbit import BlueQubitBackend
                 self._bluequbit_backend = BlueQubitBackend(**kwargs)
                 self._use_statevector = False
-                logger.info(f"BlueQubit backend initialized: device={kwargs.get('device', 'gpu')}")
+                device = kwargs.get('device', 'gpu')
+                logger.info(f"BlueQubit backend initialized: device={device}")
+                print(f"✅ Connected to BlueQubit cloud: device={device}")
+                print(f"🔗 Track your jobs at: https://app.bluequbit.io/jobs")
             except Exception as e:
                 logger.error(f"BlueQubit backend initialization failed: {e}")
                 raise
         elif self.backend == 'ibm':
             try:
-                from kanad.backends.ibm import IBMRuntimeBackend
-                self._ibm_backend = IBMRuntimeBackend(**kwargs)
+                from kanad.backends.ibm import IBMBackend
+                self._ibm_backend = IBMBackend(**kwargs)
                 self._use_statevector = False
-                logger.info("IBM Quantum backend initialized")
+                backend_name = kwargs.get('backend_name', 'ibm_torino')
+                logger.info(f"IBM Quantum backend initialized: {backend_name}")
+                print(f"✅ Connected to IBM Quantum: {backend_name}")
+                print(f"🔗 Track your jobs at: https://quantum.ibm.com/jobs")
             except Exception as e:
                 logger.error(f"IBM backend initialization failed: {e}")
                 raise
@@ -295,22 +305,56 @@ class SQDSolver(BaseSolver):
             Projected Hamiltonian (n_basis, n_basis)
         """
         n_qubits = 2 * self.hamiltonian.n_orbitals
-        # Use MO basis - Kronecker product bug is now fixed!
-        H_matrix = self.hamiltonian.to_matrix(n_qubits=n_qubits, use_mo_basis=True)
-
+        hilbert_dim = 2 ** n_qubits
         n_basis = len(basis)
-        H_sub = np.zeros((n_basis, n_basis), dtype=complex)
 
         logger.info(f"Projecting Hamiltonian into {n_basis}-dimensional subspace...")
+        logger.info(f"Using SPARSE Pauli representation for efficiency (avoiding {hilbert_dim}×{hilbert_dim} dense matrix)")
 
-        for i in range(n_basis):
-            for j in range(i, n_basis):
-                # ⟨ψ_i|H|ψ_j⟩
-                H_sub[i, j] = np.vdot(basis[i], H_matrix @ basis[j])
-                H_sub[j, i] = np.conj(H_sub[i, j])
+        # Use SPARSE representation - much faster for large systems!
+        try:
+            # Try to get sparse Pauli operator representation
+            H_sparse = self.hamiltonian.to_sparse_hamiltonian(mapper='jordan_wigner')
+            logger.info(f"✅ Using sparse Hamiltonian: {len(H_sparse)} Pauli terms (avoids {hilbert_dim**2:,} matrix elements)")
+
+            # Project using sparse operators
+            H_sub = np.zeros((n_basis, n_basis), dtype=complex)
+
+            logger.info(f"Computing {n_basis * (n_basis + 1) // 2} matrix elements using sparse operators...")
+
+            for i in range(n_basis):
+                for j in range(i, n_basis):
+                    # ⟨ψ_i|H|ψ_j⟩ using sparse Pauli ops
+                    # H_sparse is a SparsePauliOp, we need to apply it to basis[j]
+                    from qiskit.quantum_info import Statevector
+
+                    # Convert basis vectors to Statevector
+                    psi_j = Statevector(basis[j])
+                    # Evolve with Hamiltonian: H|ψ_j⟩
+                    H_psi_j = psi_j.evolve(H_sparse, qargs=range(n_qubits))
+                    # Inner product: ⟨ψ_i|H|ψ_j⟩
+                    H_sub[i, j] = np.vdot(basis[i], H_psi_j.data)
+                    H_sub[j, i] = np.conj(H_sub[i, j])
+
+                    # Progress logging
+                    if n_basis > 5 and (i * n_basis + j) % 10 == 0:
+                        progress = ((i * n_basis + j) / (n_basis * (n_basis + 1) // 2)) * 100
+                        logger.debug(f"Projection progress: {progress:.1f}%")
+
+        except Exception as e:
+            # Fallback to dense matrix if sparse fails
+            logger.warning(f"Sparse projection failed ({e}), falling back to dense matrix...")
+            logger.warning(f"⚠️ Constructing {hilbert_dim}×{hilbert_dim} dense Hamiltonian matrix (may be slow)...")
+
+            H_matrix = self.hamiltonian.to_matrix(n_qubits=n_qubits, use_mo_basis=True)
+            H_sub = np.zeros((n_basis, n_basis), dtype=complex)
+
+            for i in range(n_basis):
+                for j in range(i, n_basis):
+                    H_sub[i, j] = np.vdot(basis[i], H_matrix @ basis[j])
+                    H_sub[j, i] = np.conj(H_sub[i, j])
 
         logger.info("Hamiltonian projection complete")
-
         return H_sub
 
     def solve(self, n_states: int = 3, callback=None) -> Dict[str, Any]:
@@ -333,7 +377,22 @@ class SQDSolver(BaseSolver):
                 - correlation_energy: Ground state correlation
                 - analysis: Detailed analysis (if enabled)
         """
+        n_qubits = 2 * self.hamiltonian.n_orbitals
+        hilbert_dim = 2 ** n_qubits
+
         logger.info(f"Starting SQD solve for {n_states} states...")
+        logger.info(f"System size: {n_qubits} qubits, Hilbert space: {hilbert_dim}D")
+
+        # Warn and auto-adjust for large systems
+        if hilbert_dim > 256:
+            logger.warning(f"⚠️  Large system detected! SQD may be very slow.")
+            logger.warning(f"⚠️  Consider using VQE instead for systems > 8 qubits.")
+
+            # Auto-reduce subspace dimension for large systems
+            original_subspace_dim = self.subspace_dim
+            if self.subspace_dim > 4:
+                self.subspace_dim = min(4, self.subspace_dim)
+                logger.warning(f"⚠️  Auto-reducing subspace_dim: {original_subspace_dim} → {self.subspace_dim}")
 
         # Get HF reference
         hf_energy = self.get_reference_energy()
@@ -343,15 +402,11 @@ class SQDSolver(BaseSolver):
                 callback(0, hf_energy, "HF reference computed")
 
         # Step 1: Generate quantum subspace
-        if callback:
-            callback(1, hf_energy if hf_energy else 0.0, "Generating subspace basis")
         basis = self._generate_subspace_basis()
         if callback:
             callback(1, hf_energy if hf_energy else 0.0, f"Subspace basis generated ({len(basis)} states)")
 
         # Step 2: Project Hamiltonian
-        if callback:
-            callback(2, hf_energy if hf_energy else 0.0, "Projecting Hamiltonian")
         H_sub = self._project_hamiltonian(basis)
         if callback:
             callback(2, hf_energy if hf_energy else 0.0, "Hamiltonian projection complete")

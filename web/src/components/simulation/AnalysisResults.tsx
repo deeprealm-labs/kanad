@@ -146,14 +146,35 @@ export default function AnalysisResults({ results }: AnalysisResultsProps) {
                 </div>
               )}
 
-            {bonding.bond_orders && bonding.bond_orders.bond_orders && (
-              <div className="bg-muted rounded p-3">
-                <div className="text-muted-foreground mb-2">Bond Orders</div>
-                <div className="font-mono text-xs">
-                  {JSON.stringify(bonding.bond_orders.bond_orders, null, 2)}
+            {/* Individual Bond Analysis */}
+            {bonding.bond_orders && bonding.bond_orders.bond_classification &&
+              Object.keys(bonding.bond_orders.bond_classification).length > 0 && (
+                <div className="bg-muted rounded p-3">
+                  <div className="text-muted-foreground mb-2">Individual Bonds</div>
+                  <div className="space-y-2">
+                    {Object.entries(bonding.bond_orders.bond_classification).map(([bondKey, bondInfo]: [string, any]) => {
+                      // Use bond_label if available, otherwise fall back to atom indices
+                      const bondLabel = bondInfo.bond_label || `Atom ${bondInfo.atom_i} - Atom ${bondInfo.atom_j}`;
+
+                      return (
+                        <div key={bondKey} className="flex justify-between items-center border-b border-border pb-1 last:border-0">
+                          <div className="font-medium">
+                            {bondLabel}
+                          </div>
+                          <div className="flex gap-2 items-center">
+                            <span className="text-blue-600 dark:text-blue-400 capitalize font-semibold">
+                              {bondInfo.type}
+                            </span>
+                            <span className="font-mono text-muted-foreground text-xs">
+                              ({bondInfo.order.toFixed(3)})
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         </div>
       )}
@@ -245,6 +266,11 @@ export default function AnalysisResults({ results }: AnalysisResultsProps) {
                 <div className={`font-semibold ${results.converged ? "text-green-600" : "text-red-600"}`}>
                   {results.converged ? "Yes" : "No"}
                 </div>
+                {!results.converged && (
+                  <div className="text-xs text-amber-600 mt-1">
+                    Try increasing max iterations in settings (recommended: 200+)
+                  </div>
+                )}
               </div>
             )}
           </div>

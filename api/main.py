@@ -39,9 +39,16 @@ from api.core.database import init_db, cleanup_stuck_experiments
 async def lifespan(app: FastAPI):
     """Initialize resources on startup, cleanup on shutdown."""
     # Startup
+    import asyncio
+    from api.utils import set_main_event_loop
+
     config = get_settings()
     print(f"🚀 Starting Kanad API Server v{config.VERSION}")
     print(f"📁 Database: {config.DATABASE_PATH}")
+
+    # Store reference to main event loop for background tasks
+    loop = asyncio.get_running_loop()
+    set_main_event_loop(loop)
 
     # Initialize database
     init_db()
