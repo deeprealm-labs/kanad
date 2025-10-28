@@ -385,7 +385,7 @@ class Molecule:
             }
 
         elif method.upper() == 'VQE':
-            from kanad.solvers.vqe_solver import VQESolver
+            from kanad.utils.vqe_solver import VQESolver
             from kanad.ansatze.ucc_ansatz import UCCAnsatz
             from kanad.core.mappers.jordan_wigner_mapper import JordanWignerMapper
 

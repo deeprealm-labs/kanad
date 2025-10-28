@@ -63,6 +63,7 @@ class VQESolver(BaseSolver):
         enable_analysis: bool = True,
         enable_optimization: bool = True,
         experiment_id: Optional[str] = None,  # For WebSocket broadcasting
+        callback: Optional[Callable] = None,  # Progress callback
         **kwargs
     ):
         """
@@ -141,6 +142,9 @@ class VQESolver(BaseSolver):
 
         # Store experiment_id for WebSocket broadcasting
         self.experiment_id = experiment_id
+
+        # Store callback (don't pass to backend via kwargs)
+        self._callback = callback
 
         # This is a correlated method
         self._is_correlated = True
@@ -956,9 +960,17 @@ class VQESolver(BaseSolver):
         self.parameter_history.append(parameters.copy())
         self.iteration_count += 1
 
-        # Call user callback if provided
+        # Call user callback if provided (used for progress broadcasting from API layer)
         if hasattr(self, '_callback') and self._callback is not None:
-            self._callback(self.iteration_count, energy, parameters)
+            try:
+                self._callback(self.iteration_count, energy, parameters)
+            except Exception as e:
+                print(f"⚠️ Callback failed: {e}")
+                import traceback
+                traceback.print_exc()
+        elif self.iteration_count == 1:
+            # Debug: print on first iteration if callback is missing
+            print(f"🔍 DEBUG: _callback exists={hasattr(self, '_callback')}, is None={getattr(self, '_callback', 'MISSING') is None}")
 
         # Log progress (every 10 function evals)
         if self.iteration_count % 10 == 0:
@@ -989,8 +1001,9 @@ class VQESolver(BaseSolver):
                 - analysis: Detailed analysis (if enabled)
                 - optimization_stats: Circuit optimization stats (if enabled)
         """
-        # Store callback
-        self._callback = callback
+        # Store callback (only if explicitly provided, don't overwrite __init__ callback)
+        if callback is not None:
+            self._callback = callback
         logger.info("Starting VQE optimization...")
 
         # Get HF reference energy

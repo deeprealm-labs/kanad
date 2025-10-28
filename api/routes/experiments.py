@@ -29,7 +29,7 @@ class MoleculeConfig(BaseModel):
 
 
 class BackendConfig(BaseModel):
-    method: str = "VQE"  # HF, VQE, SQD, etc.
+    method: str = "VQE"  # HF, VQE, SQD, EXCITED_STATES, etc.
     ansatz: Optional[str] = "hardware_efficient"
     mapper: Optional[str] = "jordan_wigner"
     optimizer: Optional[str] = "SLSQP"
@@ -37,6 +37,10 @@ class BackendConfig(BaseModel):
     backend: str = "classical"  # classical, ibm_quantum, bluequbit
     backend_name: Optional[str] = None
     bluequbit_device: Optional[str] = "gpu"  # BlueQubit device: cpu, gpu, mps.cpu, mps.gpu, pauli-path
+
+    # Excited States specific fields
+    excited_method: Optional[str] = "cis"  # cis, tddft, vqe
+    excited_n_states: Optional[int] = 5  # Number of excited states to compute
 
     class Config:
         # Allow both camelCase (frontend) and snake_case (backend) field names

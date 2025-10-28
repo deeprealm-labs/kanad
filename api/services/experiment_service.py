@@ -20,64 +20,19 @@ from kanad.backends.bluequbit import BlueQubitBackend
 from api.core.database import ExperimentDB, JobDB
 from api.core.config import get_settings
 from api.routes.websockets import manager as ws_manager
-from api.utils import broadcast_log_sync as _broadcast_log_sync, set_main_event_loop
+from api.utils import (
+    broadcast_log_sync as _broadcast_log_sync,
+    broadcast_convergence_sync as _broadcast_convergence_sync,
+    broadcast_status_sync as _broadcast_status_sync,
+    set_main_event_loop
+)
 import asyncio
 import threading
-
-# Store reference to main event loop (set during startup)
-_main_event_loop = None
 
 
 class ExperimentCancelledException(Exception):
     """Exception raised when an experiment is cancelled by the user."""
     pass
-
-
-def _broadcast_convergence_sync(experiment_id: str, iteration: int, energy: float):
-    """
-    Broadcast convergence update from sync context.
-
-    This function safely broadcasts WebSocket updates from synchronous code
-    by submitting the coroutine to the main event loop.
-    """
-    global _main_event_loop
-
-    try:
-        # Try to get the stored main loop first
-        loop = _main_event_loop
-
-        # Fallback: try to get running loop (works in async context)
-        if loop is None:
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                pass
-
-        # If still no loop, we can't broadcast
-        if loop is None:
-            print(f"⚠️  No event loop available for WebSocket broadcast (iteration {iteration})")
-            return
-
-        # Create the coroutine
-        coro = ws_manager.broadcast_convergence(
-            experiment_id,
-            iteration=iteration,
-            energy=energy
-        )
-
-        # Schedule it on the main loop (thread-safe)
-        future = asyncio.run_coroutine_threadsafe(coro, loop)
-
-        # Wait briefly for completion (non-blocking)
-        future.result(timeout=0.5)
-
-    except RuntimeError as e:
-        if "no running event loop" in str(e).lower() or "no current event loop" in str(e).lower():
-            print(f"⚠️  No event loop available for WebSocket broadcast (iteration {iteration})")
-        else:
-            print(f"⚠️  WebSocket broadcast failed: {e}")
-    except Exception as e:
-        print(f"⚠️  WebSocket broadcast failed: {e}")
 
 
 def create_molecule_from_config(molecule_config: Dict[str, Any]) -> Molecule:
@@ -672,22 +627,24 @@ def execute_excited_states(
     # Check if using quantum backend
     backend_type = config.get('backend', 'classical')
 
-    # For quantum backends, use SQD for diatomic or VQE for multi-atom molecules
-    if backend_type in ['bluequbit', 'ibm_quantum']:
-        if molecule.n_atoms == 2:
-            # Use SQD for diatomic molecules (more efficient)
-            print(f"⚠️  Excited States with quantum backend detected - using SQD")
-            print(f"📊 Quantum excited states computed via Subspace Quantum Diagonalization")
-            return execute_sqd(molecule, config, job_id, experiment_id)
-        else:
-            # Use VQE-based approach for multi-atom molecules
-            print(f"⚠️  Multi-atom molecule with quantum backend detected - using VQE-based excited states")
-            print(f"📊 Computing multiple eigenstates via repeated VQE with orthogonality constraints")
+    # Get backend configuration
+    backend_kwargs = {}
 
-            # For now, fall through to classical excited states
-            # TODO: Implement proper VQE-based excited states with orthogonality constraints
-            print(f"⚠️  VQE-based excited states not yet implemented - falling back to classical")
-            backend_type = 'classical'  # Override to use classical method
+    # Get user-selected method FIRST - respect user's choice!
+    # Support both snake_case (excited_method) and camelCase (excitedMethod)
+    user_method = config.get('excited_method') or config.get('excitedMethod', 'cis')
+
+    print(f"🔍 User selected excited states method: {user_method}")
+
+    # Only configure backend_kwargs if method requires quantum execution
+    if user_method == 'vqe' and backend_type in ['bluequbit', 'ibm_quantum']:
+        print(f"⚠️  VQE excited states with quantum backend - requires many jobs")
+        # Get backend credentials for VQE
+        backend_type, backend_kwargs = get_backend_kwargs(config, experiment_id)
+    elif backend_type in ['bluequbit', 'ibm_quantum'] and user_method != 'vqe':
+        # User selected CIS or TDDFT with quantum backend - override to classical
+        print(f"📊 {user_method.upper()} is classical-only, switching backend to classical")
+        backend_type = 'classical'
 
     # Classical excited states (CIS/TDDFT) - create bond wrapper
     if molecule.n_atoms == 2:
@@ -719,26 +676,93 @@ def execute_excited_states(
         bond = MoleculeBondWrapper(molecule)
         print(f"✅ Created molecule wrapper for classical excited states")
 
-    # Classical excited states (CIS, TDDFT)
-    method = config.get('excited_method', 'cis')  # CIS, TDDFT
-    n_states = config.get('n_states', 5)
+    # Use the user-selected method (already read above)
+    method = user_method
+
+    # Support both snake_case and camelCase for n_states
+    # Try each key in order, using the first non-None, non-zero value
+    _excited_n_states = config.get('excited_n_states')
+    _excitedNStates = config.get('excitedNStates')
+    _n_states = config.get('n_states')
+
+    print(f"🔍 DEBUG Excited States Config:")
+    print(f"   config.get('excited_method'): {config.get('excited_method')}")
+    print(f"   config.get('excitedMethod'): {config.get('excitedMethod')}")
+    print(f"   config.get('excited_n_states'): {_excited_n_states} (type: {type(_excited_n_states)})")
+    print(f"   config.get('excitedNStates'): {_excitedNStates} (type: {type(_excitedNStates)})")
+    print(f"   config.get('n_states'): {_n_states} (type: {type(_n_states)})")
+    print(f"   FINAL method: {method}")
+
+    # Use the first non-None value
+    if _excited_n_states is not None:
+        n_states = _excited_n_states
+    elif _excitedNStates is not None:
+        n_states = _excitedNStates
+    elif _n_states is not None:
+        n_states = _n_states
+    else:
+        n_states = 5
+
+    print(f"   FINAL n_states: {n_states}")
+    print(f"   Backend type: {backend_type}")
 
     # Broadcast initial status to frontend
     if experiment_id:
         _broadcast_log_sync(experiment_id, f"🔬 Starting {method.upper()} excited states calculation...")
         _broadcast_log_sync(experiment_id, f"📊 Computing {n_states} excited states")
 
-    solver = ExcitedStatesSolver(
-        bond=bond,
-        method=method,
-        n_states=n_states,
-        enable_analysis=True,
-        enable_optimization=False
-    )
+    # Build solver kwargs
+    solver_kwargs = {
+        'bond': bond,
+        'method': method,
+        'n_states': n_states,
+        'enable_analysis': True,
+        'enable_optimization': False,
+        'experiment_id': experiment_id  # Pass for WebSocket broadcasting
+    }
 
-    # Update progress (no initial broadcast - CIS/TDDFT complete instantly)
+    # Add quantum backend settings for VQE method
+    if method == 'vqe':
+        solver_kwargs['backend'] = backend_type
+        solver_kwargs['ansatz'] = config.get('ansatz', 'uccsd')
+        solver_kwargs['optimizer'] = config.get('optimizer', 'COBYLA')
+        solver_kwargs['max_iterations'] = config.get('max_iterations', 100)
+        solver_kwargs['penalty_weight'] = config.get('penalty_weight', 5.0)
+        solver_kwargs['backend_kwargs'] = backend_kwargs  # Pass credentials
+
+        # Create progress callback for VQE (broadcasts convergence to frontend)
+        def vqe_progress_callback(iteration, energy, parameters):
+            """Broadcast VQE progress updates during optimization"""
+            try:
+                _broadcast_convergence_sync(experiment_id, iteration, float(energy))
+
+                # Update progress bar (20% to 80% during optimization)
+                max_iters = solver_kwargs.get('max_iterations', 100)
+                if max_iters > 0:
+                    progress = 20.0 + (iteration / max_iters) * 60.0
+                    progress = min(progress, 80.0)
+                    print(f"🔍 DEBUG: Updating job_id={job_id}, progress={progress:.1f}%, iter={iteration}")
+                    JobDB.update_progress(job_id, progress=progress, current_iteration=iteration)
+                    print(f"📊 Live VQE update: iter={iteration}, E={energy:.8f}, progress={progress:.1f}%")
+            except Exception as e:
+                logger.error(f"VQE progress broadcast failed: {e}")
+
+        solver_kwargs['vqe_callback'] = vqe_progress_callback  # Add progress callback
+
+        print(f"🔧 VQE Excited States configuration:")
+        print(f"   Backend: {backend_type}")
+        print(f"   Ansatz: {solver_kwargs['ansatz']}")
+        print(f"   Optimizer: {solver_kwargs['optimizer']}")
+        print(f"   Max iterations: {solver_kwargs['max_iterations']}")
+        print(f"   Penalty weight: {solver_kwargs['penalty_weight']}")
+        print(f"   Backend kwargs keys: {list(backend_kwargs.keys())}")
+
+    solver = ExcitedStatesSolver(**solver_kwargs)
+
+    # Update progress
     JobDB.update_progress(job_id, progress=20.0, current_iteration=0)
-    print(f"📊 Excited States: Computing states using {method.upper()} (classical)...")
+    backend_desc = f"quantum ({backend_type})" if method == 'vqe' and backend_type in ['bluequbit', 'ibm_quantum'] else "classical"
+    print(f"📊 Excited States: Computing states using {method.upper()} ({backend_desc})...")
 
     # Broadcast that calculation is running
     if experiment_id:
@@ -914,28 +938,7 @@ def execute_experiment(experiment_id: str, job_id: str):
         JobDB.update_status(job_id, 'completed')
 
         # Broadcast completion status via WebSocket
-        global _main_event_loop
-        try:
-            loop = _main_event_loop
-            if loop is None:
-                try:
-                    loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    pass
-
-            if loop is not None:
-                coro = ws_manager.broadcast_status(
-                    experiment_id,
-                    status='completed',
-                    progress=100.0
-                )
-                future = asyncio.run_coroutine_threadsafe(coro, loop)
-                future.result(timeout=0.5)
-                print(f"✅ Broadcasted completion status via WebSocket")
-            else:
-                print(f"⚠️  No event loop available for completion broadcast")
-        except Exception as e:
-            print(f"⚠️  WebSocket completion broadcast failed: {e}")
+        _broadcast_status_sync(experiment_id, status='completed', progress=100.0)
 
     except ExperimentCancelledException as e:
         # Handle cancellation gracefully

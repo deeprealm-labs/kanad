@@ -124,7 +124,7 @@ class IonicBond(BaseBond):
 
         elif method.upper() == 'VQE':
             # VQE with governance-aware ansatz
-            from kanad.solvers.vqe_solver import VQESolver
+            from kanad.utils.vqe_solver import VQESolver
 
             # Get number of qubits from representation
             n_qubits = self.representation.n_qubits

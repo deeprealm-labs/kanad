@@ -10,8 +10,9 @@ New Architecture:
 
 Available Solvers:
 - VQESolver: Variational Quantum Eigensolver (ground state)
+- VQEExcitedSolver: VQE-based excited states (quantum, orthogonality constraints)
 - SQDSolver: Subspace Quantum Diagonalization (ground + excited)
-- ExcitedStatesSolver: Molecular excited states (CIS, TDDFT)
+- ExcitedStatesSolver: Molecular excited states (CIS, TDDFT - classical)
 - FCISolver: Full Configuration Interaction (exact, legacy)
 - QPESolver: Quantum Phase Estimation (legacy)
 
@@ -37,7 +38,7 @@ Usage Example:
 
 # New Solvers (Bonds Module Integration)
 from kanad.solvers.base_solver import BaseSolver
-from kanad.solvers.vqe_solver import VQESolver
+from kanad.utils.vqe_solver import VQESolver  # VQE is in utils, not solvers
 from kanad.solvers.sqd_solver import SQDSolver
 from kanad.solvers.excited_states_solver import ExcitedStatesSolver
 

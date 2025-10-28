@@ -25,7 +25,7 @@ class Settings:
     ]
 
     # Database
-    DATABASE_PATH: str = os.getenv("DATABASE_PATH", "kanad_experiments.db")
+    DATABASE_PATH: str = os.getenv("DATABASE_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "kanad_experiments.db"))
 
     # Cloud credentials
     IBM_API_TOKEN: str = os.getenv("IBM_API", "")

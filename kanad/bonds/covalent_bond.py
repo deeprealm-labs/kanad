@@ -168,7 +168,7 @@ class CovalentBond(BaseBond):
 
         elif method.upper() == 'VQE':
             # VQE with covalent governance ansatz
-            from kanad.solvers.vqe_solver import VQESolver
+            from kanad.utils.vqe_solver import VQESolver
 
             # Get system size
             n_qubits = self.representation.n_qubits

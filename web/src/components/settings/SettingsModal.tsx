@@ -44,6 +44,10 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
   const [circuitDepth, setCircuitDepth] = useState(3);
   const [nStates, setNStates] = useState(3);
 
+  // Excited States-specific settings
+  const [excitedMethod, setExcitedMethod] = useState("cis");
+  const [excitedNStates, setExcitedNStates] = useState(5);
+
   const [optimization, setOptimization] = useState(DEFAULT_SETTINGS.optimization);
   const [analysis, setAnalysis] = useState({
     energy_decomposition: true,
@@ -90,6 +94,8 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
         setSubspaceDim(settings.subspaceDim || 10);
         setCircuitDepth(settings.circuitDepth || 3);
         setNStates(settings.nStates || 3);
+        setExcitedMethod(settings.excitedMethod || "cis");
+        setExcitedNStates(settings.excitedNStates || 5);
         setOptimization(settings.optimization || DEFAULT_SETTINGS.optimization);
         setAnalysis(settings.analysis || analysis);
       } catch (error) {
@@ -135,6 +141,8 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
       subspaceDim,
       circuitDepth,
       nStates,
+      excitedMethod,
+      excitedNStates,
       optimization,
       analysis,
     };
@@ -381,7 +389,7 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
                 </div>
 
                 <div>
-                  <label className="block text-sm font-quando font-medium mb-2">
+                  <label className="block text-sm font-quanto font-medium mb-2">
                     Circuit Depth
                   </label>
                   <input
@@ -416,6 +424,68 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Excited States Settings */}
+          {method === "EXCITED_STATES" && (
+            <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+              <h3 className="text-lg font-quando font-semibold">
+                Excited States Configuration
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Compute excited electronic states using classical or quantum methods
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-quando font-medium mb-2">
+                    Excited States Method
+                  </label>
+                  <select
+                    value={excitedMethod}
+                    onChange={(e) => setExcitedMethod(e.target.value)}
+                    className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+                  >
+                    <option value="cis">CIS (Configuration Interaction Singles)</option>
+                    <option value="tddft">TDDFT (Time-Dependent DFT)</option>
+                    <option value="vqe">VQE (Variational Quantum - Experimental)</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {excitedMethod === "cis" && "Fast, accurate for small-medium molecules. Classical computation."}
+                    {excitedMethod === "tddft" && "More accurate for larger systems. Classical computation."}
+                    {excitedMethod === "vqe" && "⚠️ Experimental - requires many quantum jobs. Use CIS instead."}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-quando font-medium mb-2">
+                    Number of States
+                  </label>
+                  <input
+                    type="number"
+                    min="2"
+                    max="10"
+                    step="1"
+                    value={excitedNStates}
+                    onChange={(e) => setExcitedNStates(parseInt(e.target.value) || 5)}
+                    className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Total number of states to compute (including ground state).
+                  </p>
+                </div>
+              </div>
+
+              {excitedMethod === "vqe" && backend !== "classical" && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    ⚠️ Warning: VQE excited states with quantum backends requires {excitedNStates} separate VQE optimizations.
+                    This means approximately {excitedNStates * 5}-{excitedNStates * 10} quantum jobs will be submitted.
+                    Consider using CIS method instead for faster, more accurate results.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

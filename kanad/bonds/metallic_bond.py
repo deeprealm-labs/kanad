@@ -231,7 +231,7 @@ class MetallicBond(BaseBond):
         )
 
         # Run REAL VQE with actual quantum circuit execution
-        from kanad.solvers.vqe_solver import VQESolver
+        from kanad.utils.vqe_solver import VQESolver
         from kanad.ansatze.hardware_efficient_ansatz import EfficientSU2Ansatz
 
         # Create hardware-efficient ansatz (suitable for metallic systems)

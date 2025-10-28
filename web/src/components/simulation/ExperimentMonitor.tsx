@@ -630,13 +630,13 @@ export default function ExperimentMonitor({
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">ES Method:</span>
                     <span className="font-quando font-medium">
-                      {experimentConfig?.backendSettings?.excited_method?.toUpperCase() || "CIS"}
+                      {(experimentConfig?.backendSettings?.excited_method || experimentConfig?.backendSettings?.excitedMethod)?.toUpperCase() || "CIS"}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">States:</span>
                     <span className="font-quando font-medium">
-                      {experimentConfig?.backendSettings?.nStates || 5}
+                      {experimentConfig?.backendSettings?.nStates || experimentConfig?.backendSettings?.excited_n_states || experimentConfig?.backendSettings?.excitedNStates || 5}
                     </span>
                   </div>
                 </>

@@ -18,7 +18,7 @@ export interface MoleculeConfig {
 
 // ===== Backend Configuration Types =====
 export interface BackendSettings {
-  method: "HF" | "VQE" | "SQD" | "QPE" | "MP2" | "FCI";
+  method: "HF" | "VQE" | "SQD" | "QPE" | "MP2" | "FCI" | "EXCITED_STATES";
   ansatz?: "ucc" | "uccsd" | "hardware_efficient" | "governance" | "hea";
   mapper?: "jordan_wigner" | "bravyi_kitaev" | "hybrid_orbital" | "parity";
   hamiltonian?: "covalent" | "ionic" | "metallic" | "custom";
@@ -27,10 +27,12 @@ export interface BackendSettings {
   backendName?: string; // e.g., "ibm_torino", "ibm_brisbane"
   bluequbitDevice?: "cpu" | "gpu" | "mps.cpu" | "mps.gpu" | "pauli-path"; // BlueQubit device selection
   maxIterations?: number; // Maximum VQE iterations (default: 100)
+  // Excited States settings
+  excitedMethod?: "cis" | "tddft" | "vqe"; // Method for computing excited states
+  nStates?: number; // Number of states (ground + excited)
   // SQD-specific settings
   subspaceDim?: number;
   circuitDepth?: number;
-  nStates?: number;
   optimization?: {
     geometry: boolean;
     orbitals: boolean;

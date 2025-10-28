@@ -76,6 +76,49 @@ export default function ConfigurationSelector({
         </p>
       </div>
 
+      {/* Excited States Method Selection */}
+      {settings.method === "EXCITED_STATES" && (
+        <div>
+          <label className="block text-sm font-quando font-medium mb-2">
+            Excited States Method
+          </label>
+          <select
+            value={settings.excitedMethod || "cis"}
+            onChange={(e) => updateSetting("excitedMethod", e.target.value)}
+            className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
+          >
+            <option value="cis">CIS (Configuration Interaction Singles)</option>
+            <option value="tddft">TDDFT (Time-Dependent DFT)</option>
+            <option value="vqe">VQE (Variational Quantum - Experimental)</option>
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            {settings.excitedMethod === "cis" && "Fast, accurate for small-medium molecules. Classical computation."}
+            {settings.excitedMethod === "tddft" && "More accurate for larger systems. Classical computation."}
+            {settings.excitedMethod === "vqe" && "⚠️ Experimental - requires many quantum jobs. Use CIS instead."}
+          </p>
+        </div>
+      )}
+
+      {/* Number of Excited States */}
+      {settings.method === "EXCITED_STATES" && (
+        <div>
+          <label className="block text-sm font-quando font-medium mb-2">
+            Number of States
+          </label>
+          <input
+            type="number"
+            min="2"
+            max="10"
+            value={settings.nStates || 5}
+            onChange={(e) => updateSetting("nStates", parseInt(e.target.value))}
+            className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Total number of states to compute (including ground state)
+          </p>
+        </div>
+      )}
+
       {/* Ansatz Selection (for VQE/SQD) */}
       {(settings.method === "VQE" || settings.method === "SQD") && (
         <div>

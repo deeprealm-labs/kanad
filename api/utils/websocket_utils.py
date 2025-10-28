@@ -66,3 +66,114 @@ def broadcast_log_sync(experiment_id: str, message: str, level: str = "info"):
     except Exception as e:
         # Silently fail - we already printed to console
         pass
+
+
+def broadcast_convergence_sync(experiment_id: str, iteration: int, energy: float):
+    """
+    Broadcast convergence update to frontend from sync context.
+
+    This function safely broadcasts convergence data via WebSocket updates from synchronous code
+    by submitting the coroutine to the main event loop.
+
+    Args:
+        experiment_id: Experiment ID to broadcast to
+        iteration: Iteration number
+        energy: Energy value for this iteration
+    """
+    global _main_event_loop
+
+    try:
+        # Try to get the stored main loop first
+        loop = _main_event_loop
+
+        # Fallback: try to get running loop (works in async context)
+        if loop is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+
+        # If still no loop, we can't broadcast
+        if loop is None:
+            print(f"⚠️  No event loop available for WebSocket broadcast (iteration {iteration})")
+            return
+
+        # Import here to avoid circular dependency
+        from api.routes.websockets import manager as ws_manager
+
+        # Create the coroutine
+        coro = ws_manager.broadcast_convergence(
+            experiment_id,
+            iteration=iteration,
+            energy=energy
+        )
+
+        # Schedule it on the main loop (thread-safe)
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
+
+        # Wait briefly for completion (non-blocking)
+        future.result(timeout=0.5)
+
+    except RuntimeError as e:
+        if "no running event loop" in str(e).lower() or "no current event loop" in str(e).lower():
+            print(f"⚠️  No event loop available for WebSocket broadcast (iteration {iteration})")
+        else:
+            print(f"⚠️  WebSocket convergence broadcast failed: {e}")
+    except Exception as e:
+        print(f"⚠️  WebSocket convergence broadcast failed: {e}")
+
+
+def broadcast_status_sync(experiment_id: str, status: str, progress: float = None):
+    """
+    Broadcast status update to frontend from sync context.
+
+    This function safely broadcasts status updates via WebSocket from synchronous code
+    by submitting the coroutine to the main event loop.
+
+    Args:
+        experiment_id: Experiment ID to broadcast to
+        status: Status string ('running', 'completed', 'failed', 'cancelled')
+        progress: Optional progress percentage (0-100)
+    """
+    global _main_event_loop
+
+    try:
+        # Try to get the stored main loop first
+        loop = _main_event_loop
+
+        # Fallback: try to get running loop (works in async context)
+        if loop is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+
+        # If still no loop, we can't broadcast
+        if loop is None:
+            print(f"⚠️  No event loop available for status broadcast")
+            return
+
+        # Import here to avoid circular dependency
+        from api.routes.websockets import manager as ws_manager
+
+        # Create the coroutine
+        kwargs = {'status': status}
+        if progress is not None:
+            kwargs['progress'] = progress
+
+        coro = ws_manager.broadcast_status(experiment_id, **kwargs)
+
+        # Schedule it on the main loop (thread-safe)
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
+
+        # Wait briefly for completion (non-blocking)
+        future.result(timeout=0.5)
+        print(f"✅ Broadcasted {status} status via WebSocket")
+
+    except RuntimeError as e:
+        if "no running event loop" in str(e).lower() or "no current event loop" in str(e).lower():
+            print(f"⚠️  No event loop available for status broadcast")
+        else:
+            print(f"⚠️  WebSocket status broadcast failed: {e}")
+    except Exception as e:
+        print(f"⚠️  WebSocket status broadcast failed: {e}")
