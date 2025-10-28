@@ -355,6 +355,33 @@ class JobDB:
             }
 
     @staticmethod
+    def get_by_experiment_id(experiment_id: str) -> Optional[Dict[str, Any]]:
+        """Get job by experiment ID."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM jobs WHERE experiment_id = ? ORDER BY created_at DESC LIMIT 1", (experiment_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            return {
+                'id': row['id'],
+                'experiment_id': row['experiment_id'],
+                'status': row['status'],
+                'priority': row['priority'],
+                'progress': row['progress'],
+                'current_iteration': row['current_iteration'],
+                'max_iterations': row['max_iterations'],
+                'current_energy': row['current_energy'],
+                'best_energy': row['best_energy'],
+                'scheduled_time': row['scheduled_time'],
+                'created_at': row['created_at'],
+                'started_at': row['started_at'],
+                'completed_at': row['completed_at'],
+            }
+
+    @staticmethod
     def list(status: Optional[str] = None) -> List[Dict[str, Any]]:
         """List jobs."""
         with get_db() as conn:

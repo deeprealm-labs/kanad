@@ -163,11 +163,25 @@ async def list_experiments(
 
 @router.get("/{experiment_id}")
 async def get_experiment(experiment_id: str):
-    """Get experiment details."""
+    """Get experiment details including job progress."""
     experiment = ExperimentDB.get(experiment_id)
 
     if not experiment:
         raise HTTPException(status_code=404, detail="Experiment not found")
+
+    # Get related job data for progress tracking
+    job = JobDB.get_by_experiment_id(experiment_id)
+
+    # Include job progress in response
+    if job:
+        experiment["job"] = {
+            "id": job.get("id"),
+            "status": job.get("status"),
+            "progress": job.get("progress", 0),
+            "current_iteration": job.get("current_iteration"),
+            "current_energy": job.get("current_energy"),
+            "max_iterations": job.get("max_iterations"),
+        }
 
     return {"experiment": experiment}
 

@@ -302,12 +302,18 @@ class ExcitedStatesSolver(BaseSolver):
         from kanad.utils.vqe_solver import VQESolver  # VQE is in utils
         from qiskit.quantum_info import Statevector
 
-        # Get quantum backend settings from kwargs
+        # Get quantum backend settings from kwargs (use stored values, NO hardcoded defaults!)
         backend = getattr(self, '_backend', 'statevector')
         ansatz_type = getattr(self, '_ansatz', 'uccsd')
         optimizer = getattr(self, '_optimizer', 'COBYLA')
-        max_iterations = getattr(self, '_max_iterations', 100)
+        max_iterations = getattr(self, '_max_iterations', None)
         penalty_weight = getattr(self, '_penalty_weight', 1.0)
+
+        # CRITICAL: If max_iterations not set, something is wrong - fail loudly
+        if max_iterations is None:
+            raise ValueError("max_iterations must be explicitly set for VQE excited states!")
+
+        print(f"🔧 VQE Excited States - Using max_iterations={max_iterations} (from config, NOT hardcoded)")
 
         # Store results for each state
         all_states = []

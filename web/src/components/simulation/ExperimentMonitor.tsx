@@ -65,21 +65,17 @@ export default function ExperimentMonitor({
   const previousStatusRef = useRef<ExperimentStatus>("queued");
   const toast = useToast();
 
-  // Reset state when experiment ID changes (new experiment)
+  // Initialize or update when experiment ID changes
   useEffect(() => {
     console.log("🔄 COMPONENT MOUNT/UPDATE - Experiment ID:", experimentId);
-    console.log("🔄 Current iteration before reset:", currentIteration);
+    console.log("🔄 Current state - iteration:", currentIteration, "convergence points:", convergenceData.length);
 
-    // Reset all state
-    setCurrentIteration(0);
-    setConvergenceData([]);
-    setProgress(0);
-    setLogs([]);
-    setStatus("queued");
-    setResults(null);
-    setExperiment(null);
-
-    console.log("✅ State reset complete for experiment:", experimentId);
+    // DON'T reset state if we're remounting with the same experiment
+    // Only reset if it's truly a NEW experiment (different ID)
+    if (!experimentId) {
+      console.log("❌ No experiment ID - cannot initialize");
+      return;
+    }
 
     // Close any existing WebSocket
     if (wsRef.current) {
@@ -94,6 +90,63 @@ export default function ExperimentMonitor({
       pollingRef.current();
       pollingRef.current = null;
     }
+
+    // Fetch experiment data to restore state (if reopening an experiment)
+    console.log("📥 Fetching experiment data to restore state...");
+    api.getExperiment(experimentId).then((response) => {
+      const exp = response.experiment || response;
+      console.log("📥 Loaded experiment:", exp.id, "status:", exp.status);
+
+      // Update experiment state
+      setExperiment(exp);
+      setStatus(exp.status);
+
+      // Restore progress from job data if available
+      if (exp.job && typeof exp.job.progress === 'number') {
+        console.log("📊 Restoring progress from job:", exp.job.progress);
+        setProgress(exp.job.progress);
+        if (exp.job.current_iteration) {
+          setCurrentIteration(exp.job.current_iteration);
+        }
+      }
+
+      // Restore convergence data from results if available
+      if (exp.results) {
+        setResults(exp.results);
+
+        // Only restore convergence data if we don't have it yet
+        if (convergenceData.length === 0) {
+          if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
+            console.log("📊 Restoring convergence_history:", exp.results.convergence_history.length, "points");
+            setConvergenceData(exp.results.convergence_history);
+            if (exp.results.convergence_history.length > 0) {
+              setCurrentIteration(exp.results.convergence_history.length);
+            }
+          } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
+            console.log("📊 Restoring energy_history:", exp.results.energy_history.length, "points");
+            const convergence = exp.results.energy_history.map((energy: number, index: number) => ({
+              iteration: index + 1,
+              energy: energy
+            }));
+            setConvergenceData(convergence);
+            setCurrentIteration(convergence.length);
+          }
+        } else {
+          console.log("📊 Keeping existing convergence data:", convergenceData.length, "points");
+        }
+      }
+
+      console.log("✅ State restored for experiment:", experimentId);
+    }).catch((error) => {
+      console.error("❌ Failed to fetch experiment data:", error);
+      // Reset to clean state if fetch fails
+      setCurrentIteration(0);
+      setConvergenceData([]);
+      setProgress(0);
+      setLogs(["Initializing experiment..."]);
+      setStatus("queued");
+      setResults(null);
+    });
   }, [experimentId]);
 
   // Monitor experiment progress
@@ -244,9 +297,21 @@ export default function ExperimentMonitor({
           });
         }
 
-        // Update progress based on convergence data or status
+        // Update progress from job data (if available) or fallback to convergence-based calculation
         if (exp.status === "running") {
-          if (exp.convergenceData && exp.convergenceData.length > 0) {
+          // PRIORITY 1: Use job progress if available (most accurate)
+          if (exp.job && typeof exp.job.progress === 'number') {
+            console.log("📊 Using job.progress:", exp.job.progress);
+            setProgress(Math.min(90, exp.job.progress));
+
+            // Update iteration from job data
+            if (exp.job.current_iteration) {
+              setCurrentIteration((prev) => Math.max(prev, exp.job.current_iteration));
+            }
+          }
+          // FALLBACK: Calculate from convergence data if job data not available
+          else if (exp.convergenceData && exp.convergenceData.length > 0) {
+            console.log("⚠️  No job.progress, calculating from convergence data");
             // Get actual max iterations from experiment config
             const method = exp.config?.backendSettings?.method;
             let maxIterations = 100;
@@ -267,6 +332,7 @@ export default function ExperimentMonitor({
             // Only update iteration if it's higher (don't go backwards with stale data)
             setCurrentIteration((prev) => Math.max(prev, exp.convergenceData.length));
           } else {
+            console.log("⚠️  No progress data available, incrementing slowly");
             setProgress(Math.min(90, progress + 5));
           }
         } else if (exp.status === "completed") {
