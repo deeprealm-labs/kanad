@@ -403,6 +403,7 @@ def execute_vqe(
 
     # Progress callback with cancellation check and real-time updates
     function_eval_count = [0]  # Use list to allow modification in nested function
+    last_broadcasted_iter = [0]  # Track last iteration we broadcasted
 
     def progress_callback(iteration: int, energy: float, parameters: np.ndarray):
         # Check for cancellation
@@ -421,41 +422,46 @@ def execute_vqe(
             # Direct search optimizers use ~2-3 function evals per iteration
             estimated_iteration = max(1, iteration // 2)
         else:
+            # Default: assume function eval = iteration
             estimated_iteration = iteration
 
-        max_iter = config.get('max_iterations', 1000)
-        progress = min(100.0, (estimated_iteration / max_iter) * 100.0)
+        # Only broadcast when iteration actually changes (reduce spam)
+        if estimated_iteration > last_broadcasted_iter[0]:
+            last_broadcasted_iter[0] = estimated_iteration
 
-        # Update job database with estimated iteration
-        JobDB.update_progress(
-            job_id,
-            progress=progress,
-            current_iteration=estimated_iteration,  # Use estimated iteration, not function evals
-            current_energy=float(energy)
-        )
+            max_iter = config.get('max_iterations', 1000)
+            progress = min(100.0, (estimated_iteration / max_iter) * 100.0)
 
-        # Send real-time WebSocket update
-        if experiment_id:
-            try:
-                # Use asyncio.run() for better compatibility
-                import concurrent.futures
+            # Update job database with estimated iteration
+            JobDB.update_progress(
+                job_id,
+                progress=progress,
+                current_iteration=estimated_iteration,
+                current_energy=float(energy)
+            )
 
-                async def send_update():
-                    await ws_manager.broadcast_convergence(
-                        experiment_id,
-                        iteration=estimated_iteration,  # Send estimated iteration
-                        energy=float(energy),
-                        parameters=parameters.tolist() if parameters is not None else None
-                    )
+            # Send real-time WebSocket update
+            if experiment_id:
+                try:
+                    # Use asyncio.run() for better compatibility
+                    import concurrent.futures
 
-                # Run async code in a thread pool to avoid event loop conflicts
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, send_update())
-                    future.result(timeout=1.0)  # 1 second timeout
+                    async def send_update():
+                        await ws_manager.broadcast_convergence(
+                            experiment_id,
+                            iteration=estimated_iteration,
+                            energy=float(energy),
+                            parameters=parameters.tolist() if parameters is not None else None
+                        )
 
-            except Exception as e:
-                # Don't fail the experiment if WebSocket fails
-                print(f"⚠️  WebSocket broadcast failed: {e}")
+                    # Run async code in a thread pool to avoid event loop conflicts
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, send_update())
+                        future.result(timeout=1.0)  # 1 second timeout
+
+                except Exception as e:
+                    # Don't fail the experiment if WebSocket fails
+                    print(f"⚠️  WebSocket broadcast failed: {e}")
 
     # Execute VQE with callback
     result = solver.solve(callback=progress_callback)
@@ -547,8 +553,10 @@ def execute_sqd(
     JobDB.update_progress(job_id, progress=10.0)
 
     # Define progress callback for real-time updates
-    n_states = config.get('n_states', 3)
-    total_stages = 4 + n_states  # 0=init, 1=basis, 2=projection, 3=diag, 4+=states
+    # For ground state SQD, we only need 1 state (the ground state)
+    # n_states is only used for excited states calculations
+    n_states = 1  # Ground state only
+    total_stages = 4 + n_states  # 0=init, 1=basis, 2=projection, 3=diag, 4=ground state
 
     # Track energy history for convergence graph
     energy_history = []
@@ -721,7 +729,7 @@ def execute_excited_states(
         'experiment_id': experiment_id  # Pass for WebSocket broadcasting
     }
 
-    # Add quantum backend settings for VQE method
+    # Add method-specific backend settings
     if method == 'vqe':
         solver_kwargs['backend'] = backend_type
         solver_kwargs['ansatz'] = config.get('ansatz', 'uccsd')
@@ -755,6 +763,19 @@ def execute_excited_states(
         print(f"   Optimizer: {solver_kwargs['optimizer']}")
         print(f"   Max iterations: {solver_kwargs['max_iterations']}")
         print(f"   Penalty weight: {solver_kwargs['penalty_weight']}")
+        print(f"   Backend kwargs keys: {list(backend_kwargs.keys())}")
+
+    elif method == 'sqd':
+        solver_kwargs['backend'] = backend_type
+        solver_kwargs['subspace_dim'] = config.get('subspace_dim', config.get('subspaceDim', 10))
+        solver_kwargs['circuit_depth'] = config.get('circuit_depth', config.get('circuitDepth', 3))
+        solver_kwargs['backend_kwargs'] = backend_kwargs  # Pass credentials for cloud backends
+
+        print(f"🔧 SQD Excited States configuration:")
+        print(f"   Backend: {backend_type}")
+        print(f"   Subspace dimension: {solver_kwargs['subspace_dim']}")
+        print(f"   Circuit depth: {solver_kwargs['circuit_depth']}")
+        print(f"   Number of states: {n_states}")
         print(f"   Backend kwargs keys: {list(backend_kwargs.keys())}")
 
     solver = ExcitedStatesSolver(**solver_kwargs)

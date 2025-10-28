@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import MoleculeCreator from "@/components/molecule/MoleculeCreator";
-import LewisStructureView from "@/components/molecule/LewisStructureView";
+import MoleculeReview from "@/components/molecule/MoleculeReview";
 import PreviewWindow from "@/components/simulation/PreviewWindow";
 import ExperimentMonitor from "@/components/simulation/ExperimentMonitor";
 import DashboardHome from "@/components/dashboard/DashboardHome";
@@ -237,9 +237,10 @@ export default function DashboardPage() {
 
   if (currentStep === "review" && molecule) {
     return (
-      <LewisStructureView
+      <MoleculeReview
         molecule={molecule}
         onExecute={() => setCurrentStep("preview")}
+        onBack={() => setCurrentStep("create")}
       />
     );
   }

@@ -53,13 +53,13 @@ class ExcitedStatesSolver(BaseSolver):
 
         Args:
             bond: Bond object from BondFactory
-            method: Excited state method ('cis', 'tddft', 'qpe', 'vqe')
+            method: Excited state method ('cis', 'tddft', 'qpe', 'vqe', 'sqd')
             n_states: Number of excited states to compute
             enable_analysis: Enable spectroscopy analysis
             enable_optimization: Enable geometry optimization of excited states
             experiment_id: Experiment ID for WebSocket broadcasting (optional)
             vqe_callback: Optional callback function for VQE progress (iteration, energy, parameters)
-            **kwargs: Method-specific options
+            **kwargs: Method-specific options (subspace_dim, circuit_depth for SQD)
         """
         super().__init__(bond, enable_analysis, enable_optimization)
 
@@ -75,10 +75,14 @@ class ExcitedStatesSolver(BaseSolver):
         self._backend = kwargs.get('backend', 'statevector')
         self._ansatz = kwargs.get('ansatz', 'uccsd')
         self._optimizer = kwargs.get('optimizer', 'COBYLA')
-        self._max_iterations = kwargs.get('max_iterations', 100)
+        self._max_iterations = kwargs.get('max_iterations', 100)  # Should be set from frontend, not hardcoded
         self._penalty_weight = kwargs.get('penalty_weight', 1.0)
         # Store backend-specific kwargs (API tokens, etc.)
         self._backend_kwargs = kwargs.get('backend_kwargs', {})
+
+        # Store SQD-specific kwargs
+        self._subspace_dim = kwargs.get('subspace_dim', 10)
+        self._circuit_depth = kwargs.get('circuit_depth', 3)
 
         # Initialize spectroscopy analyzer if analysis enabled
         if enable_analysis:
@@ -115,8 +119,10 @@ class ExcitedStatesSolver(BaseSolver):
             return self._solve_qpe()
         elif self.method == 'vqe':
             return self._solve_vqe_excited()
+        elif self.method == 'sqd':
+            return self._solve_sqd()
         else:
-            raise ValueError(f"Unknown method: {self.method}")
+            raise ValueError(f"Unknown method: {self.method}. Available: cis, tddft, qpe, vqe, sqd")
 
     def _solve_cis(self) -> Dict[str, Any]:
         """
@@ -270,6 +276,104 @@ class ExcitedStatesSolver(BaseSolver):
         """Solve using Time-Dependent DFT (placeholder)."""
         logger.warning("TDDFT not fully implemented, falling back to CIS")
         return self._solve_cis()
+
+    def _solve_sqd(self) -> Dict[str, Any]:
+        """
+        Solve using Subspace Quantum Diagonalization (SQD).
+
+        SQD is particularly well-suited for excited states because:
+        1. It naturally returns multiple eigenvalues (ground + excited)
+        2. Lower circuit depth than VQE
+        3. More noise-resistant
+        4. No optimization needed - direct diagonalization
+        """
+        logger.info("Running SQD excited states calculation...")
+
+        from kanad.solvers.sqd_solver import SQDSolver
+
+        # Broadcast initial status
+        if self.experiment_id:
+            try:
+                from api.utils import broadcast_log_sync
+                broadcast_log_sync(self.experiment_id, f"🔬 Starting SQD excited states calculation...")
+                broadcast_log_sync(self.experiment_id, f"📊 Computing {self.n_states} states with subspace_dim={self._subspace_dim}")
+            except Exception:
+                pass
+
+        # Create SQD solver with user-specified parameters
+        backend_kwargs = getattr(self, '_backend_kwargs', {})
+        sqd_solver = SQDSolver(
+            bond=self.bond,
+            subspace_dim=self._subspace_dim,
+            circuit_depth=self._circuit_depth,
+            backend=self._backend,
+            enable_analysis=False,  # We'll do our own analysis
+            enable_optimization=False,
+            experiment_id=self.experiment_id,
+            **backend_kwargs
+        )
+
+        # Define callback for progress updates
+        def sqd_callback(stage: int, energy: float, message: str):
+            """Callback for SQD progress updates."""
+            logger.info(f"SQD Stage {stage}: {message} (E={energy:.8f})")
+            if self.experiment_id:
+                try:
+                    from api.utils import broadcast_log_sync
+                    broadcast_log_sync(self.experiment_id, f"📊 {message}")
+                except Exception:
+                    pass
+
+        # Solve for all states
+        sqd_result = sqd_solver.solve(n_states=self.n_states, callback=sqd_callback)
+
+        # Extract energies
+        energies = sqd_result['energies']
+        ground_energy = energies[0]
+        excited_energies = energies[1:] if len(energies) > 1 else np.array([])
+
+        # Compute excitation energies
+        excitation_energies_ha = excited_energies - ground_energy if len(excited_energies) > 0 else np.array([])
+        excitation_energies_ev = excitation_energies_ha * 27.2114
+
+        logger.info(f"SQD found {len(energies)} states:")
+        logger.info(f"  Ground state: {ground_energy:.8f} Ha")
+        for i, (E_ex_ha, E_ex_ev) in enumerate(zip(excitation_energies_ha, excitation_energies_ev), 1):
+            logger.info(f"  Excited state {i}: ΔE = {E_ex_ev:.4f} eV ({E_ex_ha:.8f} Ha)")
+
+        # Broadcast completion
+        if self.experiment_id:
+            try:
+                from api.utils import broadcast_log_sync
+                broadcast_log_sync(self.experiment_id, f"✅ SQD complete: Found {len(excited_energies)} excited states")
+            except Exception:
+                pass
+
+        # Build results dictionary compatible with other excited state methods
+        self.results = {
+            'method': 'SQD (Subspace Quantum Diagonalization)',
+            'energies': energies,
+            'ground_state_energy': ground_energy,
+            'excited_state_energies': excited_energies,
+            'excitation_energies_ha': excitation_energies_ha,
+            'excitation_energies_ev': excitation_energies_ev,
+            'excitation_energies': excitation_energies_ev,  # For compatibility
+            'oscillator_strengths': np.zeros(len(excitation_energies_ev)),  # Not computed in SQD
+            'dominant_transitions': ['SQD State'] * len(excitation_energies_ev),
+            'converged': True,
+            'iterations': 1,  # SQD is direct diagonalization
+            'energy': ground_energy,  # Ground state for base class
+            'subspace_dim': self._subspace_dim,
+            'circuit_depth': self._circuit_depth,
+            # Include additional SQD-specific data
+            'eigenvectors': sqd_result.get('eigenvectors'),
+            'hf_energy': sqd_result.get('hf_energy'),
+            'correlation_energy': sqd_result.get('correlation_energy')
+        }
+
+        logger.info(f"SQD excited states complete: {len(excitation_energies_ev)} excited states found")
+
+        return self.results
 
     def _solve_qpe(self) -> Dict[str, Any]:
         """Solve using Quantum Phase Estimation (placeholder)."""

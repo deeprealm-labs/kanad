@@ -309,42 +309,29 @@ class SQDSolver(BaseSolver):
         n_basis = len(basis)
 
         logger.info(f"Projecting Hamiltonian into {n_basis}-dimensional subspace...")
-        logger.info(f"Using SPARSE Pauli representation for efficiency (avoiding {hilbert_dim}×{hilbert_dim} dense matrix)")
 
-        # Use SPARSE representation - much faster for large systems!
-        try:
-            # Try to get sparse Pauli operator representation
-            H_sparse = self.hamiltonian.to_sparse_hamiltonian(mapper='jordan_wigner')
-            logger.info(f"✅ Using sparse Hamiltonian: {len(H_sparse)} Pauli terms (avoids {hilbert_dim**2:,} matrix elements)")
-
-            # Project using sparse operators
+        # IMPORTANT: Use dense matrix construction for projection
+        # SparsePauliOp.to_matrix() has qubit ordering issues that cause wrong eigenvalues
+        # For small systems (< 8 qubits), dense matrix is fast and correct
+        if hilbert_dim <= 256:  # 8 qubits or less
+            logger.info(f"Using dense Hamiltonian matrix ({hilbert_dim}×{hilbert_dim}) for accurate projection")
+            H_matrix = self.hamiltonian.to_matrix(n_qubits=n_qubits, use_mo_basis=True)
             H_sub = np.zeros((n_basis, n_basis), dtype=complex)
-
-            logger.info(f"Computing {n_basis * (n_basis + 1) // 2} matrix elements using sparse operators...")
 
             for i in range(n_basis):
                 for j in range(i, n_basis):
-                    # ⟨ψ_i|H|ψ_j⟩ using sparse Pauli ops
-                    # H_sparse is a SparsePauliOp, we need to apply it to basis[j]
-                    from qiskit.quantum_info import Statevector
-
-                    # Convert basis vectors to Statevector
-                    psi_j = Statevector(basis[j])
-                    # Evolve with Hamiltonian: H|ψ_j⟩
-                    H_psi_j = psi_j.evolve(H_sparse, qargs=range(n_qubits))
-                    # Inner product: ⟨ψ_i|H|ψ_j⟩
-                    H_sub[i, j] = np.vdot(basis[i], H_psi_j.data)
+                    H_sub[i, j] = np.vdot(basis[i], H_matrix @ basis[j])
                     H_sub[j, i] = np.conj(H_sub[i, j])
 
                     # Progress logging
                     if n_basis > 5 and (i * n_basis + j) % 10 == 0:
                         progress = ((i * n_basis + j) / (n_basis * (n_basis + 1) // 2)) * 100
                         logger.debug(f"Projection progress: {progress:.1f}%")
-
-        except Exception as e:
-            # Fallback to dense matrix if sparse fails
-            logger.warning(f"Sparse projection failed ({e}), falling back to dense matrix...")
-            logger.warning(f"⚠️ Constructing {hilbert_dim}×{hilbert_dim} dense Hamiltonian matrix (may be slow)...")
+        else:
+            # For large systems, warn and use sparse (may have accuracy issues)
+            logger.warning(f"Large system detected ({n_qubits} qubits, {hilbert_dim}D Hilbert space)")
+            logger.warning(f"⚠️  SQD may not work correctly for systems > 8 qubits due to sparse Hamiltonian issues")
+            logger.warning(f"⚠️  Consider using VQE instead")
 
             H_matrix = self.hamiltonian.to_matrix(n_qubits=n_qubits, use_mo_basis=True)
             H_sub = np.zeros((n_basis, n_basis), dtype=complex)

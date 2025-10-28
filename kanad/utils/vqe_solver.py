@@ -56,7 +56,7 @@ class VQESolver(BaseSolver):
         molecule: Optional[Any] = None,  # Molecule for hamiltonian-based API
         # Common parameters
         optimizer: str = 'SLSQP',
-        max_iterations: int = 1000,
+        max_iterations: int = 100,  # Default, but should be set from frontend
         conv_threshold: float = 1e-6,
         backend: str = 'statevector',
         shots: Optional[int] = None,
@@ -1042,12 +1042,71 @@ class VQESolver(BaseSolver):
         # Prepare optimizer options
         opt_options = {'maxiter': self.max_iterations}
 
-        # COBYLA-specific: Set maxfun to ensure it's at least num_params + 2
-        if self.optimizer_method == 'COBYLA':
+        # Set maxfun (max function evaluations) for ALL optimizers
+        # This is critical - scipy defaults are HUGE (SLSQP=15000, POWELL=unlimited!)
+        # User sets max_iterations, we calculate reasonable maxfun based on optimizer
+
+        # Normalize optimizer name to handle case variations
+        optimizer_upper = self.optimizer_method.upper()
+
+        # Derivative-free optimizers (low cost per iteration)
+        if optimizer_upper == 'COBYLA':
+            # COBYLA: ~1-3 function evals per iteration
+            # Uses 'maxfun' option
             min_maxfun = self.n_parameters + 2
-            maxfun = max(self.max_iterations * 3, min_maxfun)  # Use 3x iterations as maxfun
+            maxfun = max(self.max_iterations * 3, min_maxfun)
             opt_options['maxfun'] = maxfun
-            logger.info(f"COBYLA: Setting maxfun={maxfun} (min required: {min_maxfun})")
+            logger.info(f"COBYLA: maxiter={self.max_iterations}, maxfun={maxfun} (~3x)")
+
+        elif optimizer_upper == 'POWELL':
+            # Powell's method: ~2-5 function evals per iteration (uses line searches)
+            # Uses 'maxfev' option (NOT maxfun!)
+            maxfev = self.max_iterations * 5
+            opt_options['maxfev'] = maxfev
+            logger.info(f"Powell: maxiter={self.max_iterations}, maxfev={maxfev} (~5x)")
+
+        elif optimizer_upper == 'NELDER-MEAD':
+            # Nelder-Mead: simplex method, ~5-10 evals per iteration
+            # Uses 'maxfev' option
+            maxfev = self.max_iterations * 10
+            opt_options['maxfev'] = maxfev
+            logger.info(f"Nelder-Mead: maxiter={self.max_iterations}, maxfev={maxfev} (~10x)")
+
+        # Gradient-based optimizers (HIGH cost per iteration - need finite differences)
+        elif optimizer_upper == 'SLSQP':
+            # SLSQP: ~(2*n_params) to 100 function evals per iteration
+            # Uses 'maxiter' only - no separate function eval limit in scipy
+            # Estimate: 2*n_params for gradient + some for line search
+            logger.info(f"⚠️ SLSQP: maxiter={self.max_iterations}, ~{self.n_parameters * 2} function evals per iter - HIGH COST!")
+
+        elif optimizer_upper == 'L-BFGS-B':
+            # L-BFGS-B: ~(2*n_params) to 100 function evals per iteration
+            # Uses 'maxfun' option
+            maxfun = self.max_iterations * (self.n_parameters * 2 + 10)
+            opt_options['maxfun'] = maxfun
+            logger.info(f"⚠️ L-BFGS-B: maxiter={self.max_iterations}, maxfun={maxfun} (~{self.n_parameters * 2}x per iter) - HIGH COST!")
+
+        elif optimizer_upper == 'BFGS':
+            # BFGS: ~(2*n_params) function evals per iteration
+            # Uses 'maxiter' only - no maxfun option
+            logger.info(f"⚠️ BFGS: maxiter={self.max_iterations}, ~{self.n_parameters * 2} function evals per iter - HIGH COST!")
+
+        elif optimizer_upper == 'CG':
+            # Conjugate Gradient: ~(2*n_params) function evals per iteration
+            # Uses 'maxiter' only - no maxfun option
+            logger.info(f"⚠️ CG: maxiter={self.max_iterations}, ~{self.n_parameters * 2} function evals per iter - HIGH COST!")
+
+        elif optimizer_upper == 'TNC':
+            # TNC (Truncated Newton): ~(2*n_params) to 50 function evals per iteration
+            # TNC uses 'maxfun' but doesn't accept 'maxiter' - remove it
+            del opt_options['maxiter']
+            maxfun = self.max_iterations * (self.n_parameters * 2 + 10)
+            opt_options['maxfun'] = maxfun
+            logger.info(f"⚠️ TNC: maxfun={maxfun} (~{self.n_parameters * 2}x per iter) - HIGH COST!")
+
+        else:
+            # Other optimizers: try setting maxfun as fallback
+            logger.warning(f"⚠️ Optimizer '{self.optimizer_method}' may not respect iteration limits")
 
         result = minimize(
             self._objective_function,

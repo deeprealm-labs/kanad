@@ -87,14 +87,14 @@ export default function ConfigurationSelector({
             onChange={(e) => updateSetting("excitedMethod", e.target.value)}
             className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
           >
-            <option value="cis">CIS (Configuration Interaction Singles)</option>
+            <option value="cis">CIS (Configuration Interaction Singles - Recommended)</option>
+            <option value="sqd">SQD (Subspace Quantum Diagonalization)</option>
             <option value="tddft">TDDFT (Time-Dependent DFT)</option>
-            <option value="vqe">VQE (Variational Quantum - Experimental)</option>
           </select>
           <p className="text-xs text-muted-foreground mt-1">
             {settings.excitedMethod === "cis" && "Fast, accurate for small-medium molecules. Classical computation."}
+            {settings.excitedMethod === "sqd" && "Quantum subspace method - excellent for excited states. Lower circuit depth."}
             {settings.excitedMethod === "tddft" && "More accurate for larger systems. Classical computation."}
-            {settings.excitedMethod === "vqe" && "⚠️ Experimental - requires many quantum jobs. Use CIS instead."}
           </p>
         </div>
       )}
@@ -118,6 +118,45 @@ export default function ConfigurationSelector({
           </p>
         </div>
       )}
+
+      {/* SQD Settings for Excited States */}
+      {settings.method === "EXCITED_STATES" && settings.excitedMethod === "sqd" && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-quando font-medium mb-2">
+              Subspace Dimension
+            </label>
+            <input
+              type="number"
+              min="4"
+              max="20"
+              value={settings.subspaceDim || 10}
+              onChange={(e) => updateSetting("subspaceDim", parseInt(e.target.value))}
+              className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Larger = more accurate but slower
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-quando font-medium mb-2">
+              Circuit Depth
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="5"
+              value={settings.circuitDepth || 3}
+              onChange={(e) => updateSetting("circuitDepth", parseInt(e.target.value))}
+              className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quanto text-sm"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Quantum circuit complexity
+            </p>
+          </div>
+        </div>
+      )}
+
 
       {/* Ansatz Selection (for VQE/SQD) */}
       {(settings.method === "VQE" || settings.method === "SQD") && (
@@ -204,7 +243,41 @@ export default function ConfigurationSelector({
             ))}
           </select>
           <p className="text-xs text-muted-foreground mt-1">
-            Classical optimizer for parameter optimization
+            {settings.optimizer === "COBYLA" && "✅ COBYLA: ~3 function evals/iter (BEST for quantum backends)"}
+            {settings.optimizer === "Powell" && "✅ Powell: ~5 function evals/iter (good for quantum backends)"}
+            {settings.optimizer === "Nelder-Mead" && "⚠️ Nelder-Mead: ~10 function evals/iter (moderate cost)"}
+            {settings.optimizer === "SLSQP" && "⚠️ SLSQP: gradient-based, many evals/iter (HIGH cost on quantum!)"}
+            {settings.optimizer === "L-BFGS-B" && "⚠️ L-BFGS-B: gradient-based, many evals/iter (HIGH cost on quantum!)"}
+            {settings.optimizer === "BFGS" && "⚠️ BFGS: gradient-based, many evals/iter (HIGH cost on quantum!)"}
+            {settings.optimizer === "CG" && "⚠️ CG: gradient-based, many evals/iter (HIGH cost on quantum!)"}
+            {settings.optimizer === "TNC" && "⚠️ TNC: gradient-based, many evals/iter (HIGH cost on quantum!)"}
+          </p>
+        </div>
+      )}
+
+      {/* Max Iterations */}
+      {(settings.method === "VQE" || settings.method === "SQD") && (
+        <div>
+          <label className="block text-sm font-quando font-medium mb-2">
+            Max Iterations
+          </label>
+          <input
+            type="number"
+            min="10"
+            max="500"
+            value={settings.maxIterations || 100}
+            onChange={(e) => updateSetting("maxIterations", parseInt(e.target.value))}
+            className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-sm"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            {settings.optimizer === "COBYLA" && `✅ ~${(settings.maxIterations || 100) * 3} total function evaluations`}
+            {settings.optimizer === "Powell" && `✅ ~${(settings.maxIterations || 100) * 5} total function evaluations`}
+            {settings.optimizer === "Nelder-Mead" && `⚠️ ~${(settings.maxIterations || 100) * 10} total function evaluations`}
+            {settings.optimizer === "SLSQP" && `⚠️ Gradient-based: HIGH cost on quantum backends!`}
+            {settings.optimizer === "L-BFGS-B" && `⚠️ Gradient-based: HIGH cost on quantum backends!`}
+            {settings.optimizer === "BFGS" && `⚠️ Gradient-based: HIGH cost on quantum backends!`}
+            {settings.optimizer === "CG" && `⚠️ Gradient-based: HIGH cost on quantum backends!`}
+            {settings.optimizer === "TNC" && `⚠️ Gradient-based: HIGH cost on quantum backends!`}
           </p>
         </div>
       )}

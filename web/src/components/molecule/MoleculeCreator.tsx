@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Search, X, Plus } from "lucide-react";
 import { moleculeLibrary } from "@/data/molecule-library";
+import Molecule3DViewer from "./Molecule3DViewer";
+import { createMoleculeData, processFileUpload, AtomData as UtilAtomData } from "@/utils/moleculeUtils";
 
 interface AtomData {
   symbol: string;
@@ -66,6 +68,10 @@ export default function MoleculeCreator({
   const [charge, setCharge] = useState(0);
   const [multiplicity, setMultiplicity] = useState(1);
   const [viewMode, setViewMode] = useState<"atoms" | "molecules">("atoms");
+  const [xyzFile, setXyzFile] = useState<File | null>(null);
+  const [xyzData, setXyzData] = useState<string>("");
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredAtoms = periodicTable.filter(
     (atom) =>
@@ -97,6 +103,10 @@ export default function MoleculeCreator({
       z: 0,
     };
     setDroppedAtoms([...droppedAtoms, newAtom]);
+    setSmiles(""); // Clear SMILES when atoms are added
+    setSmilesInput(""); // Clear SMILES input
+    setXyzFile(null); // Clear XYZ file
+    setXyzData(""); // Clear XYZ data
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -111,6 +121,8 @@ export default function MoleculeCreator({
     if (smilesInput.trim()) {
       setSmiles(smilesInput);
       setDroppedAtoms([]); // Clear atoms when SMILES is added
+      setXyzFile(null); // Clear XYZ file when SMILES is added
+      setXyzData(""); // Clear XYZ data when SMILES is added
     }
   };
 
@@ -121,13 +133,85 @@ export default function MoleculeCreator({
     setCharge(molecule.charge);
     setMultiplicity(molecule.multiplicity);
     setDroppedAtoms([]); // Clear atoms when molecule is loaded
+    setXyzFile(null); // Clear XYZ file
+    setXyzData(""); // Clear XYZ data
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.xyz')) {
+      alert('Please upload an XYZ file');
+      return;
+    }
+
+    setIsProcessingFile(true);
+    try {
+      const content = await file.text();
+      console.log("XYZ file content:", content);
+      
+      // Parse the XYZ file to get atoms
+      const lines = content.trim().split('\n');
+      const numAtoms = parseInt(lines[0]);
+      const atomLines = lines.slice(2, 2 + numAtoms);
+      
+      const parsedAtoms = atomLines.map((line) => {
+        const parts = line.trim().split(/\s+/);
+        return {
+          symbol: parts[0],
+          x: parseFloat(parts[1]),
+          y: parseFloat(parts[2]),
+          z: parseFloat(parts[3]),
+          atomicNumber: getAtomicNumber(parts[0]),
+        };
+      });
+
+      console.log("Parsed atoms:", parsedAtoms);
+      
+      setXyzFile(file);
+      setSmiles(''); // Clear SMILES when XYZ is loaded
+      setDroppedAtoms([]); // Clear atoms when XYZ is loaded
+      setSmilesInput(''); // Clear SMILES input
+      
+      // Store XYZ data for the 3D viewer
+      setXyzData(content);
+    } catch (error) {
+      console.error('Error processing XYZ file:', error);
+      alert('Error processing XYZ file: ' + (error as Error).message);
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
+  const getAtomicNumber = (symbol: string): number => {
+    const atomicNumbers: Record<string, number> = {
+      'H': 1, 'He': 2, 'Li': 3, 'Be': 4, 'B': 5, 'C': 6, 'N': 7, 'O': 8,
+      'F': 9, 'Ne': 10, 'Na': 11, 'Mg': 12, 'Al': 13, 'Si': 14, 'P': 15,
+      'S': 16, 'Cl': 17, 'Ar': 18, 'K': 19, 'Ca': 20, 'Ti': 22, 'Fe': 26,
+      'Cu': 29, 'Zn': 30, 'Br': 35, 'I': 53,
+    };
+    return atomicNumbers[symbol] || 0;
   };
 
   const handleSubmit = () => {
-    if (smiles || droppedAtoms.length > 0) {
-      onComplete({
+    if (smiles || droppedAtoms.length > 0 || xyzFile) {
+      const moleculeData = createMoleculeData(
         smiles,
-        atoms: droppedAtoms,
+        droppedAtoms.map(atom => ({
+          symbol: atom.symbol,
+          x: atom.x,
+          y: atom.y,
+          z: atom.z,
+          atomicNumber: atom.atomicNumber,
+        })),
+        xyzData, // Pass XYZ data to viewer
+        xyzFile?.name.replace('.xyz', '')
+      );
+
+      onComplete({
+        ...moleculeData,
+        xyzFile,
         basis,
         charge,
         multiplicity,
@@ -368,11 +452,42 @@ export default function MoleculeCreator({
           </div>
         </div>
 
-        {/* Right: Configuration */}
+        {/* Right: Configuration & 3D Preview */}
         <div className="flex flex-col h-full min-h-0">
           <h2 className="text-base font-quando font-semibold mb-2">
-            Configuration
+            Configuration & Preview
           </h2>
+
+          {/* 3D Visualization - Now at the top and larger */}
+          <div className="mb-3">
+            {(() => {
+              const moleculeData = {
+                atoms: droppedAtoms.map(atom => ({
+                  symbol: atom.symbol,
+                  x: atom.x,
+                  y: atom.y,
+                  z: atom.z,
+                  atomicNumber: atom.atomicNumber,
+                })),
+                smiles: smiles,
+                xyzData: xyzData,
+              };
+
+              console.log("=== MOLECULE CREATOR DEBUG ===");
+              console.log("Dropped atoms:", droppedAtoms);
+              console.log("SMILES:", smiles);
+              console.log("XYZ data:", xyzData);
+              console.log("Molecule data being passed to 3D viewer:", moleculeData);
+
+              return (
+                <Molecule3DViewer
+                  molecule={moleculeData}
+                  height="300px"
+                  showControls={true}
+                />
+              );
+            })()}
+          </div>
 
           <div className="space-y-3 flex-1 overflow-auto min-h-0">
             <div>
@@ -422,17 +537,30 @@ export default function MoleculeCreator({
                 Upload XYZ File
               </label>
               <input
+                ref={fileInputRef}
                 type="file"
                 accept=".xyz"
-                className="w-full px-3 py-1.5 border border-input bg-background rounded-md font-quando text-xs file:mr-2 file:px-3 file:py-1 file:rounded file:border-0 file:bg-brand-orange file:text-white file:text-xs"
+                onChange={handleFileUpload}
+                disabled={isProcessingFile}
+                className="w-full px-3 py-1.5 border border-input bg-background rounded-md font-quando text-xs file:mr-2 file:px-3 file:py-1 file:rounded file:border-0 file:bg-brand-orange file:text-white file:text-xs disabled:opacity-50"
               />
+              {xyzFile && (
+                <div className="mt-1 text-xs text-muted-foreground font-quando">
+                  ✓ {xyzFile.name}
+                </div>
+              )}
+              {isProcessingFile && (
+                <div className="mt-1 text-xs text-brand-orange font-quando">
+                  Processing file...
+                </div>
+              )}
             </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-border">
             <button
               onClick={handleSubmit}
-              disabled={!smiles && droppedAtoms.length === 0}
+              disabled={!smiles && droppedAtoms.length === 0 && !xyzFile}
               className="w-full px-4 py-2 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               Create Molecule →

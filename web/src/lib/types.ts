@@ -22,13 +22,13 @@ export interface BackendSettings {
   ansatz?: "ucc" | "uccsd" | "hardware_efficient" | "governance" | "hea";
   mapper?: "jordan_wigner" | "bravyi_kitaev" | "hybrid_orbital" | "parity";
   hamiltonian?: "covalent" | "ionic" | "metallic" | "custom";
-  optimizer?: "SLSQP" | "COBYLA" | "L-BFGS-B" | "ADAM" | "POWELL";
+  optimizer?: "SLSQP" | "COBYLA" | "L-BFGS-B" | "Powell" | "Nelder-Mead" | "CG" | "BFGS" | "TNC" | "ADAM";
   backend: "classical" | "ibm_quantum" | "bluequbit";
   backendName?: string; // e.g., "ibm_torino", "ibm_brisbane"
   bluequbitDevice?: "cpu" | "gpu" | "mps.cpu" | "mps.gpu" | "pauli-path"; // BlueQubit device selection
   maxIterations?: number; // Maximum VQE iterations (default: 100)
   // Excited States settings
-  excitedMethod?: "cis" | "tddft" | "vqe"; // Method for computing excited states
+  excitedMethod?: "cis" | "sqd" | "tddft" | "vqe"; // Method for computing excited states
   nStates?: number; // Number of states (ground + excited)
   // SQD-specific settings
   subspaceDim?: number;
