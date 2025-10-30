@@ -451,6 +451,67 @@ class SQDSolver(BaseSolver):
         if not validation['passed']:
             logger.warning("SQD results failed validation checks!")
 
+        # ADD ENHANCED DATA FOR ANALYSIS SERVICE
+        try:
+            # Store molecule geometry for ADME and other analyses
+            if self.molecule is not None:
+                self.results['geometry'] = [
+                    (atom.symbol, tuple(atom.position))
+                    for atom in self.molecule.atoms
+                ]
+                self.results['atoms'] = [atom.symbol for atom in self.molecule.atoms]
+                self.results['n_atoms'] = self.molecule.n_atoms
+                self.results['n_electrons'] = self.molecule.n_electrons
+                self.results['charge'] = getattr(self.molecule, 'charge', 0)
+                self.results['multiplicity'] = getattr(self.molecule, 'multiplicity', 1)
+                logger.info(f"✅ Stored molecule geometry for analysis")
+
+            # Store nuclear repulsion energy
+            if hasattr(self.hamiltonian, 'nuclear_repulsion'):
+                self.results['nuclear_repulsion'] = float(self.hamiltonian.nuclear_repulsion)
+
+            # Try to get density matrix from HF reference
+            try:
+                if hasattr(self.hamiltonian, 'mf'):
+                    # PySCF mean-field object has density matrix
+                    if hasattr(self.hamiltonian.mf, 'make_rdm1'):
+                        rdm1 = self.hamiltonian.mf.make_rdm1()
+                        self.results['rdm1'] = rdm1.tolist()
+                        logger.info(f"✅ Stored RDM1 for bonding analysis")
+            except Exception as e:
+                logger.warning(f"Could not extract RDM1: {e}")
+
+            # Try to get orbital energies
+            try:
+                logger.info(f"🔍 Checking hamiltonian for orbital energies: hasattr(mf)={hasattr(self.hamiltonian, 'mf')}")
+                if hasattr(self.hamiltonian, 'mf'):
+                    logger.info(f"🔍 Hamiltonian has mf attribute, checking mo_energy: hasattr(mo_energy)={hasattr(self.hamiltonian.mf, 'mo_energy')}")
+                    if hasattr(self.hamiltonian.mf, 'mo_energy'):
+                        orb_energies = self.hamiltonian.mf.mo_energy
+                        logger.info(f"🔍 Found orbital energies: shape={orb_energies.shape}, dtype={orb_energies.dtype}")
+                        self.results['orbital_energies'] = orb_energies.tolist()
+                        logger.info(f"✅ Stored orbital energies for DOS analysis")
+                    else:
+                        logger.warning(f"⚠️  Hamiltonian.mf does not have mo_energy attribute")
+                else:
+                    logger.warning(f"⚠️  Hamiltonian does not have mf attribute (type: {type(self.hamiltonian).__name__})")
+            except Exception as e:
+                logger.warning(f"Could not extract orbital energies: {e}")
+
+            # Try to get dipole moment
+            try:
+                if hasattr(self.hamiltonian, 'mf'):
+                    from pyscf import scf
+                    if hasattr(scf, 'hf') and hasattr(scf.hf, 'dip_moment'):
+                        dipole = scf.hf.dip_moment(self.hamiltonian.mf.mol, self.hamiltonian.mf.make_rdm1())
+                        self.results['dipole'] = dipole.tolist()
+                        logger.info(f"✅ Stored dipole moment")
+            except Exception as e:
+                logger.warning(f"Could not calculate dipole: {e}")
+
+        except Exception as e:
+            logger.error(f"Error storing enhanced data: {e}")
+
         logger.info("SQD solve complete")
 
         return self.results

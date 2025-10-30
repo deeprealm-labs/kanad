@@ -368,12 +368,12 @@ class FrequencyCalculator:
             if verbose:
                 print("\nNo vibrational modes (atom)")
             return {
-                'frequencies': np.array([]),
-                'normal_modes': np.array([]).reshape(self.n_coords, 0),
-                'reduced_masses': np.array([]),
-                'force_constants': np.array([]),
+                'frequencies': [],
+                'normal_modes': [],
+                'reduced_masses': [],
+                'force_constants': [],
                 'zpe': 0.0,
-                'hessian': hessian,
+                'hessian': hessian.tolist() if hasattr(hessian, 'tolist') else hessian,
                 'n_imaginary': 0
             }
 
@@ -423,12 +423,12 @@ class FrequencyCalculator:
             print("=" * 70)
 
         return {
-            'frequencies': frequencies,
-            'normal_modes': vib_eigenvectors,
-            'reduced_masses': reduced_masses,
-            'force_constants': force_constants,
-            'zpe': zpe,
-            'hessian': hessian,
-            'n_imaginary': n_imaginary,
+            'frequencies': frequencies.tolist() if hasattr(frequencies, 'tolist') else frequencies,
+            'normal_modes': vib_eigenvectors.tolist() if hasattr(vib_eigenvectors, 'tolist') else vib_eigenvectors,
+            'reduced_masses': reduced_masses.tolist() if hasattr(reduced_masses, 'tolist') else reduced_masses,
+            'force_constants': force_constants.tolist() if hasattr(force_constants, 'tolist') else force_constants,
+            'zpe': float(zpe) if hasattr(zpe, 'item') else zpe,
+            'hessian': hessian.tolist() if hasattr(hessian, 'tolist') else hessian,
+            'n_imaginary': int(n_imaginary) if hasattr(n_imaginary, 'item') else n_imaginary,
             'method': method
         }

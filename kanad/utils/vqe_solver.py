@@ -62,7 +62,8 @@ class VQESolver(BaseSolver):
         shots: Optional[int] = None,
         enable_analysis: bool = True,
         enable_optimization: bool = True,
-        experiment_id: Optional[str] = None,  # For WebSocket broadcasting
+        experiment_id: Optional[str] = None,  # For WebSocket broadcasting and cancellation
+        job_id: Optional[str] = None,  # For cancellation checking
         callback: Optional[Callable] = None,  # Progress callback
         **kwargs
     ):
@@ -140,8 +141,9 @@ class VQESolver(BaseSolver):
         self.backend = self.backend_name  # Alias for backward compatibility
         self.shots = shots if shots is not None else 1024
 
-        # Store experiment_id for WebSocket broadcasting
+        # Store experiment_id and job_id for WebSocket broadcasting and cancellation
         self.experiment_id = experiment_id
+        self.job_id = job_id
 
         # Store callback (don't pass to backend via kwargs)
         self._callback = callback
@@ -723,7 +725,7 @@ class VQESolver(BaseSolver):
                     print(f"✅ IBM job submitted: {job_id}")
                     print(f"🔗 Track job at: https://quantum.ibm.com/jobs/{job_id}")
 
-                # Wait for job to complete
+                # Wait for job to complete with cancellation checking
                 job = self._ibm_backend.service.job(job_id)
                 logger.info(f"Waiting for IBM job {job_id}...")
 
@@ -736,7 +738,51 @@ class VQESolver(BaseSolver):
                 else:
                     print(f"⏳ Waiting for IBM job to complete...")
 
-                job_result = job.result()
+                # Poll job status with cancellation checks (instead of blocking job.result())
+                import time
+                poll_interval = 5  # Check every 5 seconds
+                job_result = None
+
+                while True:
+                    # Check for cancellation FIRST before checking job status
+                    if self.experiment_id and self.job_id:
+                        try:
+                            from api.services.experiment_service import check_cancellation
+                            check_cancellation(self.experiment_id, self.job_id)
+                        except Exception as cancel_error:
+                            # Cancellation detected - cancel IBM job and raise
+                            logger.warning(f"Cancellation detected, cancelling IBM job {job_id}...")
+                            try:
+                                from api.utils import broadcast_log_sync
+                                broadcast_log_sync(self.experiment_id, f"🚫 Cancelling IBM job {job_id}...")
+                            except:
+                                pass
+
+                            try:
+                                self._ibm_backend.cancel_job(job_id)
+                                logger.info(f"IBM job {job_id} cancelled successfully")
+                            except Exception as e:
+                                logger.error(f"Failed to cancel IBM job {job_id}: {e}")
+
+                            # Re-raise the cancellation exception
+                            raise cancel_error
+
+                    # Check job status
+                    status = self._ibm_backend.get_job_status(job_id)
+                    logger.debug(f"IBM job {job_id} status: {status}")
+
+                    # Check if job is done (handles different status formats)
+                    status_upper = str(status).upper()
+                    if 'DONE' in status_upper or 'COMPLETED' in status_upper:
+                        logger.info(f"IBM job {job_id} completed, retrieving result...")
+                        job_result = job.result()
+                        break
+                    elif 'ERROR' in status_upper or 'CANCELLED' in status_upper or 'FAILED' in status_upper:
+                        logger.error(f"IBM job {job_id} failed with status: {status}")
+                        raise RuntimeError(f"IBM job failed: {status}")
+
+                    # Job still running, wait before next poll
+                    time.sleep(poll_interval)
 
                 # Extract energy from Estimator result
                 # Handle both V1 and V2 primitive formats
@@ -755,6 +801,12 @@ class VQESolver(BaseSolver):
                 return energy
 
             except Exception as e:
+                # Check if this is a cancellation exception - if so, re-raise it
+                if 'ExperimentCancelledException' in type(e).__name__ or 'cancelled' in str(e).lower():
+                    logger.warning(f"🚫 Cancellation detected during IBM backend execution - stopping")
+                    raise  # Re-raise cancellation exception to stop optimizer
+
+                # For other errors, fall back to statevector
                 logger.error(f"IBM backend execution failed: {e}")
                 logger.warning("Falling back to statevector simulation")
                 return self._compute_energy_statevector(parameters)
@@ -783,36 +835,57 @@ class VQESolver(BaseSolver):
                         use_shots = None  # Force statevector mode
                         logger.info(f"Using statevector mode for {device} (more accurate than sampling)")
 
-                # Submit to BlueQubit (synchronous for VQE iterations)
-                result = self._bluequbit_backend.run_circuit(
+                # Submit to BlueQubit (asynchronous to allow cancellation)
+                job_info = self._bluequbit_backend.run_circuit(
                     circuit=bound_circuit,
                     shots=use_shots,  # None = statevector mode
-                    asynchronous=False
+                    asynchronous=True  # Changed to async for cancellation support
                 )
 
-                # Log job ID if available and broadcast to frontend
-                if 'job_id' in result:
-                    job_id = result['job_id']
-                    if self.experiment_id:
-                        try:
-                            from api.utils import broadcast_log_sync
-                            broadcast_log_sync(self.experiment_id, f"✅ BlueQubit job submitted: {job_id}")
-                            broadcast_log_sync(self.experiment_id, f"🔗 Track job at: https://app.bluequbit.io/jobs/{job_id}")
-                        except Exception:
-                            print(f"✅ BlueQubit job submitted: {job_id}")
-                            print(f"🔗 Track job at: https://app.bluequbit.io/jobs/{job_id}")
-                    else:
+                job_id = job_info['job_id']
+                logger.info(f"BlueQubit job submitted: {job_id}")
+
+                # Broadcast job submission
+                if self.experiment_id:
+                    try:
+                        from api.utils import broadcast_log_sync
+                        broadcast_log_sync(self.experiment_id, f"✅ BlueQubit job submitted: {job_id}")
+                        broadcast_log_sync(self.experiment_id, f"🔗 Track job at: https://app.bluequbit.io/jobs/{job_id}")
+                        broadcast_log_sync(self.experiment_id, f"⏳ Waiting for BlueQubit job to complete...")
+                    except Exception:
                         print(f"✅ BlueQubit job submitted: {job_id}")
                         print(f"🔗 Track job at: https://app.bluequbit.io/jobs/{job_id}")
                 else:
-                    if self.experiment_id:
+                    print(f"✅ BlueQubit job submitted: {job_id}")
+                    print(f"🔗 Track job at: https://app.bluequbit.io/jobs/{job_id}")
+
+                # Check for cancellation before waiting for job
+                # (Note: BlueQubit's wait_for_job is blocking, so we check before calling it)
+                if self.experiment_id and self.job_id:
+                    try:
+                        from api.services.experiment_service import check_cancellation
+                        check_cancellation(self.experiment_id, self.job_id)
+                    except Exception as cancel_error:
+                        # Cancellation detected - cancel BlueQubit job and raise
+                        logger.warning(f"Cancellation detected, cancelling BlueQubit job {job_id}...")
                         try:
                             from api.utils import broadcast_log_sync
-                            broadcast_log_sync(self.experiment_id, f"✅ BlueQubit job completed")
-                        except Exception:
-                            print(f"✅ BlueQubit job completed")
-                    else:
-                        print(f"✅ BlueQubit job completed")
+                            broadcast_log_sync(self.experiment_id, f"🚫 Cancelling BlueQubit job {job_id}...")
+                        except:
+                            pass
+
+                        try:
+                            self._bluequbit_backend.cancel_job(job_id)
+                            logger.info(f"BlueQubit job {job_id} cancelled successfully")
+                        except Exception as e:
+                            logger.error(f"Failed to cancel BlueQubit job {job_id}: {e}")
+
+                        # Re-raise the cancellation exception
+                        raise cancel_error
+
+                # Wait for job to complete (blocking call)
+                result = self._bluequbit_backend.wait_for_job(job_id)
+                logger.info(f"BlueQubit job {job_id} completed successfully")
 
                 # Extract statevector or counts
                 if 'statevector' in result:
@@ -842,6 +915,12 @@ class VQESolver(BaseSolver):
                 return energy
 
             except Exception as e:
+                # Check if this is a cancellation exception - if so, re-raise it
+                if 'ExperimentCancelledException' in type(e).__name__ or 'cancelled' in str(e).lower():
+                    logger.warning(f"🚫 Cancellation detected during BlueQubit backend execution - stopping")
+                    raise  # Re-raise cancellation exception to stop optimizer
+
+                # For other errors, fall back to statevector
                 logger.error(f"BlueQubit backend execution failed: {e}")
                 logger.warning("Falling back to statevector simulation")
                 return self._compute_energy_statevector(parameters)
@@ -965,9 +1044,15 @@ class VQESolver(BaseSolver):
             try:
                 self._callback(self.iteration_count, energy, parameters)
             except Exception as e:
-                print(f"⚠️ Callback failed: {e}")
-                import traceback
-                traceback.print_exc()
+                # Check if this is a cancellation exception - if so, re-raise it to stop optimizer
+                if 'ExperimentCancelledException' in type(e).__name__ or 'cancelled' in str(e).lower():
+                    logger.warning(f"🚫 Experiment cancelled - stopping optimizer")
+                    raise  # Re-raise to stop optimizer
+                else:
+                    # For other callback errors, log but don't stop the optimizer
+                    print(f"⚠️ Callback failed: {e}")
+                    import traceback
+                    traceback.print_exc()
         elif self.iteration_count == 1:
             # Debug: print on first iteration if callback is missing
             print(f"🔍 DEBUG: _callback exists={hasattr(self, '_callback')}, is None={getattr(self, '_callback', 'MISSING') is None}")
@@ -1161,6 +1246,67 @@ class VQESolver(BaseSolver):
 
         if not validation['passed']:
             logger.warning("VQE results failed validation checks!")
+
+        # ADD ENHANCED DATA FOR ANALYSIS SERVICE
+        try:
+            # Store molecule geometry for ADME and other analyses
+            if self.molecule is not None:
+                self.results['geometry'] = [
+                    (atom.symbol, tuple(atom.position))
+                    for atom in self.molecule.atoms
+                ]
+                self.results['atoms'] = [atom.symbol for atom in self.molecule.atoms]
+                self.results['n_atoms'] = self.molecule.n_atoms
+                self.results['n_electrons'] = self.molecule.n_electrons
+                self.results['charge'] = getattr(self.molecule, 'charge', 0)
+                self.results['multiplicity'] = getattr(self.molecule, 'multiplicity', 1)
+                logger.info(f"✅ Stored molecule geometry for analysis")
+
+            # Store nuclear repulsion energy
+            if hasattr(self.hamiltonian, 'nuclear_repulsion'):
+                self.results['nuclear_repulsion'] = float(self.hamiltonian.nuclear_repulsion)
+
+            # Try to get density matrix from HF reference
+            try:
+                if hasattr(self.hamiltonian, 'mf'):
+                    # PySCF mean-field object has density matrix
+                    if hasattr(self.hamiltonian.mf, 'make_rdm1'):
+                        rdm1 = self.hamiltonian.mf.make_rdm1()
+                        self.results['rdm1'] = rdm1.tolist()
+                        logger.info(f"✅ Stored RDM1 for bonding analysis")
+            except Exception as e:
+                logger.warning(f"Could not extract RDM1: {e}")
+
+            # Try to get orbital energies
+            try:
+                logger.info(f"🔍 Checking hamiltonian for orbital energies: hasattr(mf)={hasattr(self.hamiltonian, 'mf')}")
+                if hasattr(self.hamiltonian, 'mf'):
+                    logger.info(f"🔍 Hamiltonian has mf attribute, checking mo_energy: hasattr(mo_energy)={hasattr(self.hamiltonian.mf, 'mo_energy')}")
+                    if hasattr(self.hamiltonian.mf, 'mo_energy'):
+                        orb_energies = self.hamiltonian.mf.mo_energy
+                        logger.info(f"🔍 Found orbital energies: shape={orb_energies.shape}, dtype={orb_energies.dtype}")
+                        self.results['orbital_energies'] = orb_energies.tolist()
+                        logger.info(f"✅ Stored orbital energies for DOS analysis")
+                    else:
+                        logger.warning(f"⚠️  Hamiltonian.mf does not have mo_energy attribute")
+                else:
+                    logger.warning(f"⚠️  Hamiltonian does not have mf attribute (type: {type(self.hamiltonian).__name__})")
+            except Exception as e:
+                logger.warning(f"Could not extract orbital energies: {e}")
+
+            # Try to get dipole moment
+            try:
+                if hasattr(self.hamiltonian, 'mf'):
+                    from pyscf import scf
+                    if hasattr(scf, 'hf') and hasattr(scf.hf, 'dip_moment'):
+                        dipole = scf.hf.dip_moment(self.hamiltonian.mf.mol, self.hamiltonian.mf.make_rdm1())
+                        self.results['dipole'] = dipole.tolist()
+                        logger.info(f"✅ Stored dipole moment")
+            except Exception as e:
+                logger.warning(f"Could not calculate dipole: {e}")
+
+        except Exception as e:
+            logger.error(f"Error storing enhanced data: {e}")
 
         logger.info(f"VQE optimization complete: {result.success}, {self.iteration_count} iterations")
 

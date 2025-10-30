@@ -28,15 +28,12 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
-  // Main calculation type: "ground" or "excited"
-  const [calculationType, setCalculationType] = useState<"ground" | "excited">("ground");
+  // Method: VQE, HF, SQD (ground state only - excited states in Advanced Analysis)
+  const [method, setMethod] = useState("VQE");
 
-  // Ground State Methods: VQE, HF, SQD, QPE
-  const [groundMethod, setGroundMethod] = useState("VQE");
-
-  // Excited State Methods: VQE, SQD, CIS, TDDFT
-  const [excitedMethod, setExcitedMethod] = useState("cis");
-  const [excitedNStates, setExcitedNStates] = useState(5);
+  // Advanced Analysis (optional - runs during experiment if enabled)
+  const [advancedAnalysisEnabled, setAdvancedAnalysisEnabled] = useState(false);
+  const [advancedAnalysisProfile, setAdvancedAnalysisProfile] = useState<string | null>(null);
 
   // Common settings
   const [ansatz, setAnsatz] = useState(DEFAULT_SETTINGS.ansatz);
@@ -88,20 +85,7 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
       try {
         const settings = await api.getSettings();
 
-        // Determine calculation type from saved method
-        if (settings.calculationType) {
-          setCalculationType(settings.calculationType);
-        } else if (settings.method === "EXCITED_STATES") {
-          setCalculationType("excited");
-        } else {
-          setCalculationType("ground");
-        }
-
-        // Set ground state method
-        if (settings.method && settings.method !== "EXCITED_STATES") {
-          setGroundMethod(settings.method);
-        }
-
+        setMethod(settings.method || DEFAULT_SETTINGS.method);
         setAnsatz(settings.ansatz || DEFAULT_SETTINGS.ansatz);
         setMapper(settings.mapper || DEFAULT_SETTINGS.mapper);
         setOptimizer(settings.optimizer || DEFAULT_SETTINGS.optimizer);
@@ -114,10 +98,12 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
         setSubspaceDim(settings.subspaceDim || 10);
         setCircuitDepth(settings.circuitDepth || 3);
         setNStates(settings.nStates || 3);
-        setExcitedMethod(settings.excitedMethod || "cis");
-        setExcitedNStates(settings.excitedNStates || 5);
         setOptimization(settings.optimization || DEFAULT_SETTINGS.optimization);
         setAnalysis(settings.analysis || analysis);
+
+        // Load advanced analysis settings
+        setAdvancedAnalysisEnabled(settings.advancedAnalysisEnabled || false);
+        setAdvancedAnalysisProfile(settings.advancedAnalysisProfile || null);
       } catch (error) {
         console.error("Failed to load settings from API:", error);
         // Fallback to localStorage
@@ -126,29 +112,23 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
           try {
             const settings = JSON.parse(saved);
 
-            // Determine calculation type from saved method
-            if (settings.calculationType) {
-              setCalculationType(settings.calculationType);
-            } else if (settings.method === "EXCITED_STATES") {
-              setCalculationType("excited");
-            } else {
-              setCalculationType("ground");
-            }
-
-            // Set ground state method
-            if (settings.method && settings.method !== "EXCITED_STATES") {
-              setGroundMethod(settings.method);
-            }
-
+            setMethod(settings.method || DEFAULT_SETTINGS.method);
             setAnsatz(settings.ansatz || DEFAULT_SETTINGS.ansatz);
             setMapper(settings.mapper || DEFAULT_SETTINGS.mapper);
             setOptimizer(settings.optimizer || DEFAULT_SETTINGS.optimizer);
             setBackend(settings.backend || DEFAULT_SETTINGS.backend);
             setBackendName(settings.backendName || DEFAULT_SETTINGS.backendName);
+            setBluequbitDevice(settings.bluequbitDevice || "gpu");
             setHamiltonian(settings.hamiltonian || "molecular");
             setBasisSet(settings.basisSet || "sto-3g");
             setMaxIterations(settings.maxIterations || DEFAULT_SETTINGS.maxIterations);
+            setSubspaceDim(settings.subspaceDim || 10);
+            setCircuitDepth(settings.circuitDepth || 3);
+            setNStates(settings.nStates || 3);
             setOptimization(settings.optimization || DEFAULT_SETTINGS.optimization);
+            setAnalysis(settings.analysis || analysis);
+            setAdvancedAnalysisEnabled(settings.advancedAnalysisEnabled || false);
+            setAdvancedAnalysisProfile(settings.advancedAnalysisProfile || null);
           } catch (e) {
             console.error("Failed to parse localStorage settings:", e);
           }
@@ -161,12 +141,8 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
   }, [isOpen]);
 
   const handleSave = async () => {
-    // Determine the actual method based on calculation type
-    const actualMethod = calculationType === "ground" ? groundMethod : "EXCITED_STATES";
-
     const settings = {
-      calculationType, // NEW: store the type
-      method: actualMethod,
+      method,
       ansatz,
       mapper,
       optimizer,
@@ -179,10 +155,10 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
       subspaceDim,
       circuitDepth,
       nStates,
-      excitedMethod: calculationType === "excited" ? excitedMethod : undefined,
-      excitedNStates: calculationType === "excited" ? excitedNStates : undefined,
       optimization,
       analysis,
+      advancedAnalysisEnabled,
+      advancedAnalysisProfile,
     };
 
     try {
@@ -223,103 +199,27 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6 space-y-6">
-          {/* Calculation Type Selection */}
+          {/* Method Selection */}
           <div>
             <h3 className="text-lg font-quando font-semibold mb-3">
-              Calculation Type
+              Method
             </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => setCalculationType("ground")}
-                className={`p-4 border-2 rounded-lg transition ${
-                  calculationType === "ground"
-                    ? "border-brand-orange bg-brand-orange/10"
-                    : "border-border hover:border-brand-orange/50"
-                }`}
-              >
-                <div className="font-quando font-semibold">Ground State</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Lowest energy state
-                </div>
-              </button>
-              <button
-                onClick={() => setCalculationType("excited")}
-                className={`p-4 border-2 rounded-lg transition ${
-                  calculationType === "excited"
-                    ? "border-brand-orange bg-brand-orange/10"
-                    : "border-border hover:border-brand-orange/50"
-                }`}
-              >
-                <div className="font-quando font-semibold">Excited States</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Higher energy states
-                </div>
-              </button>
-            </div>
+            <select
+              value={method}
+              onChange={(e) => setMethod(e.target.value)}
+              className="w-full px-4 py-3 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+            >
+              <option value="VQE">VQE - Variational Quantum Eigensolver</option>
+              <option value="HF">HF - Hartree-Fock (Classical)</option>
+              <option value="SQD">SQD - Subspace Quantum Diagonalization</option>
+            </select>
+            <p className="text-xs text-muted-foreground mt-2">
+              All methods compute ground state. For excited states, enable Advanced Analysis below.
+            </p>
           </div>
 
-          {/* Ground State Method Selection */}
-          {calculationType === "ground" && (
-            <div>
-              <h3 className="text-lg font-quando font-semibold mb-3">
-                Ground State Method
-              </h3>
-              <select
-                value={groundMethod}
-                onChange={(e) => setGroundMethod(e.target.value)}
-                className="w-full px-4 py-3 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
-              >
-                <option value="VQE">VQE - Variational Quantum Eigensolver</option>
-                <option value="HF">HF - Hartree-Fock (Classical)</option>
-                <option value="SQD">SQD - Subspace Quantum Diagonalization</option>
-                <option value="QPE">QPE - Quantum Phase Estimation</option>
-              </select>
-            </div>
-          )}
-
-          {/* Excited State Method Selection */}
-          {calculationType === "excited" && (
-            <>
-              <div>
-                <h3 className="text-lg font-quando font-semibold mb-3">
-                  Excited States Method
-                </h3>
-                <select
-                  value={excitedMethod}
-                  onChange={(e) => setExcitedMethod(e.target.value)}
-                  className="w-full px-4 py-3 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
-                >
-                  <option value="cis">CIS - Configuration Interaction Singles (Recommended)</option>
-                  <option value="sqd">SQD - Subspace Quantum Diagonalization</option>
-                  <option value="tddft">TDDFT - Time-Dependent DFT</option>
-                </select>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {excitedMethod === "cis" && "✅ Fast, accurate for small-medium molecules. Classical computation."}
-                  {excitedMethod === "sqd" && "✅ Excellent for excited states. Lower circuit depth, quantum-based."}
-                  {excitedMethod === "tddft" && "✅ More accurate for larger systems. Classical computation."}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-quando font-medium mb-2">
-                  Number of Excited States
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={excitedNStates}
-                  onChange={(e) => setExcitedNStates(parseInt(e.target.value))}
-                  className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Number of excited states to compute (ground state + {excitedNStates} excited = {excitedNStates + 1} total)
-                </p>
-              </div>
-            </>
-          )}
-
           {/* VQE Settings */}
-          {(calculationType === "ground" && groundMethod === "VQE") && (
+          {method === "VQE" && (
             <div className="bg-card border border-border rounded-lg p-6 space-y-4">
               <h3 className="text-lg font-quando font-semibold">
                 VQE Configuration
@@ -468,7 +368,7 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
           )}
 
           {/* SQD Settings */}
-          {((calculationType === "ground" && groundMethod === "SQD") || (calculationType === "excited" && excitedMethod === "sqd")) && (
+          {method === "SQD" && (
             <div className="bg-card border border-border rounded-lg p-6 space-y-4">
               <h3 className="text-lg font-quando font-semibold">
                 SQD Configuration
@@ -615,6 +515,51 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
             </div>
           </div>
 
+          {/* Advanced Analysis */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h3 className="text-lg font-quando font-semibold mb-3">
+              Advanced Analysis
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Run domain-specific advanced analysis during experiment (excited states, ADME, NMR, etc.)
+            </p>
+
+            <label className="flex items-center cursor-pointer mb-4">
+              <input
+                type="checkbox"
+                checked={advancedAnalysisEnabled}
+                onChange={(e) => setAdvancedAnalysisEnabled(e.target.checked)}
+                className="mr-3"
+              />
+              <span className="font-quando text-sm font-medium">Enable Advanced Analysis</span>
+            </label>
+
+            {advancedAnalysisEnabled && (
+              <div>
+                <label className="block text-sm font-quando font-medium mb-2">
+                  Analysis Profile
+                </label>
+                <select
+                  value={advancedAnalysisProfile || ""}
+                  onChange={(e) => setAdvancedAnalysisProfile(e.target.value || null)}
+                  className="w-full px-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando"
+                >
+                  <option value="">Select a profile...</option>
+                  <option value="drug_discovery">Drug Discovery - ADME Properties</option>
+                  <option value="spectroscopy">Spectroscopy - UV-Vis, NMR, Excited States</option>
+                  <option value="materials">Materials Science - Density of States</option>
+                  <option value="catalysis">Catalysis - Transition State Analysis</option>
+                </select>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {advancedAnalysisProfile === "drug_discovery" && "📊 Molecular weight, LogP, BBB permeability, drug-likeness"}
+                  {advancedAnalysisProfile === "spectroscopy" && "🌈 UV-Vis spectra, excited states, vibrational frequencies"}
+                  {advancedAnalysisProfile === "materials" && "⚡ Electronic density of states, band structure"}
+                  {advancedAnalysisProfile === "catalysis" && "🔬 Vibrational frequencies, transition state verification"}
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Optimization Settings */}
           <div>
             <h3 className="text-lg font-quando font-semibold mb-3">
@@ -646,7 +591,7 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
           </div>
 
           {/* Analysis Configuration */}
-          <div className="bg-card border border-border rounded-lg p-6">
+          {/* <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="text-lg font-quando font-semibold mb-3">
               Analysis Options
             </h3>
@@ -732,7 +677,7 @@ export default function SettingsModal({ isOpen, onClose, onSave }: SettingsModal
                 <span className="font-quando text-sm">Vibrational Analysis</span>
               </label>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Footer */}

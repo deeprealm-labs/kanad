@@ -8,6 +8,12 @@ import os
 import sys
 from typing import Optional
 from contextlib import asynccontextmanager
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file in project root
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path, override=True)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,7 +35,10 @@ from api.routes import (
     configuration,
     campaigns,
     circuits,
-    websockets
+    websockets,
+    auth,  # Authentication routes
+    admin,  # Admin dashboard routes
+    users,  # User profile and account management
 )
 from api.core.config import get_settings
 from api.core.database import init_db, cleanup_stuck_experiments
@@ -57,10 +66,15 @@ async def lifespan(app: FastAPI):
     # Clean up stuck experiments from previous session
     cleanup_stuck_experiments()
 
+    # Start rate limit cleanup task
+    from api.middleware.rate_limit import start_cleanup_task, stop_cleanup_task
+    start_cleanup_task()
+
     yield
 
     # Shutdown
     print("👋 Shutting down Kanad API Server")
+    stop_cleanup_task()
 
 
 # Create FastAPI app
@@ -71,6 +85,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Security middleware
+from api.middleware.security import SecurityHeadersMiddleware, RequestLoggingMiddleware
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+
 # CORS configuration
 config = get_settings()
 app.add_middleware(
@@ -79,11 +99,19 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
 )
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(websockets.router, prefix="/api", tags=["WebSockets"])  # WebSocket endpoint
+
+# Authentication & Admin routes (public)
+app.include_router(auth.router, prefix="/api", tags=["Authentication"])
+app.include_router(admin.router, prefix="/api", tags=["Admin"])
+app.include_router(users.router, prefix="/api", tags=["Users"])
+
+# Application routes
 app.include_router(molecules.router, prefix="/api/molecules", tags=["Molecules"])
 app.include_router(experiments.router, prefix="/api/experiments", tags=["Experiments"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])

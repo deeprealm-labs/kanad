@@ -15,14 +15,24 @@ async function apiCall<T = any>(endpoint: string, options?: RequestInit): Promis
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
 
+  // Get access token from localStorage for authenticated requests
+  const accessToken = typeof window !== 'undefined' ? localStorage.getItem('kanad_access_token') : null;
+
   try {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    };
+
+    // Add Authorization header if token exists
+    if (accessToken) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
+      headers,
     });
 
     clearTimeout(timeoutId);
@@ -172,6 +182,48 @@ export async function getExperimentStatistics() {
   };
 }
 
+// ===== ANALYSIS =====
+
+export async function getBondAnalysis(experimentId: string) {
+  return apiCall(`/analysis/${experimentId}/bond-analysis`);
+}
+
+export async function getEnergyDecomposition(experimentId: string) {
+  return apiCall(`/analysis/${experimentId}/energy-decomposition`);
+}
+
+export async function getFullAnalysis(experimentId: string) {
+  return apiCall(`/analysis/${experimentId}/full-analysis`);
+}
+
+export async function compareExperiments(experimentIds: string[]) {
+  return apiCall("/analysis/compare", {
+    method: "POST",
+    body: JSON.stringify({ experiment_ids: experimentIds }),
+  });
+}
+
+// ===== ADVANCED ANALYSIS (AnalysisService) =====
+
+export async function getAnalysisProfiles() {
+  return apiCall("/analysis/profiles");
+}
+
+export async function getAnalysisModules() {
+  return apiCall("/analysis/modules");
+}
+
+export async function runAdvancedAnalysis(experimentId: string, profileName: string) {
+  return apiCall(`/analysis/${experimentId}/run-analysis`, {
+    method: "POST",
+    body: JSON.stringify({ profile: profileName }),
+  });
+}
+
+export async function getAnalysisResults(experimentId: string) {
+  return apiCall(`/analysis/${experimentId}/results`);
+}
+
 // ===== JOBS =====
 
 export async function listJobs(status?: string) {
@@ -264,6 +316,10 @@ export async function cancelCampaign(campaignId: string) {
   return apiCall(`/campaigns/${campaignId}/cancel`, {
     method: "POST",
   });
+}
+
+export async function getCampaignResults(campaignId: string) {
+  return apiCall(`/campaigns/${campaignId}/results`);
 }
 
 export function pollCampaignProgress(
@@ -417,6 +473,248 @@ export function createWebSocket(experimentId: string): WebSocket {
   const fullWsUrl = `${wsUrl}/ws/experiments/${experimentId}`;
   console.log("🔌 Creating WebSocket connection to:", fullWsUrl);
   return new WebSocket(fullWsUrl);
+}
+
+// ===== AUTHENTICATION =====
+
+export async function register(data: {
+  email: string;
+  password: string;
+  full_name: string;
+  access_key: string;
+}) {
+  return apiCall("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function verifyOTP(data: {
+  email: string;
+  otp: string;
+}) {
+  return apiCall("/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function login(data: {
+  email: string;
+  password: string;
+}) {
+  return apiCall("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function refreshToken(refreshToken: string) {
+  return apiCall("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+}
+
+export async function logout(refreshToken: string) {
+  return apiCall("/auth/logout", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+}
+
+export async function requestPasswordReset(email: string) {
+  return apiCall("/auth/request-password-reset", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(data: {
+  email: string;
+  otp: string;
+  new_password: string;
+}) {
+  return apiCall("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function googleAuth(credential: string) {
+  return apiCall("/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ id_token: credential }),
+  });
+}
+
+export async function getAuthStatus() {
+  return apiCall("/auth/status");
+}
+
+// ===== USER PROFILE & ACCOUNT MANAGEMENT =====
+
+export async function getUserProfile() {
+  return apiCall("/users/me");
+}
+
+export async function updateUserProfile(data: {
+  full_name?: string;
+  avatar_url?: string;
+}) {
+  return apiCall("/users/me", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function changePassword(data: {
+  current_password: string;
+  new_password: string;
+}) {
+  return apiCall("/users/change-password", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getUserStatistics() {
+  return apiCall("/users/me/statistics");
+}
+
+export async function getUserSessions() {
+  return apiCall("/users/me/sessions");
+}
+
+export async function revokeSession(sessionId: number) {
+  return apiCall(`/users/me/sessions/${sessionId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function deleteAccount() {
+  return apiCall("/users/me", {
+    method: "DELETE",
+  });
+}
+
+// ===== ADMIN: ACCESS KEY MANAGEMENT =====
+
+export async function createAccessKey(data: {
+  description?: string;
+  max_uses: number;
+  expires_in_days?: number;
+}) {
+  return apiCall("/admin/keys", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function listAccessKeys(activeOnly: boolean = false) {
+  return apiCall(`/admin/keys?active_only=${activeOnly}`);
+}
+
+export async function getAccessKey(keyId: number) {
+  return apiCall(`/admin/keys/${keyId}`);
+}
+
+export async function deactivateAccessKey(keyId: number) {
+  return apiCall(`/admin/keys/${keyId}/deactivate`, {
+    method: "PUT",
+  });
+}
+
+export async function deleteAccessKey(keyId: number) {
+  return apiCall(`/admin/keys/${keyId}`, {
+    method: "DELETE",
+  });
+}
+
+// ===== ADMIN: USER MANAGEMENT =====
+
+export async function listUsers(params?: {
+  role?: string;
+  verified_only?: boolean;
+  active_only?: boolean;
+  skip?: number;
+  limit?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.role) query.append("role", params.role);
+  if (params?.verified_only) query.append("verified_only", "true");
+  if (params?.active_only !== undefined) query.append("active_only", params.active_only.toString());
+  if (params?.skip) query.append("skip", params.skip.toString());
+  if (params?.limit) query.append("limit", params.limit.toString());
+
+  return apiCall(`/admin/users?${query.toString()}`);
+}
+
+export async function getUser(userId: number) {
+  return apiCall(`/admin/users/${userId}`);
+}
+
+export async function updateUser(userId: number, data: {
+  role?: string;
+  is_active?: boolean;
+  is_verified?: boolean;
+}) {
+  return apiCall(`/admin/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function createUser(data: {
+  email: string;
+  full_name: string;
+  role?: string;
+  send_credentials?: boolean;
+}) {
+  return apiCall("/admin/users", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteUser(userId: number) {
+  return apiCall(`/admin/users/${userId}`, {
+    method: "DELETE",
+  });
+}
+
+// ===== ADMIN: LIVE MONITORING =====
+
+export async function getLiveExperiments() {
+  return apiCall("/admin/experiments/live");
+}
+
+export async function getRecentExperiments(limit: number = 50) {
+  return apiCall(`/admin/experiments/recent?limit=${limit}`);
+}
+
+// ===== ADMIN: USAGE TRACKING =====
+
+export async function getUsageByBackend(days: number = 30) {
+  return apiCall(`/admin/usage/by-backend?days=${days}`);
+}
+
+export async function getUsageByUser(days: number = 30, limit: number = 10) {
+  return apiCall(`/admin/usage/by-user?days=${days}&limit=${limit}`);
+}
+
+export async function getUsageTimeline(days: number = 30) {
+  return apiCall(`/admin/usage/timeline?days=${days}`);
+}
+
+// ===== ADMIN: SYSTEM STATISTICS =====
+
+export async function getSystemStats() {
+  return apiCall("/admin/stats/overview");
+}
+
+export async function getGrowthStats(days: number = 30) {
+  return apiCall(`/admin/stats/growth?days=${days}`);
 }
 
 // ===== HEALTH =====

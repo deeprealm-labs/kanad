@@ -275,6 +275,10 @@ export default function DashboardPage() {
         }}
         onBack={() => setCurrentStep("home")}
         onQueueAnother={() => setCurrentStep("create")}
+        onCancel={async () => {
+          // Refresh experiment list when cancelled
+          await loadExperiments();
+        }}
       />
     );
   }
@@ -290,6 +294,7 @@ export default function DashboardPage() {
         setCurrentStep("running");
       }}
       experiments={experiments}
+      onRefresh={loadExperiments}
     />
        
 

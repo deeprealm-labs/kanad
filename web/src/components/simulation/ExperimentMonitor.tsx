@@ -34,6 +34,7 @@ interface ExperimentMonitorProps {
   onComplete: () => void;
   onBack: () => void;
   onQueueAnother?: () => void;
+  onCancel?: () => void;
 }
 
 export default function ExperimentMonitor({
@@ -42,6 +43,7 @@ export default function ExperimentMonitor({
   onComplete,
   onBack,
   onQueueAnother,
+  onCancel,
 }: ExperimentMonitorProps) {
   const [status, setStatus] = useState<ExperimentStatus>("queued");
   const [progress, setProgress] = useState(0);
@@ -370,9 +372,13 @@ export default function ExperimentMonitor({
         if (exp.status === "completed" || exp.status === "failed" || exp.status === "cancelled") {
           console.log("Stopping polling - experiment done, results processed");
 
-          // Reset cancelling flag if experiment was cancelled
+          // Reset cancelling flag and notify parent if experiment was cancelled
           if (exp.status === "cancelled") {
             setIsCancelling(false);
+            // Notify parent component so it can refresh experiment list
+            if (onCancel) {
+              onCancel();
+            }
           }
 
           if (pollingRef.current) {
@@ -403,8 +409,14 @@ export default function ExperimentMonitor({
             const exp = response.experiment || response;
             console.log("📊 Received results:", exp.results);
             console.log("📊 Has analysis in results?", !!exp.results?.analysis);
+            console.log("📊 Has advanced_analysis in results?", !!exp.results?.advanced_analysis);
             if (exp.results?.analysis) {
               console.log("📊 Analysis keys:", Object.keys(exp.results.analysis));
+            }
+            if (exp.results?.advanced_analysis) {
+              console.log("📊 Advanced analysis profile:", exp.results.advanced_analysis.profile);
+              console.log("📊 Advanced analysis status:", exp.results.advanced_analysis.status);
+              console.log("📊 Advanced analysis results:", exp.results.advanced_analysis.results);
             }
 
             if (exp.results) {
@@ -583,7 +595,20 @@ export default function ExperimentMonitor({
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-quando font-bold">Experiment Monitor</h1>
+          <div>
+            <h1 className="text-xl font-quando font-bold">Experiment Monitor</h1>
+            {(experiment?.molecule || experimentConfig?.molecule) && (
+              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                <span className="font-mono">
+                  {experiment?.molecule?.smiles || experimentConfig?.molecule?.smiles || "Custom Molecule"}
+                </span>
+                <span>•</span>
+                <span>{experiment?.method || experimentConfig?.method || "VQE"}</span>
+                <span>•</span>
+                <span>{experiment?.backend || experimentConfig?.backend || "Classical"}</span>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">

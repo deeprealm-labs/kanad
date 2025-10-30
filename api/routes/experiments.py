@@ -2,13 +2,15 @@
 Experiment submission and management endpoints
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import uuid
 
 from api.core.database import ExperimentDB, JobDB
 from api.services.experiment_service import execute_experiment
+from api.dependencies.auth import get_optional_user, get_current_verified_user
+from api.core.database_postgres import User
 
 router = APIRouter()
 
@@ -38,7 +40,11 @@ class BackendConfig(BaseModel):
     backend_name: Optional[str] = None
     bluequbit_device: Optional[str] = "gpu"  # BlueQubit device: cpu, gpu, mps.cpu, mps.gpu, pauli-path
 
-    # Excited States specific fields
+    # Advanced Analysis fields
+    advancedAnalysisEnabled: Optional[bool] = False
+    advancedAnalysisProfile: Optional[str] = None
+
+    # Excited States specific fields (DEPRECATED - use Advanced Analysis with spectroscopy profile)
     excited_method: Optional[str] = "cis"  # cis, tddft, vqe
     excited_n_states: Optional[int] = 5  # Number of excited states to compute
 
@@ -79,12 +85,14 @@ class ExperimentSubmitRequest(BaseModel):
 @router.post("/submit")
 async def submit_experiment(
     request: ExperimentSubmitRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_verified_user)
 ):
     """
     Submit a new experiment for execution.
 
     Returns experiment ID and status.
+    Requires authentication.
     """
     try:
         # Generate unique ID
@@ -102,6 +110,7 @@ async def submit_experiment(
             'status': 'queued',
             'method': request.configuration.method,
             'backend': request.configuration.backend,
+            'user_id': current_user.id,  # Associate experiment with authenticated user
         }
 
         ExperimentDB.create(experiment_data)
@@ -144,11 +153,22 @@ async def submit_experiment(
 async def list_experiments(
     status: Optional[str] = None,
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
+    current_user: Optional[User] = Depends(get_optional_user)
 ):
-    """List experiments with optional filtering."""
+    """
+    List experiments with optional filtering.
+    Returns only user's own experiments if authenticated.
+    """
     try:
         experiments = ExperimentDB.list(status=status, limit=limit, offset=offset)
+
+        # Filter by user if authenticated (only show user's own experiments)
+        if current_user:
+            experiments = [
+                exp for exp in experiments
+                if exp.get('user_id') == current_user.id
+            ]
 
         return {
             "experiments": experiments,

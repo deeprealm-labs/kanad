@@ -3,6 +3,7 @@ import { Quando } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Script from "next/script";
 
 const quando = Quando({
@@ -29,6 +30,10 @@ export default function RootLayout({
           src="/smiles-drawer.min.js"
           strategy="beforeInteractive"
         />
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="beforeInteractive"
+        />
       </head>
       <body className={`${quando.variable} antialiased`} style={{ fontFamily: 'var(--font-quando), serif' }}>
         <ThemeProvider
@@ -37,9 +42,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ToastProvider>
-            {children}
-          </ToastProvider>
+          <AuthProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

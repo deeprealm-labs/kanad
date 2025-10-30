@@ -10,12 +10,14 @@ interface DashboardHomeProps {
   onNewExperiment: () => void;
   onViewExperiment?: (experimentId: string, config: any) => void;
   experiments: any[];
+  onRefresh?: () => void;
 }
 
 export default function DashboardHome({
   onNewExperiment,
   onViewExperiment,
   experiments = [],
+  onRefresh,
 }: DashboardHomeProps) {
   const [experimentStats, setExperimentStats] = useState<any>(null);
   const [queueStats, setQueueStats] = useState<any>(null);
@@ -70,8 +72,11 @@ export default function DashboardHome({
       setExperimentToCancel(null);
       toast.success("Experiment cancelled successfully");
 
-      // Refresh data
-      window.location.reload();
+      // Refresh data via callback (better than page reload)
+      if (onRefresh) {
+        onRefresh();
+      }
+      await loadAllStats();
     } catch (error: any) {
       console.error("Failed to cancel experiment:", error);
       toast.error(error.message || "Failed to cancel experiment");

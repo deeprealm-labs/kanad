@@ -228,7 +228,7 @@ export default function PreviewWindow({
           </div>
 
           {/* Analysis Properties */}
-          <div className="bg-card border border-border rounded-lg p-6">
+          {/* <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="text-lg font-quando font-semibold mb-4">
               Analysis Properties
             </h3>
@@ -251,7 +251,7 @@ export default function PreviewWindow({
                 </label>
               ))}
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Right Column: Circuit Preview - 2x width, Scrollable */}

@@ -3,9 +3,12 @@ Core service for executing quantum chemistry experiments
 """
 
 import traceback
+import logging
 import numpy as np
 from typing import Dict, Any, Optional
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -314,8 +317,18 @@ def convert_numpy_types(obj):
         return {key: convert_numpy_types(value) for key, value in obj.items()}
     elif isinstance(obj, (list, tuple)):
         return [convert_numpy_types(item) for item in obj]
-    else:
+    elif isinstance(obj, (int, float, str, bool, type(None))):
         return obj
+    else:
+        # Skip non-serializable objects (like MolecularHamiltonian, TDA, etc.)
+        # Return string representation as fallback
+        try:
+            import json
+            json.dumps(obj)
+            return obj
+        except (TypeError, ValueError):
+            logger.warning(f"Skipping non-serializable object of type {type(obj).__name__}")
+            return None
 
 
 def execute_vqe(
@@ -360,6 +373,7 @@ def execute_vqe(
             backend=backend_type,
             shots=config.get('shots', 1024) if backend_type != 'statevector' else None,
             experiment_id=experiment_id,  # Pass for WebSocket broadcasting
+            job_id=job_id,  # Pass for cancellation checking
             **backend_kwargs
         )
 
@@ -398,6 +412,7 @@ def execute_vqe(
             shots=config.get('shots', 1024) if backend_type != 'statevector' else None,
             enable_analysis=True,  # Explicitly enable analysis
             experiment_id=experiment_id,  # Pass for WebSocket broadcasting
+            job_id=job_id,  # Pass for cancellation checking
             **backend_kwargs
         )
 
@@ -487,6 +502,17 @@ def execute_vqe(
         'method': 'VQE',
         'ansatz': config.get('ansatz'),
         'mapper': config.get('mapper'),
+        # Enhanced data for analysis service
+        'geometry': result.get('geometry'),
+        'atoms': result.get('atoms'),
+        'n_atoms': result.get('n_atoms'),
+        'n_electrons': result.get('n_electrons'),
+        'charge': result.get('charge'),
+        'multiplicity': result.get('multiplicity'),
+        'nuclear_repulsion': result.get('nuclear_repulsion'),
+        'rdm1': result.get('rdm1'),
+        'orbital_energies': result.get('orbital_energies'),
+        'dipole': result.get('dipole'),
     }
 
     # Add analysis data if present (convert numpy types for JSON serialization)
@@ -602,6 +628,17 @@ def execute_sqd(
         'excited_state_energies': [float(e) for e in result.get('excited_state_energies', [])],
         'circuit_depth': result.get('circuit_depth', 3),
         'energy_history': energy_history,  # For convergence graph
+        # Enhanced data for analysis service
+        'geometry': result.get('geometry'),
+        'atoms': result.get('atoms'),
+        'n_atoms': result.get('n_atoms'),
+        'n_electrons': result.get('n_electrons'),
+        'charge': result.get('charge'),
+        'multiplicity': result.get('multiplicity'),
+        'nuclear_repulsion': result.get('nuclear_repulsion'),
+        'rdm1': result.get('rdm1'),
+        'orbital_energies': result.get('orbital_energies'),
+        'dipole': result.get('dipole'),
     }
 
     print(f"📊 SQD energy_history: {len(energy_history)} stages recorded")
@@ -732,7 +769,7 @@ def execute_excited_states(
     # Add method-specific backend settings
     if method == 'vqe':
         solver_kwargs['backend'] = backend_type
-        solver_kwargs['ansatz'] = config.get('ansatz', 'uccsd')
+        solver_kwargs['ansatz'] = config.get('ansatz', 'ucc')  # Fixed: 'ucc' not 'uccsd'
         solver_kwargs['optimizer'] = config.get('optimizer', 'COBYLA')
         solver_kwargs['max_iterations'] = config.get('max_iterations', 100)
         solver_kwargs['penalty_weight'] = config.get('penalty_weight', 5.0)
@@ -851,7 +888,6 @@ def execute_excited_states(
                 print(f"⚠️  No analysis generated")
         except Exception as e:
             print(f"⚠️  Analysis generation failed: {e}")
-            import traceback
             traceback.print_exc()
             analysis_data = None
 
@@ -895,6 +931,9 @@ def execute_experiment(experiment_id: str, job_id: str):
 
     This is called as a background task.
     """
+    import time
+    start_time = time.time()  # Track execution time
+
     try:
         print(f"⚛️  Starting experiment {experiment_id}")
 
@@ -947,11 +986,79 @@ def execute_experiment(experiment_id: str, job_id: str):
 
         print(f"✅ Experiment completed: Energy = {results['energy']:.8f} Ha")
 
+        # Run advanced analysis if enabled
+        if config.get('advancedAnalysisEnabled') and config.get('advancedAnalysisProfile'):
+            try:
+                print(f"🔬 Running advanced analysis: {config['advancedAnalysisProfile']}")
+                _broadcast_log_sync(experiment_id, f"Running {config['advancedAnalysisProfile']} analysis...")
+
+                from kanad.services.analysis_service import AnalysisService
+
+                # Prepare molecule data for analysis
+                # Extract orbital energies from hamiltonian for DOS analysis (if not already in results)
+                # Don't include the hamiltonian object itself to avoid JSON serialization issues
+                if not results.get('orbital_energies') and hasattr(molecule, 'hamiltonian'):
+                    try:
+                        hamiltonian = molecule.hamiltonian
+                        if hasattr(hamiltonian, 'mf') and hasattr(hamiltonian.mf, 'mo_energy'):
+                            Ha_to_eV = 27.211386245988
+                            results['orbital_energies'] = (hamiltonian.mf.mo_energy * Ha_to_eV).tolist()
+                            logger.info(f"✅ Extracted orbital energies from hamiltonian for DOS analysis")
+                    except Exception as e:
+                        logger.warning(f"Could not extract orbital energies from hamiltonian: {e}")
+
+                molecule_data = {
+                    'geometry': molecule.geometry.tolist() if hasattr(molecule, 'geometry') else results.get('geometry'),
+                    'atoms': molecule.atoms if hasattr(molecule, 'atoms') else results.get('atoms'),
+                    'n_atoms': molecule.n_atoms if hasattr(molecule, 'n_atoms') else results.get('n_atoms'),
+                    'n_electrons': molecule.n_electrons if hasattr(molecule, 'n_electrons') else results.get('n_electrons'),
+                    'charge': molecule.charge if hasattr(molecule, 'charge') else results.get('charge', 0),
+                    'multiplicity': molecule.multiplicity if hasattr(molecule, 'multiplicity') else results.get('multiplicity', 1),
+                    'formula': molecule.formula if hasattr(molecule, 'formula') else None,
+                    'smiles': molecule.smiles if hasattr(molecule, 'smiles') else None,
+                    'basis': molecule.basis if hasattr(molecule, 'basis') else results.get('basis', 'sto-3g'),
+                    # Include hamiltonian for advanced analysis (frequencies, etc.)
+                    # It will be filtered out by convert_numpy_types when storing results
+                    'hamiltonian': molecule.hamiltonian if hasattr(molecule, 'hamiltonian') else None,
+                }
+
+                # Run advanced analysis - AnalysisService expects experiment_results and molecule_data
+                analyzer = AnalysisService(
+                    experiment_results=results,
+                    molecule_data=molecule_data
+                )
+
+                analysis_results = analyzer.run_analysis_profile(config['advancedAnalysisProfile'])
+
+                # Add advanced analysis results (convert numpy types for JSON serialization)
+                results['advanced_analysis'] = {
+                    'profile': config['advancedAnalysisProfile'],
+                    'results': convert_numpy_types(analysis_results.get('analyses', {})),  # Convert numpy types
+                    'status': 'completed',
+                }
+
+                print(f"✅ Advanced analysis completed")
+                _broadcast_log_sync(experiment_id, "Advanced analysis completed")
+
+            except Exception as e:
+                print(f"⚠️  Advanced analysis failed: {e}")
+                traceback.print_exc()
+                _broadcast_log_sync(experiment_id, f"Advanced analysis failed: {str(e)}")
+                results['advanced_analysis'] = {
+                    'profile': config['advancedAnalysisProfile'],
+                    'status': 'failed',
+                    'error': str(e)
+                }
+
         # Update experiment with results
+        # Convert numpy arrays to lists for JSON serialization
+        from kanad.services.analysis_service import make_json_serializable
+        results_serializable = make_json_serializable(results)
+
         ExperimentDB.update_status(
             experiment_id,
             'completed',
-            results=results
+            results=results_serializable
         )
 
         # Update job
@@ -963,20 +1070,39 @@ def execute_experiment(experiment_id: str, job_id: str):
 
     except ExperimentCancelledException as e:
         # Handle cancellation gracefully
-        print(f"⚠️  Experiment cancelled: {e}")
-        # Ensure both experiment and job are marked as cancelled
-        ExperimentDB.update_status(experiment_id, 'cancelled')
+        execution_time = time.time() - start_time
+        print(f"⚠️  Experiment cancelled after {execution_time:.2f} seconds: {e}")
+
+        # Save partial results with execution time if available
+        try:
+            experiment = ExperimentDB.get(experiment_id)
+            if experiment and experiment.get('results'):
+                results = experiment['results']
+                results['execution_time'] = round(execution_time, 2)
+                results['status_note'] = 'cancelled'
+                ExperimentDB.update_status(experiment_id, 'cancelled', results=results)
+            else:
+                ExperimentDB.update_status(experiment_id, 'cancelled')
+        except:
+            ExperimentDB.update_status(experiment_id, 'cancelled')
+
         JobDB.update_status(job_id, 'cancelled')
 
+        # CRITICAL: Broadcast cancellation status via WebSocket so frontend updates
+        _broadcast_status_sync(experiment_id, status='cancelled', progress=0.0)
+        _broadcast_log_sync(experiment_id, "🚫 Experiment cancelled by user")
+
     except Exception as e:
-        print(f"❌ Experiment failed: {e}")
+        execution_time = time.time() - start_time
+        print(f"❌ Experiment failed after {execution_time:.2f} seconds: {e}")
         traceback.print_exc()
 
-        # Update experiment as failed
+        # Update experiment as failed with execution time
         ExperimentDB.update_status(
             experiment_id,
             'failed',
-            error_message=str(e)
+            error_message=str(e),
+            results={'execution_time': round(execution_time, 2), 'status_note': 'failed'}
         )
 
         # Update job as failed

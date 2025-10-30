@@ -14,12 +14,11 @@ async def get_configuration_options():
     Get all available configuration options from the Kanad framework.
     """
     return {
-        # Methods from kanad/solvers/
+        # Methods from kanad/solvers/ (Excited states moved to Advanced Analysis)
         "methods": [
-            {"value": "HF", "label": "Hartree-Fock", "description": "Classical mean-field", "requires_ansatz": False, "requires_mapper": False, "implemented": True},
-            {"value": "VQE", "label": "VQE", "description": "Variational Quantum Eigensolver", "requires_ansatz": True, "requires_mapper": True, "implemented": True},
-            {"value": "SQD", "label": "SQD", "description": "Subspace Quantum Diagonalization", "requires_ansatz": False, "requires_mapper": False, "implemented": True},
-            {"value": "EXCITED_STATES", "label": "Excited States", "description": "CIS/TDDFT excited states", "requires_ansatz": False, "requires_mapper": False, "implemented": True},
+            {"value": "HF", "label": "Hartree-Fock", "description": "Classical mean-field (ground state)", "requires_ansatz": False, "requires_mapper": False, "implemented": True},
+            {"value": "VQE", "label": "VQE", "description": "Variational Quantum Eigensolver (ground state)", "requires_ansatz": True, "requires_mapper": True, "implemented": True},
+            {"value": "SQD", "label": "SQD", "description": "Subspace Quantum Diagonalization (ground state)", "requires_ansatz": False, "requires_mapper": False, "implemented": True},
         ],
 
         # Ansatze from kanad/ansatze/

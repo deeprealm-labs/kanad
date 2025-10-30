@@ -1,0 +1,35 @@
+# Authentication and Database Dependencies for Kanad Platform
+# Install with: pip install -r requirements_auth.txt
+
+# Core Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# Database
+psycopg2-binary>=2.9.9  # PostgreSQL adapter
+sqlalchemy>=2.0.23      # ORM
+alembic>=1.12.1         # Database migrations (alternative to custom runner)
+
+# Authentication
+pyjwt>=2.8.0            # JWT token handling
+bcrypt>=4.1.1           # Password hashing
+python-jose[cryptography]>=3.3.0  # Additional JWT support
+
+# OAuth
+requests>=2.31.0        # HTTP requests for OAuth
+httpx>=0.25.0          # Async HTTP client
+
+# Email
+aiosmtplib>=3.0.1      # Async SMTP client
+
+# Validation
+pydantic>=2.5.0        # Data validation
+pydantic[email]>=2.5.0 # Email validation
+email-validator>=2.1.0 # Email validation
+
+# Environment
+python-dotenv>=1.0.0   # .env file support
+
+# Utilities
+python-dateutil>=2.8.2

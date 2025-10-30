@@ -129,6 +129,32 @@ def init_db():
             )
         """)
 
+        # Analysis results table (for on-demand analysis)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS analysis_results (
+                id TEXT PRIMARY KEY,
+                experiment_id TEXT NOT NULL,
+                profile TEXT NOT NULL,
+                analyses TEXT NOT NULL,
+                parameters TEXT,
+                results TEXT NOT NULL,
+                status TEXT NOT NULL,
+                computation_time REAL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (experiment_id) REFERENCES experiments(id)
+            )
+        """)
+
+        # Index for faster lookups
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_analysis_experiment
+            ON analysis_results(experiment_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_analysis_profile
+            ON analysis_results(profile)
+        """)
+
         conn.commit()
 
 
@@ -154,8 +180,8 @@ class ExperimentDB:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO experiments (
-                    id, molecule_data, configuration, status, method, backend, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    id, molecule_data, configuration, status, method, backend, user_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 experiment_data['id'],
                 json.dumps(experiment_data['molecule']),
@@ -163,6 +189,7 @@ class ExperimentDB:
                 experiment_data['status'],
                 experiment_data['method'],
                 experiment_data['backend'],
+                experiment_data.get('user_id'),  # Add user_id
                 datetime.utcnow().isoformat(),
             ))
             conn.commit()
@@ -190,6 +217,7 @@ class ExperimentDB:
                 'sequence_order': row['sequence_order'],
                 'results': json.loads(row['results']) if row['results'] else None,
                 'error_message': row['error_message'],
+                'user_id': row['user_id'],  # Add user_id
                 'created_at': row['created_at'],
                 'started_at': row['started_at'],
                 'completed_at': row['completed_at'],
@@ -232,6 +260,7 @@ class ExperimentDB:
                     'sequence_order': row['sequence_order'],
                     'results': json.loads(row['results']) if row['results'] else None,
                     'error_message': row['error_message'],
+                    'user_id': row['user_id'],  # Add user_id
                     'created_at': row['created_at'],
                     'started_at': row['started_at'],
                     'completed_at': row['completed_at'],
@@ -280,6 +309,30 @@ class ExperimentDB:
                     datetime.utcnow().isoformat(),
                     experiment_id
                 ))
+
+            elif status == 'cancelled':
+                # Handle cancellation with optional results (partial results if available)
+                if results:
+                    cursor.execute("""
+                        UPDATE experiments
+                        SET status = ?, results = ?, completed_at = ?
+                        WHERE id = ?
+                    """, (
+                        status,
+                        json.dumps(results),
+                        datetime.utcnow().isoformat(),
+                        experiment_id
+                    ))
+                else:
+                    cursor.execute("""
+                        UPDATE experiments
+                        SET status = ?, completed_at = ?
+                        WHERE id = ?
+                    """, (
+                        status,
+                        datetime.utcnow().isoformat(),
+                        experiment_id
+                    ))
 
             conn.commit()
 
@@ -484,14 +537,15 @@ class CampaignDB:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO campaigns (
-                    id, name, description, status, total_experiments, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    id, name, description, status, total_experiments, user_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
                 campaign_id,
                 campaign_data.get('name', 'Unnamed Campaign'),
                 campaign_data.get('description', ''),
                 'pending',
                 campaign_data.get('total_experiments', 0),
+                campaign_data.get('user_id'),  # Add user_id
                 datetime.utcnow().isoformat()
             ))
             conn.commit()
@@ -519,6 +573,7 @@ class CampaignDB:
                 'total_experiments': row['total_experiments'],
                 'completed_experiments': row['completed_experiments'],
                 'failed_experiments': row['failed_experiments'],
+                'user_id': row['user_id'],  # Add user_id
                 'created_at': row['created_at'],
                 'started_at': row['started_at'],
                 'completed_at': row['completed_at']
@@ -544,6 +599,7 @@ class CampaignDB:
                     'total_experiments': row['total_experiments'],
                     'completed_experiments': row['completed_experiments'],
                     'failed_experiments': row['failed_experiments'],
+                    'user_id': row['user_id'],  # Add user_id
                     'created_at': row['created_at'],
                     'started_at': row['started_at'],
                     'completed_at': row['completed_at']
@@ -613,3 +669,145 @@ class CampaignDB:
                 }
                 for row in cursor.fetchall()
             ]
+
+
+class AnalysisDB:
+    """Database operations for analysis results."""
+
+    @staticmethod
+    def create(analysis_data: Dict[str, Any]) -> str:
+        """Save analysis results."""
+        import uuid
+        analysis_id = str(uuid.uuid4())
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO analysis_results (
+                    id, experiment_id, profile, analyses, parameters,
+                    results, status, computation_time, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                analysis_id,
+                analysis_data['experiment_id'],
+                analysis_data['profile'],
+                json.dumps(analysis_data.get('analyses', [])),
+                json.dumps(analysis_data.get('parameters', {})),
+                json.dumps(analysis_data['results']),
+                analysis_data.get('status', 'completed'),
+                analysis_data.get('computation_time', 0.0),
+                datetime.utcnow().isoformat()
+            ))
+            conn.commit()
+
+        return analysis_id
+
+    @staticmethod
+    def get(analysis_id: str) -> Optional[Dict[str, Any]]:
+        """Get analysis result by ID."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM analysis_results WHERE id = ?
+            """, (analysis_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            return {
+                'id': row['id'],
+                'experiment_id': row['experiment_id'],
+                'profile': row['profile'],
+                'analyses': json.loads(row['analyses']),
+                'parameters': json.loads(row['parameters']) if row['parameters'] else {},
+                'results': json.loads(row['results']),
+                'status': row['status'],
+                'computation_time': row['computation_time'],
+                'created_at': row['created_at']
+            }
+
+    @staticmethod
+    def get_by_experiment(experiment_id: str, profile: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get all analysis results for an experiment, optionally filtered by profile."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            if profile:
+                cursor.execute("""
+                    SELECT * FROM analysis_results
+                    WHERE experiment_id = ? AND profile = ?
+                    ORDER BY created_at DESC
+                """, (experiment_id, profile))
+            else:
+                cursor.execute("""
+                    SELECT * FROM analysis_results
+                    WHERE experiment_id = ?
+                    ORDER BY created_at DESC
+                """, (experiment_id,))
+
+            return [
+                {
+                    'id': row['id'],
+                    'experiment_id': row['experiment_id'],
+                    'profile': row['profile'],
+                    'analyses': json.loads(row['analyses']),
+                    'parameters': json.loads(row['parameters']) if row['parameters'] else {},
+                    'results': json.loads(row['results']),
+                    'status': row['status'],
+                    'computation_time': row['computation_time'],
+                    'created_at': row['created_at']
+                }
+                for row in cursor.fetchall()
+            ]
+
+    @staticmethod
+    def list(limit: int = 100, offset: int = 0, profile: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List analysis results with optional profile filter."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            if profile:
+                cursor.execute("""
+                    SELECT * FROM analysis_results
+                    WHERE profile = ?
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?
+                """, (profile, limit, offset))
+            else:
+                cursor.execute("""
+                    SELECT * FROM analysis_results
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?
+                """, (limit, offset))
+
+            return [
+                {
+                    'id': row['id'],
+                    'experiment_id': row['experiment_id'],
+                    'profile': row['profile'],
+                    'analyses': json.loads(row['analyses']),
+                    'parameters': json.loads(row['parameters']) if row['parameters'] else {},
+                    'results': json.loads(row['results']),
+                    'status': row['status'],
+                    'computation_time': row['computation_time'],
+                    'created_at': row['created_at']
+                }
+                for row in cursor.fetchall()
+            ]
+
+    @staticmethod
+    def delete(analysis_id: str):
+        """Delete analysis result."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM analysis_results WHERE id = ?", (analysis_id,))
+            conn.commit()
+
+    @staticmethod
+    def delete_by_experiment(experiment_id: str):
+        """Delete all analysis results for an experiment."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM analysis_results WHERE experiment_id = ?", (experiment_id,))
+            conn.commit()

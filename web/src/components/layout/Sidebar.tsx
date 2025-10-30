@@ -37,21 +37,8 @@ export default function Sidebar() {
           rounded-lg
         `}
       >
-        {/* User Profile */}
-        <div className="p-6 border-b border-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
-              <span className="text-lg font-quando">M</span>
-            </div>
-            <div>
-              <p className="font-quando font-medium">Mkul</p>
-              <p className="text-xs text-gray-400">Metallurgy</p>
-            </div>
-          </div>
-        </div>
-
         {/* Navigation */}
-        <nav className="flex-1 p-4">
+        <nav className="flex-1 p-4 pt-6">
           <div className="space-y-1">
             <a
               href="/dashboard"

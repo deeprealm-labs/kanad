@@ -184,14 +184,14 @@ class UVVisCalculator:
             print("=" * 70)
 
         return {
-            'excitation_energies': excitation_energies_eV,
-            'oscillator_strengths': oscillator_strengths,
-            'wavelengths': wavelengths_nm,
-            'transition_dipoles': transition_dipoles,
+            'excitation_energies': excitation_energies_eV.tolist() if hasattr(excitation_energies_eV, 'tolist') else excitation_energies_eV,
+            'oscillator_strengths': oscillator_strengths.tolist() if hasattr(oscillator_strengths, 'tolist') else oscillator_strengths,
+            'wavelengths': wavelengths_nm.tolist() if hasattr(wavelengths_nm, 'tolist') else wavelengths_nm,
+            'transition_dipoles': transition_dipoles.tolist() if transition_dipoles is not None and hasattr(transition_dipoles, 'tolist') else None,
             'method': method,
             'functional': functional,
             'n_states': n_states,
-            'td_object': td
+            # Don't include td_object - it's not JSON serializable
         }
 
     def generate_spectrum(
@@ -560,11 +560,12 @@ class VibronicCalculator:
                     # Approximate FC factor (exact requires Hermite polynomials)
                     # For small displacement: FC ≈ exp(-d²/2) × (d²/2)^|Δv| / Δv!
                     delta_v = abs(v_excited - v_ground)
-                    
+
                     if delta_v == 0:
                         fc = np.exp(-d**2 / 2)
                     else:
-                        fc = np.exp(-d**2 / 2) * (d**2 / 2)**delta_v / np.math.factorial(delta_v)
+                        from math import factorial
+                        fc = np.exp(-d**2 / 2) * (d**2 / 2)**delta_v / factorial(delta_v)
                     
                     fc_factors.append(fc)
                     transitions.append((v_ground, v_excited))

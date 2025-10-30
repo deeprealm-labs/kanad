@@ -328,6 +328,60 @@ export default function ConfigurationSelector({
           </p>
         </div>
       )}
+
+      {/* Cost/Time Estimation Banner */}
+      {(settings.backend === "ibm_quantum" || settings.backend === "bluequbit") && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-amber-600 text-2xl">💰</div>
+            <div className="flex-1">
+              <h4 className="font-quando font-semibold text-sm mb-2">
+                Cost & Time Estimate
+              </h4>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                {(() => {
+                  const estimatedJobs = (() => {
+                    if (settings.optimizer === "SLSQP" || settings.optimizer === "L-BFGS-B") {
+                      return (settings.maxIterations || 100) * 40;
+                    } else if (settings.optimizer === "COBYLA") {
+                      return (settings.maxIterations || 100) * 3;
+                    } else if (settings.optimizer === "Powell") {
+                      return (settings.maxIterations || 100) * 5;
+                    } else if (settings.optimizer === "Nelder-Mead") {
+                      return (settings.maxIterations || 100) * 10;
+                    }
+                    return settings.maxIterations || 100;
+                  })();
+
+                  const estimatedTimeMinutes = Math.ceil(estimatedJobs * 0.5); // ~30s per job
+                  const estimatedCost = settings.backend === "ibm_quantum"
+                    ? "IBM Quantum credits"
+                    : `~${Math.ceil(estimatedJobs * 0.02)} BlueQubit credits`;
+
+                  return (
+                    <>
+                      <div>
+                        <span className="font-medium">Estimated Jobs:</span> ~{estimatedJobs} quantum jobs
+                      </div>
+                      <div>
+                        <span className="font-medium">Estimated Time:</span> ~{estimatedTimeMinutes} minutes
+                      </div>
+                      <div>
+                        <span className="font-medium">Estimated Cost:</span> {estimatedCost}
+                      </div>
+                      {(settings.optimizer === "SLSQP" || settings.optimizer === "L-BFGS-B") && (
+                        <div className="text-amber-600 font-medium mt-2">
+                          ⚠️ Consider using COBYLA or Powell to reduce costs significantly!
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

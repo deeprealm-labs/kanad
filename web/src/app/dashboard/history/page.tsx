@@ -14,10 +14,20 @@ import {
   Loader2,
   Ban,
   XCircle,
+  GitCompare,
+  TrendingDown,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+} from "recharts";
 import * as api from "@/lib/api";
 import ExperimentReport from "@/components/experiment/ExperimentReport";
+import ExperimentComparison from "@/components/experiment/ExperimentComparison";
 import { useToast } from "@/components/ui/toast";
 
 export default function HistoryPage() {
@@ -27,6 +37,8 @@ export default function HistoryPage() {
   const [selectedExperiment, setSelectedExperiment] = useState<any>(null);
   const [showReport, setShowReport] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedForComparison, setSelectedForComparison] = useState<Set<string>>(new Set());
+  const [showComparison, setShowComparison] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -121,6 +133,29 @@ export default function HistoryPage() {
     }
   };
 
+  const toggleComparisonSelection = (expId: string) => {
+    const newSelected = new Set(selectedForComparison);
+    if (newSelected.has(expId)) {
+      newSelected.delete(expId);
+    } else {
+      if (newSelected.size >= 10) {
+        toast.error("Maximum 10 experiments can be compared at once");
+        return;
+      }
+      newSelected.add(expId);
+    }
+    setSelectedForComparison(newSelected);
+  };
+
+  const handleCompare = async () => {
+    if (selectedForComparison.size < 2) {
+      toast.error("Select at least 2 experiments to compare");
+      return;
+    }
+    setShowComparison(true);
+    toast.success(`Comparing ${selectedForComparison.size} experiments`);
+  };
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-background">
@@ -138,6 +173,16 @@ export default function HistoryPage() {
         <ExperimentReport
           experimentId={selectedExperiment.id}
           onClose={() => setShowReport(false)}
+        />
+      )}
+
+      {showComparison && selectedForComparison.size > 0 && (
+        <ExperimentComparison
+          experimentIds={Array.from(selectedForComparison)}
+          onClose={() => {
+            setShowComparison(false);
+            setSelectedForComparison(new Set());
+          }}
         />
       )}
 
@@ -177,6 +222,15 @@ export default function HistoryPage() {
             <option value="cancelled">Cancelled</option>
             <option value="failed">Failed</option>
           </select>
+          {selectedForComparison.size > 0 && (
+            <button
+              onClick={handleCompare}
+              className="flex items-center gap-2 px-4 py-2 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando text-sm"
+            >
+              <GitCompare className="w-4 h-4" />
+              Compare ({selectedForComparison.size})
+            </button>
+          )}
         </div>
       </div>
 
@@ -203,59 +257,125 @@ export default function HistoryPage() {
                 </p>
               </div>
             ) : (
-              filteredExperiments.map((exp) => (
-                <div
-                  key={exp.id}
-                  onClick={() => setSelectedExperiment(exp)}
-                  className={`bg-card border rounded-lg p-4 cursor-pointer transition ${
-                    selectedExperiment?.id === exp.id
-                      ? "border-brand-orange"
-                      : "border-border hover:border-brand-orange/50"
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      {getStatusIcon(exp.status)}
+              filteredExperiments.map((exp) => {
+                // Prepare convergence data for mini graph
+                const convergenceData = exp.results?.convergence_history || exp.results?.energy_history?.map((e: number, i: number) => ({ iteration: i + 1, energy: e })) || [];
+
+                return (
+                  <div
+                    key={exp.id}
+                    className={`bg-card border rounded-lg p-4 transition ${
+                      selectedExperiment?.id === exp.id
+                        ? "border-brand-orange"
+                        : "border-border hover:border-brand-orange/50"
+                    }`}
+                  >
+                    {/* Header with checkbox */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3 flex-1" onClick={() => setSelectedExperiment(exp)}>
+                        {getStatusIcon(exp.status)}
+                        <div className="flex-1">
+                          <h3 className="font-quando font-semibold cursor-pointer">
+                            {exp.molecule?.smiles || "Custom Molecule"}
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(exp.timestamp || exp.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      {exp.status === "completed" && (
+                        <input
+                          type="checkbox"
+                          checked={selectedForComparison.has(exp.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleComparisonSelection(exp.id);
+                          }}
+                          className="w-4 h-4 text-brand-orange rounded focus:ring-2 focus:ring-brand-orange cursor-pointer"
+                          title="Select for comparison"
+                        />
+                      )}
+                    </div>
+
+                    {/* Method & Backend */}
+                    <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                       <div>
-                        <h3 className="font-quando font-semibold">
-                          {exp.molecule?.smiles || "Custom Molecule"}
-                        </h3>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(exp.timestamp).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Method:</span>
-                      <span className="ml-2 font-quando font-medium">
-                        {exp.method}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Backend:</span>
-                      <span className="ml-2 font-quando font-medium">
-                        {exp.backend}
-                      </span>
-                    </div>
-                  </div>
-
-                  {exp.results && (
-                    <div className="mt-3 pt-3 border-t border-border">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          Energy:
+                        <span className="text-muted-foreground">Method:</span>
+                        <span className="ml-2 font-quando font-medium">
+                          {exp.method}
                         </span>
-                        <span className="font-mono text-sm font-bold">
-                          {exp.results.energy.toFixed(6)} Ha
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Backend:</span>
+                        <span className="ml-2 font-quando font-medium">
+                          {exp.backend}
                         </span>
                       </div>
                     </div>
-                  )}
-                </div>
-              ))
+
+                    {/* Results section with mini graph and analysis */}
+                    {exp.results && (
+                      <div className="mt-3 pt-3 border-t border-border space-y-3">
+                        {/* Energy */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            Energy:
+                          </span>
+                          <span className="font-mono text-sm font-bold">
+                            {exp.results.energy.toFixed(6)} Ha
+                          </span>
+                        </div>
+
+                        {/* Mini Convergence Graph */}
+                        {convergenceData.length > 1 && (
+                          <div className="h-16 -mx-2">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={convergenceData}>
+                                <Line
+                                  type="monotone"
+                                  dataKey="energy"
+                                  stroke="#ea580c"
+                                  strokeWidth={1.5}
+                                  dot={false}
+                                />
+                                <YAxis hide domain={['auto', 'auto']} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                            <p className="text-[10px] text-muted-foreground text-center mt-1">
+                              <TrendingDown className="w-3 h-3 inline mr-1" />
+                              {exp.results.iterations || convergenceData.length} iterations
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Analysis Preview */}
+                        {exp.results.analysis && (
+                          <div className="grid grid-cols-2 gap-2 text-[11px]">
+                            {exp.results.analysis.dipole_moment !== undefined && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Dipole:</span>
+                                <span className="font-mono">{exp.results.analysis.dipole_moment.toFixed(3)} D</span>
+                              </div>
+                            )}
+                            {exp.results.analysis.bond_order !== undefined && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Bond:</span>
+                                <span className="font-mono">{exp.results.analysis.bond_order.toFixed(2)}</span>
+                              </div>
+                            )}
+                            {exp.results.correlation_energy !== undefined && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Corr:</span>
+                                <span className="font-mono">{exp.results.correlation_energy.toFixed(4)} Ha</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
