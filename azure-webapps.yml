@@ -1,0 +1,54 @@
+# ============================================================================
+# Azure Web Apps Deployment Configuration
+# ============================================================================
+# This file configures Azure App Service for deploying the Kanad API
+# ============================================================================
+
+version: 1
+
+resources:
+  - name: kanad-api
+    type: Microsoft.Web/sites
+    location: eastus  # Change to your preferred region
+    properties:
+      serverFarmId: kanad-app-service-plan
+      httpsOnly: true
+      siteConfig:
+        linuxFxVersion: "DOCKER|<registry-name>.azurecr.io/kanad-api:latest"
+        alwaysOn: true
+        http20Enabled: true
+        minTlsVersion: "1.2"
+        ftpsState: "Disabled"
+
+        # Application Settings (Environment Variables)
+        appSettings:
+          - name: WEBSITES_ENABLE_APP_SERVICE_STORAGE
+            value: "false"
+          - name: WEBSITES_PORT
+            value: "8000"
+          - name: DOCKER_REGISTRY_SERVER_URL
+            value: "https://<registry-name>.azurecr.io"
+          - name: DOCKER_ENABLE_CI
+            value: "true"
+
+        # Health check
+        healthCheckPath: "/api/health"
+
+        # CORS Configuration
+        cors:
+          allowedOrigins:
+            - "https://your-frontend.vercel.app"
+            - "http://localhost:3000"  # Development
+          supportCredentials: true
+
+# App Service Plan
+  - name: kanad-app-service-plan
+    type: Microsoft.Web/serverfarms
+    location: eastus
+    sku:
+      name: B1  # Basic tier - upgrade to P1V2 for production
+      tier: Basic
+      size: B1
+      capacity: 1
+    properties:
+      reserved: true  # Required for Linux
