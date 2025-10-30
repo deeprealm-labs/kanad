@@ -37,7 +37,7 @@ resources:
         # CORS Configuration
         cors:
           allowedOrigins:
-            - "https://your-frontend.vercel.app"
+            - "https://kanad.vercel.app"
             - "http://localhost:3000"  # Development
           supportCredentials: true
 
