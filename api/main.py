@@ -90,9 +90,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Security middleware
+# Security and compute limits middleware
 from api.middleware.security import SecurityHeadersMiddleware, RequestLoggingMiddleware
+from api.middleware.compute_limits import ComputeLimitsMiddleware
 
+app.add_middleware(ComputeLimitsMiddleware)  # Check compute limits first
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 

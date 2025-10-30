@@ -282,3 +282,20 @@ async def delete_account(
     db.commit()
 
     return {"message": "Account deactivated successfully"}
+
+
+@router.get("/me/quota")
+async def get_user_quota(
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's compute quota and usage"""
+    from api.middleware.compute_limits import get_user_quota_info
+
+    quota_info = await get_user_quota_info(current_user.id)
+
+    return {
+        "user_id": current_user.id,
+        "email": current_user.email,
+        "tier": "admin" if current_user.role.value == "admin" else "free",
+        "quota": quota_info
+    }
