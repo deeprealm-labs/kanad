@@ -2,6 +2,7 @@
 // This module provides all API functions for communicating with the FastAPI backend
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+console.log("🔗 API Base URL:", API_BASE_URL); // Debug: Check which URL is being used
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/api";
 const API_TIMEOUT = 30000;
 
