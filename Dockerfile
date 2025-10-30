@@ -27,7 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements files
-COPY requirements.txt api/requirements.txt ./
+COPY requirements.txt ./requirements.txt
+COPY api/requirements.txt ./api-requirements.txt
 
 # Create virtual environment and install dependencies
 RUN python -m venv /opt/venv
@@ -36,7 +37,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip wheel setuptools && \
     pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r api/requirements.txt
+    pip install --no-cache-dir -r api-requirements.txt
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime - Minimal production image
