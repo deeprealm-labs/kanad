@@ -167,7 +167,7 @@ async def list_experiments(
         if current_user:
             experiments = [
                 exp for exp in experiments
-                if exp.get('user_id') == current_user.id
+                if str(exp.get('user_id')) == str(current_user.id)
             ]
 
         return {
