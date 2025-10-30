@@ -20,7 +20,7 @@ set -e  # Exit on error
 
 # Resource names (customize these)
 RESOURCE_GROUP="kanad-rg"
-LOCATION="eastus"  # Change if needed
+LOCATION="centralus"  # Change if needed
 ACR_NAME="kanadregistry"  # Must be globally unique, lowercase only
 POSTGRES_SERVER="kanad-postgres-server"  # Must be globally unique
 POSTGRES_ADMIN="kanadmin"
@@ -43,7 +43,7 @@ WEB_APP_NAME="kanad-api"  # Must be globally unique
 # Recommended for Kanad (VQE/SQD Hamiltonian construction):
 # E4_v3 provides 32GB RAM for quantum chemistry calculations
 # Good balance: handles medium-large molecules, multiple concurrent jobs
-APP_SERVICE_SKU="E4_v3"  # 4 vCores, 32GB RAM - HPC-level for quantum simulations
+APP_SERVICE_SKU="FX4-4mds_v2"  # 4 vCores, 84GB RAM - HPC-level for quantum simulations
 
 # PostgreSQL tier - Upgraded to match compute tier
 # Options:
@@ -51,7 +51,7 @@ APP_SERVICE_SKU="E4_v3"  # 4 vCores, 32GB RAM - HPC-level for quantum simulation
 # - GeneralPurpose: $80/month (GP_Standard_D2s_v3) - 2 vCores, 8GB RAM
 # - GeneralPurpose: $150/month (GP_Standard_D4s_v3) - 4 vCores, 16GB RAM
 # - MemoryOptimized: $300/month (MO_Standard_E4s_v3) - 4 vCores, 32GB RAM
-POSTGRES_SKU="GP_Standard_D4s_v3"  # 4 vCores, 16GB RAM - handles large molecular data
+POSTGRES_SKU="L4s_v4"  # 4 vCores, 32GB RAM - handles large molecular data
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -114,6 +114,65 @@ print_success "Logged into Azure"
 # Show current subscription
 SUBSCRIPTION=$(az account show --query name -o tsv)
 print_success "Using subscription: $SUBSCRIPTION"
+
+# Check and register required resource providers
+print_header "Checking Resource Providers"
+
+PROVIDERS=("Microsoft.ContainerRegistry" "Microsoft.Web" "Microsoft.DBforPostgreSQL" "Microsoft.Insights")
+NEED_WAIT=false
+
+for PROVIDER in "${PROVIDERS[@]}"; do
+    STATE=$(az provider show -n $PROVIDER --query "registrationState" -o tsv 2>/dev/null || echo "NotRegistered")
+
+    if [ "$STATE" != "Registered" ]; then
+        if [ "$STATE" == "NotRegistered" ]; then
+            print_warning "Registering provider: $PROVIDER"
+            az provider register --namespace $PROVIDER > /dev/null 2>&1
+            NEED_WAIT=true
+        elif [ "$STATE" == "Registering" ]; then
+            print_warning "Provider $PROVIDER is still registering..."
+            NEED_WAIT=true
+        fi
+    else
+        print_success "Provider $PROVIDER is registered"
+    fi
+done
+
+if [ "$NEED_WAIT" = true ]; then
+    print_warning "Waiting for resource providers to register (this can take 1-5 minutes)..."
+    echo "You can monitor progress with: az provider show -n Microsoft.ContainerRegistry"
+
+    # Wait up to 5 minutes for all providers to register
+    WAIT_COUNT=0
+    MAX_WAIT=30  # 30 iterations * 10 seconds = 5 minutes
+
+    while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+        ALL_REGISTERED=true
+
+        for PROVIDER in "${PROVIDERS[@]}"; do
+            STATE=$(az provider show -n $PROVIDER --query "registrationState" -o tsv)
+            if [ "$STATE" != "Registered" ]; then
+                ALL_REGISTERED=false
+                break
+            fi
+        done
+
+        if [ "$ALL_REGISTERED" = true ]; then
+            print_success "All resource providers registered!"
+            break
+        fi
+
+        echo -n "."
+        sleep 10
+        WAIT_COUNT=$((WAIT_COUNT + 1))
+    done
+
+    if [ $WAIT_COUNT -eq $MAX_WAIT ]; then
+        print_error "Timeout waiting for providers to register. Please check manually:"
+        echo "  az provider show -n Microsoft.ContainerRegistry"
+        exit 1
+    fi
+fi
 
 # ============================================================================
 # Step 1: Create Resource Group
