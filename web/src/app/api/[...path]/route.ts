@@ -65,7 +65,7 @@ async function proxyRequest(
     // Construct backend URL
     const path = pathSegments.join('/');
     const searchParams = request.nextUrl.searchParams.toString();
-    const backendUrl = `${BACKEND_URL}/${path}${searchParams ? `?${searchParams}` : ''}`;
+    const backendUrl = `${BACKEND_URL}/api/${path}${searchParams ? `?${searchParams}` : ''}`;
 
     // Forward all headers, especially Authorization
     const headers: Record<string, string> = {};
