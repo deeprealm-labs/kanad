@@ -57,7 +57,7 @@ class SessionInfo(BaseModel):
     id: int
     created_at: datetime
     expires_at: datetime
-    last_used: Optional[datetime]
+    last_activity: Optional[datetime]  # Changed from last_used to match frontend expectations
     is_current: bool
 
 
@@ -227,7 +227,7 @@ async def get_user_sessions(
             "id": session.id,
             "created_at": session.created_at,
             "expires_at": session.expires_at,
-            "last_used": session.last_used,
+            "last_activity": session.last_used,  # Map last_used to last_activity for frontend
             "is_current": session.id == current_session_id,
         }
         for session in sessions

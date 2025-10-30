@@ -16,11 +16,12 @@ from api.core.database_postgres import (
     User,
     UserRole,
     AccessKey,
-    Experiment,
-    Campaign,
-    Job,
+    Experiment as PGExperiment,
+    Campaign as PGCampaign,
+    Job as PGJob,
     ExperimentStatus,
 )
+from api.core.database import ExperimentDB, CampaignDB
 from api.dependencies.auth import require_admin
 from api.auth.password import generate_temporary_password, hash_password
 
@@ -202,9 +203,9 @@ async def list_users(
     """
     query = db.query(
         User,
-        func.count(Experiment.id).label("experiments_count"),
-        func.count(Campaign.id).label("campaigns_count"),
-    ).outerjoin(Experiment).outerjoin(Campaign).group_by(User.id)
+        func.count(func.distinct(PGExperiment.id)).label("experiments_count"),
+        func.count(func.distinct(PGCampaign.id)).label("campaigns_count"),
+    ).select_from(User).outerjoin(PGExperiment, User.id == PGExperiment.user_id).outerjoin(PGCampaign, User.id == PGCampaign.user_id).group_by(User.id)
 
     if role:
         query = query.filter(User.role == role)
@@ -243,8 +244,8 @@ async def get_user(user_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    experiments_count = db.query(Experiment).filter(Experiment.user_id == user_id).count()
-    campaigns_count = db.query(Campaign).filter(Campaign.user_id == user_id).count()
+    experiments_count = db.query(PGExperiment).filter(PGExperiment.user_id == user_id).count()
+    campaigns_count = db.query(PGCampaign).filter(PGCampaign.user_id == user_id).count()
 
     return {
         "id": user.id,
@@ -371,8 +372,8 @@ async def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     # Count related data
-    exp_count = db.query(Experiment).filter(Experiment.user_id == user_id).count()
-    camp_count = db.query(Campaign).filter(Campaign.user_id == user_id).count()
+    exp_count = db.query(PGExperiment).filter(PGExperiment.user_id == user_id).count()
+    camp_count = db.query(PGCampaign).filter(PGCampaign.user_id == user_id).count()
 
     # Delete user (cascades will handle related data)
     db.delete(user)
@@ -390,7 +391,7 @@ async def delete_user(
 # ============================================================================
 
 class LiveExperimentResponse(BaseModel):
-    id: int
+    id: str  # Changed from int to str for SQLite UUID IDs
     name: str
     user_email: str
     status: str
@@ -408,29 +409,34 @@ async def get_live_experiments(db: Session = Depends(get_db)):
 
     Real-time monitoring of active quantum computations.
     """
-    running_experiments = (
-        db.query(Experiment, User)
-        .join(User, Experiment.user_id == User.id, isouter=True)
-        .filter(Experiment.status == ExperimentStatus.RUNNING)
-        .order_by(Experiment.started_at.desc())
-        .all()
-    )
+    # Query SQLite database for running experiments
+    running_experiments = ExperimentDB.list(status="running", limit=1000)
 
     results = []
-    for exp, user in running_experiments:
+    for exp in running_experiments:
+        # Get user info from PostgreSQL if user_id exists
+        user = None
+        if exp.get("user_id"):
+            user = db.query(User).filter(User.id == exp["user_id"]).first()
+
         running_time = None
-        if exp.started_at:
-            running_time = int((datetime.utcnow() - exp.started_at).total_seconds())
+        started_at_str = exp.get("started_at")
+        if started_at_str:
+            try:
+                started_at = datetime.fromisoformat(started_at_str)
+                running_time = int((datetime.utcnow() - started_at).total_seconds())
+            except:
+                pass
 
         results.append({
-            "id": exp.id,
-            "name": exp.name,
+            "id": exp.get("id"),
+            "name": exp.get("id", "Unknown"),  # SQLite doesn't have name field, use ID
             "user_email": user.email if user else "System",
-            "status": exp.status.value,
-            "progress": exp.progress,
-            "backend": exp.backend,
-            "method": exp.method,
-            "started_at": exp.started_at,
+            "status": exp.get("status", "unknown"),
+            "progress": 0.0,  # SQLite doesn't track progress
+            "backend": exp.get("backend", "Unknown"),
+            "method": exp.get("method", "Unknown"),
+            "started_at": datetime.fromisoformat(started_at_str) if started_at_str else None,
             "running_time_seconds": running_time,
         })
 
@@ -445,33 +451,32 @@ async def get_recent_experiments(
     """
     [PRIORITY 3] Get recently completed/failed experiments
     """
-    experiments = (
-        db.query(Experiment, User)
-        .join(User, Experiment.user_id == User.id, isouter=True)
-        .filter(
-            Experiment.status.in_([
-                ExperimentStatus.COMPLETED,
-                ExperimentStatus.FAILED,
-                ExperimentStatus.CANCELLED,
-            ])
-        )
-        .order_by(Experiment.completed_at.desc())
-        .limit(limit)
-        .all()
-    )
+    # Query SQLite for all experiments, then filter by status
+    all_experiments = ExperimentDB.list(limit=limit * 3)  # Get more to filter
 
-    return [
-        {
-            "id": exp.id,
-            "name": exp.name,
+    completed_experiments = [
+        e for e in all_experiments
+        if e.get("status") in ["completed", "failed", "cancelled"]
+    ][:limit]
+
+    results = []
+    for exp in completed_experiments:
+        # Get user info from PostgreSQL if user_id exists
+        user = None
+        if exp.get("user_id"):
+            user = db.query(User).filter(User.id == exp["user_id"]).first()
+
+        results.append({
+            "id": exp.get("id"),
+            "name": exp.get("id", "Unknown"),
             "user_email": user.email if user else "System",
-            "status": exp.status.value,
-            "progress": exp.progress,
-            "completed_at": exp.completed_at,
-            "error_message": exp.error_message,
-        }
-        for exp, user in experiments
-    ]
+            "status": exp.get("status", "unknown"),
+            "progress": 0.0,
+            "completed_at": exp.get("completed_at"),
+            "error_message": exp.get("error_message"),
+        })
+
+    return results
 
 
 # ============================================================================
@@ -490,25 +495,34 @@ async def get_usage_by_backend(
     """
     since = datetime.utcnow() - timedelta(days=days)
 
-    usage = (
-        db.query(
-            Experiment.backend,
-            func.count(Experiment.id).label("count"),
-            func.avg(Experiment.progress).label("avg_progress"),
-        )
-        .filter(Experiment.created_at >= since)
-        .group_by(Experiment.backend)
-        .order_by(func.count(Experiment.id).desc())
-        .all()
-    )
+    # Query SQLite for experiments
+    all_experiments = ExperimentDB.list(limit=10000)
+
+    # Filter by date and aggregate by backend
+    backend_counts = {}
+    for exp in all_experiments:
+        created_at_str = exp.get("created_at")
+        if created_at_str:
+            try:
+                created_at = datetime.fromisoformat(created_at_str)
+                if created_at >= since:
+                    backend = exp.get("backend", "Unknown")
+                    if backend not in backend_counts:
+                        backend_counts[backend] = 0
+                    backend_counts[backend] += 1
+            except:
+                pass
+
+    # Sort by count descending
+    sorted_backends = sorted(backend_counts.items(), key=lambda x: x[1], reverse=True)
 
     return [
         {
             "backend": backend or "Unknown",
             "experiment_count": count,
-            "average_progress": round(avg_progress, 2) if avg_progress else 0,
+            "average_progress": 0.0,  # SQLite doesn't track progress
         }
-        for backend, count, avg_progress in usage
+        for backend, count in sorted_backends
     ]
 
 
@@ -523,33 +537,43 @@ async def get_usage_by_user(
     """
     since = datetime.utcnow() - timedelta(days=days)
 
-    usage = (
-        db.query(
-            User.email,
-            User.full_name,
-            func.count(Experiment.id).label("experiment_count"),
-            func.count(
-                and_(Experiment.status == ExperimentStatus.COMPLETED, True)
-            ).label("completed_count"),
-        )
-        .join(Experiment, User.id == Experiment.user_id)
-        .filter(Experiment.created_at >= since)
-        .group_by(User.id, User.email, User.full_name)
-        .order_by(func.count(Experiment.id).desc())
-        .limit(limit)
-        .all()
-    )
+    # Query SQLite for experiments
+    all_experiments = ExperimentDB.list(limit=10000)
 
-    return [
-        {
-            "user_email": email,
-            "user_name": name,
-            "total_experiments": exp_count,
-            "completed_experiments": comp_count,
-            "success_rate": round((comp_count / exp_count * 100), 2) if exp_count > 0 else 0,
-        }
-        for email, name, exp_count, comp_count in usage
-    ]
+    # Filter by date and aggregate by user
+    user_stats = {}
+    for exp in all_experiments:
+        created_at_str = exp.get("created_at")
+        if created_at_str:
+            try:
+                created_at = datetime.fromisoformat(created_at_str)
+                if created_at >= since:
+                    user_id = exp.get("user_id")
+                    if user_id:
+                        if user_id not in user_stats:
+                            user_stats[user_id] = {"total": 0, "completed": 0}
+                        user_stats[user_id]["total"] += 1
+                        if exp.get("status") == "completed":
+                            user_stats[user_id]["completed"] += 1
+            except:
+                pass
+
+    # Get user info from PostgreSQL and combine with stats
+    results = []
+    for user_id, stats in user_stats.items():
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            results.append({
+                "user_email": user.email,
+                "user_name": user.full_name or "N/A",
+                "total_experiments": stats["total"],
+                "completed_experiments": stats["completed"],
+                "success_rate": round((stats["completed"] / stats["total"] * 100), 2) if stats["total"] > 0 else 0,
+            })
+
+    # Sort by total experiments descending and limit
+    results.sort(key=lambda x: x["total_experiments"], reverse=True)
+    return results[:limit]
 
 
 @router.get("/usage/timeline")
@@ -562,21 +586,30 @@ async def get_usage_timeline(
     """
     since = datetime.utcnow() - timedelta(days=days)
 
-    # This is a simplified version - for production, you'd want proper date binning
-    daily_usage = (
-        db.query(
-            func.date(Experiment.created_at).label("date"),
-            func.count(Experiment.id).label("count"),
-        )
-        .filter(Experiment.created_at >= since)
-        .group_by(func.date(Experiment.created_at))
-        .order_by(func.date(Experiment.created_at).desc())
-        .all()
-    )
+    # Query SQLite for experiments
+    all_experiments = ExperimentDB.list(limit=10000)
+
+    # Aggregate by date
+    daily_counts = {}
+    for exp in all_experiments:
+        created_at_str = exp.get("created_at")
+        if created_at_str:
+            try:
+                created_at = datetime.fromisoformat(created_at_str)
+                if created_at >= since:
+                    date_str = created_at.date().isoformat()
+                    if date_str not in daily_counts:
+                        daily_counts[date_str] = 0
+                    daily_counts[date_str] += 1
+            except:
+                pass
+
+    # Sort by date descending
+    sorted_dates = sorted(daily_counts.items(), key=lambda x: x[0], reverse=True)
 
     return [
-        {"date": str(date), "experiment_count": count}
-        for date, count in daily_usage
+        {"date": date, "experiment_count": count}
+        for date, count in sorted_dates
     ]
 
 
@@ -595,24 +628,25 @@ async def get_system_stats(db: Session = Depends(get_db)):
     active_users = db.query(User).filter(User.is_active == True).count()
     verified_users = db.query(User).filter(User.is_verified == True).count()
 
-    total_experiments = db.query(Experiment).count()
-    running_experiments = db.query(Experiment).filter(
-        Experiment.status == ExperimentStatus.RUNNING
-    ).count()
-    completed_experiments = db.query(Experiment).filter(
-        Experiment.status == ExperimentStatus.COMPLETED
-    ).count()
+    # Query SQLite for experiments
+    all_experiments = ExperimentDB.list(limit=10000)
+    total_experiments = len(all_experiments)
+    running_experiments = len([e for e in all_experiments if e.get("status") == "running"])
+    completed_experiments = len([e for e in all_experiments if e.get("status") == "completed"])
 
-    total_campaigns = db.query(Campaign).count()
+    # Query SQLite for campaigns
+    all_campaigns = CampaignDB.list(limit=10000)
+    total_campaigns = len(all_campaigns)
 
     total_access_keys = db.query(AccessKey).count()
     active_access_keys = db.query(AccessKey).filter(AccessKey.is_active == True).count()
 
     # Recent activity (last 24 hours)
     last_24h = datetime.utcnow() - timedelta(hours=24)
-    experiments_today = db.query(Experiment).filter(
-        Experiment.created_at >= last_24h
-    ).count()
+    experiments_today = len([
+        e for e in all_experiments
+        if e.get("created_at") and datetime.fromisoformat(e["created_at"]) >= last_24h
+    ])
     new_users_today = db.query(User).filter(User.created_at >= last_24h).count()
 
     return {

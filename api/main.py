@@ -42,6 +42,7 @@ from api.routes import (
 )
 from api.core.config import get_settings
 from api.core.database import init_db, cleanup_stuck_experiments
+from api.core.database_postgres import init_db as init_postgres_db
 
 
 @asynccontextmanager
@@ -59,9 +60,13 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     set_main_event_loop(loop)
 
-    # Initialize database
+    # Initialize SQLite database (experiments, jobs, campaigns)
     init_db()
-    print("✅ Database initialized")
+    print("✅ SQLite Database initialized")
+
+    # Initialize PostgreSQL database (users, auth, admin)
+    init_postgres_db()
+    print("✅ PostgreSQL Database initialized")
 
     # Clean up stuck experiments from previous session
     cleanup_stuck_experiments()
