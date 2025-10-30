@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_API_URL || 'http://172.171.222.16/api';
+const BACKEND_URL = process.env.BACKEND_API_URL || 'https://kanad.deeprealm.in';
 
 export async function GET(
   request: NextRequest,
