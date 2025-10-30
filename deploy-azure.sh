@@ -43,15 +43,21 @@ WEB_APP_NAME="kanad-api"  # Must be globally unique
 # Recommended for Kanad (VQE/SQD Hamiltonian construction):
 # E4_v3 provides 32GB RAM for quantum chemistry calculations
 # Good balance: handles medium-large molecules, multiple concurrent jobs
-APP_SERVICE_SKU="FX4-4mds_v2"  # 4 vCores, 84GB RAM - HPC-level for quantum simulations
+APP_SERVICE_SKU="E4_v3"  # 4 vCores, 32GB RAM - HPC-level for quantum simulations
 
 # PostgreSQL tier - Upgraded to match compute tier
-# Options:
-# - Burstable: $12/month (B_Standard_B1ms) - for testing
-# - GeneralPurpose: $80/month (GP_Standard_D2s_v3) - 2 vCores, 8GB RAM
-# - GeneralPurpose: $150/month (GP_Standard_D4s_v3) - 4 vCores, 16GB RAM
-# - MemoryOptimized: $300/month (MO_Standard_E4s_v3) - 4 vCores, 32GB RAM
-POSTGRES_SKU="L4s_v4"  # 4 vCores, 32GB RAM - handles large molecular data
+# NOTE: SKU names must be lowercase with underscores
+# Options (Burstable tier):
+# - standard_b1ms: ~$12/month - 1 vCore, 2GB RAM (testing only)
+# - standard_b2s: ~$25/month - 2 vCores, 4GB RAM
+# Options (GeneralPurpose tier - recommended):
+# - standard_d2s_v3: ~$80/month - 2 vCores, 8GB RAM
+# - standard_d4s_v3: ~$150/month - 4 vCores, 16GB RAM
+# - standard_d8s_v3: ~$300/month - 8 vCores, 32GB RAM
+# Options (v4 and v5 - newer, similar pricing):
+# - standard_d2ds_v4/v5: 2 vCores, 8GB RAM
+# - standard_d4ds_v4/v5: 4 vCores, 16GB RAM
+POSTGRES_SKU="standard_d4s_v3"  # 4 vCores, 16GB RAM - handles large molecular data
 
 # Colors for output
 GREEN='\033[0;32m'
