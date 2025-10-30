@@ -2,6 +2,7 @@
 // This module provides all API functions for communicating with the FastAPI backend
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/api";
 const API_TIMEOUT = 30000;
 
 class APIError extends Error {
@@ -468,9 +469,8 @@ export async function getCircuitPreview(molecule: any, configuration: any) {
 // ===== WEBSOCKET =====
 
 export function createWebSocket(experimentId: string): WebSocket {
-  // Convert HTTP URL to WebSocket URL
-  const wsUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
-  const fullWsUrl = `${wsUrl}/ws/experiments/${experimentId}`;
+  // Use dedicated WebSocket URL (bypasses Vercel proxy for production)
+  const fullWsUrl = `${WS_BASE_URL}/ws/experiments/${experimentId}`;
   console.log("🔌 Creating WebSocket connection to:", fullWsUrl);
   return new WebSocket(fullWsUrl);
 }
