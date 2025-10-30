@@ -471,7 +471,7 @@ export async function getCircuitPreview(molecule: any, configuration: any) {
 
 export function createWebSocket(experimentId: string): WebSocket {
   // Use dedicated WebSocket URL (bypasses Vercel proxy for production)
-  const fullWsUrl = `${WS_BASE_URL}/ws/experiments/${experimentId}`;
+  const fullWsUrl = `${WS_BASE_URL}/api/ws/experiments/${experimentId}`;
   console.log("🔌 Creating WebSocket connection to:", fullWsUrl);
   return new WebSocket(fullWsUrl);
 }
