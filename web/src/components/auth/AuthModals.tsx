@@ -134,8 +134,14 @@ export function AuthModals({ showLogin, showRegister, onClose }: AuthModalsProps
 
     const initializeGoogleSignIn = () => {
       if (window.google) {
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        if (!clientId) {
+          console.error("Google Client ID not configured");
+          return;
+        }
+
         window.google.accounts.id.initialize({
-          client_id: "336249296791-njvoeikug1vurqk1u6i1uqej4jufpcnf.apps.googleusercontent.com",
+          client_id: clientId,
           callback: (response: any) => {
             handleGoogleSignIn(response.credential);
           },
