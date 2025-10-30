@@ -1,4 +1,60 @@
-fastapi==0.115.5
-uvicorn[standard]==0.34.0
-pydantic==2.10.3
-python-multipart==0.0.20
+# ============================================================================
+# Kanad API - Backend Server Dependencies
+# ============================================================================
+# Install with: pip install -r api/requirements.txt
+#
+# This file contains all backend API server and authentication dependencies.
+# For core quantum chemistry modules, see: ../requirements.txt
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Web Framework
+# ----------------------------------------------------------------------------
+fastapi==0.115.5          # Modern async web framework
+uvicorn[standard]==0.34.0 # ASGI server with WebSocket support
+python-multipart==0.0.20  # File upload support
+
+# ----------------------------------------------------------------------------
+# Data Validation
+# ----------------------------------------------------------------------------
+pydantic==2.10.3          # Data validation and settings management
+pydantic[email]>=2.5.0    # Email validation support
+email-validator>=2.1.0    # Email validation
+
+# ----------------------------------------------------------------------------
+# Database - PostgreSQL
+# ----------------------------------------------------------------------------
+psycopg2-binary>=2.9.9    # PostgreSQL adapter
+sqlalchemy>=2.0.23        # ORM for PostgreSQL
+alembic>=1.12.1          # Database migrations
+
+# Note: SQLite is used for experiments/jobs (built-in to Python)
+
+# ----------------------------------------------------------------------------
+# Authentication & Security
+# ----------------------------------------------------------------------------
+pyjwt>=2.8.0                     # JWT token handling
+bcrypt>=4.1.1                    # Password hashing
+python-jose[cryptography]>=3.3.0 # Additional JWT/JWE support
+passlib>=1.7.4                   # Password hashing utilities
+
+# ----------------------------------------------------------------------------
+# OAuth & HTTP Clients
+# ----------------------------------------------------------------------------
+requests>=2.31.0          # Synchronous HTTP client (OAuth)
+httpx>=0.25.0            # Async HTTP client
+
+# ----------------------------------------------------------------------------
+# Email
+# ----------------------------------------------------------------------------
+aiosmtplib>=3.0.1        # Async SMTP client for email sending
+
+# ----------------------------------------------------------------------------
+# Environment & Configuration
+# ----------------------------------------------------------------------------
+python-dotenv>=1.0.0     # Load environment variables from .env files
+
+# ----------------------------------------------------------------------------
+# Utilities
+# ----------------------------------------------------------------------------
+python-dateutil>=2.8.2   # Extended date/time utilities

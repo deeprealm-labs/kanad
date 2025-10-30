@@ -1,38 +1,63 @@
-# Core dependencies
+# ============================================================================
+# Kanad - Quantum Chemistry Platform
+# Core Scientific Computing Dependencies
+# ============================================================================
+# Install with: pip install -r requirements.txt
+#
+# This file contains core quantum chemistry and scientific computing modules.
+# For API server dependencies, see: api/requirements.txt
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Scientific Computing Core
+# ----------------------------------------------------------------------------
 numpy>=1.24.0
 scipy>=1.10.0
-rdkit>=2025.03.5
-pytest>=7.4.0
-pytest-cov>=4.1.0
 
-# Quantum computing - Qiskit 2.x (latest stable)
-qiskit>=2.2.0
-qiskit-aer>=0.15.0
-qiskit-ibm-runtime>=0.30.0
-qiskit-addon-sqd>=0.1.0
-# Note: qiskit-nature code is in kanad/external/qiskit_nature (adapted for Qiskit 2.x)
-
-# GPU acceleration (optional - requires NVIDIA GPU + CUDA)
-# Uncomment for GPU support:
-# cuquantum-python>=23.10.0
-# cupy-cuda11x>=12.0.0  # or cupy-cuda12x for CUDA 12
-# qiskit-aer-gpu>=0.13.0
-# Backend
-bluequbit
-
+# ----------------------------------------------------------------------------
 # Chemistry
-pyscf>=2.3.0
+# ----------------------------------------------------------------------------
+rdkit>=2025.03.5           # Chemistry toolkit for molecular manipulation
+pyscf>=2.3.0              # Python-based quantum chemistry program
 
-# Visualization
-matplotlib>=3.7.0
-plotly>=5.17.0
+# ----------------------------------------------------------------------------
+# Quantum Computing - Qiskit 2.x
+# ----------------------------------------------------------------------------
+qiskit>=2.2.0             # Quantum computing framework
+qiskit-aer>=0.15.0        # High-performance quantum circuit simulator
+qiskit-ibm-runtime>=0.30.0  # IBM Quantum cloud backend
+qiskit-addon-sqd>=0.1.0   # Subspace quantum dynamics addon
 
+# Note: qiskit-nature code is adapted in kanad/external/qiskit_nature for Qiskit 2.x
+
+# ----------------------------------------------------------------------------
+# Cloud Quantum Backends
+# ----------------------------------------------------------------------------
+bluequbit                  # BlueQubit cloud backend integration
+
+# ----------------------------------------------------------------------------
+# GPU Acceleration (Optional)
+# ----------------------------------------------------------------------------
+# Uncomment for NVIDIA GPU support (requires CUDA):
+# cuquantum-python>=23.10.0
+# cupy-cuda11x>=12.0.0     # For CUDA 11.x
+# cupy-cuda12x>=12.0.0     # For CUDA 12.x
+# qiskit-aer-gpu>=0.13.0
+
+# ----------------------------------------------------------------------------
+# Data Visualization
+# ----------------------------------------------------------------------------
+matplotlib>=3.7.0         # Static plotting
+plotly>=5.17.0           # Interactive 3D molecular visualizations
+
+# ----------------------------------------------------------------------------
+# Testing
+# ----------------------------------------------------------------------------
+pytest>=7.4.0            # Testing framework
+pytest-cov>=4.1.0        # Code coverage
+
+# ----------------------------------------------------------------------------
 # Utilities
-dataclasses-json>=0.6.0
-typing-extensions>=4.8.0
-
-# Web API Server
-fastapi>=0.104.0
-uvicorn>=0.24.0
-python-multipart>=0.0.6
-
+# ----------------------------------------------------------------------------
+dataclasses-json>=0.6.0   # JSON serialization for dataclasses
+typing-extensions>=4.8.0  # Backported typing features
