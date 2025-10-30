@@ -1245,7 +1245,7 @@ function CreateAccessKeyModal({
         <div className="bg-card border border-border rounded-lg max-w-md w-full p-6">
           <h3 className="text-xl font-quando font-bold mb-4">Access Key Created</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Save this key now. You won't be able to see it again!
+            Save this key now. You won&apos;t be able to see it again!
           </p>
           <div className="bg-accent p-4 rounded-lg mb-6">
             <code className="text-sm break-all">{createdKey}</code>

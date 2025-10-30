@@ -357,7 +357,7 @@ export function AuthModals({ showLogin, showRegister, onClose }: AuthModalsProps
             </h2>
 
             <p className="text-muted-foreground mb-6 font-quando">
-              We've sent a verification code to <strong>{otpEmail}</strong>. Please enter it below.
+              We&apos;ve sent a verification code to <strong>{otpEmail}</strong>. Please enter it below.
             </p>
 
             <form onSubmit={handleVerifyOtp} className="space-y-4">

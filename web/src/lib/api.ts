@@ -19,9 +19,9 @@ async function apiCall<T = any>(endpoint: string, options?: RequestInit): Promis
   const accessToken = typeof window !== 'undefined' ? localStorage.getItem('kanad_access_token') : null;
 
   try {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...options?.headers,
+      ...(options?.headers as Record<string, string>),
     };
 
     // Add Authorization header if token exists

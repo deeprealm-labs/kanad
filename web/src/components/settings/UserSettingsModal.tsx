@@ -246,7 +246,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
               {isGoogleUser && (
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-4">
                   <p className="text-sm font-quando text-blue-600 dark:text-blue-400">
-                    You're signed in with Google OAuth
+                    You&apos;re signed in with Google OAuth
                   </p>
                 </div>
               )}
