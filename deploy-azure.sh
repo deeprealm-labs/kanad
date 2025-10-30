@@ -96,13 +96,8 @@ if ! command -v az &> /dev/null; then
 fi
 print_success "Azure CLI found"
 
-# Check if Docker is installed
-if ! command -v docker &> /dev/null; then
-    print_error "Docker not found. Please install it first:"
-    echo "  sudo apt-get install docker.io"
-    exit 1
-fi
-print_success "Docker found"
+# Note: Docker is NOT required - we use ACR build which builds in Azure
+print_success "Using ACR build (no local Docker required)"
 
 # Check if logged into Azure
 if ! az account show &> /dev/null; then
@@ -212,18 +207,22 @@ fi
 
 print_header "Step 3: Building and Pushing Docker Image"
 
-# Login to ACR
-az acr login --name $ACR_NAME
-print_success "Logged into ACR"
-
-# Build and push using ACR build (faster, happens in Azure)
+# Build and push using ACR build (no local Docker required)
 print_warning "Building Docker image in Azure (this may take 5-10 minutes)..."
+echo "Using ACR build - no local Docker daemon required"
+
 az acr build \
     --registry $ACR_NAME \
     --image kanad-api:latest \
     --file Dockerfile \
     .
-print_success "Docker image built and pushed to ACR"
+
+if [ $? -eq 0 ]; then
+    print_success "Docker image built and pushed to ACR"
+else
+    print_error "Failed to build Docker image"
+    exit 1
+fi
 
 # ============================================================================
 # Step 4: Create PostgreSQL Database
