@@ -48,7 +48,7 @@ async function apiCall<T = any>(endpoint: string, options?: RequestInit): Promis
         throw new APIError(response.status, validationErrors);
       }
 
-      throw new APIError(response.status, error.detail || error.message || "API Error");
+      throw new APIError(response.status, error.detail || error.message || error.error || "API Error");
     }
 
     return response.json();
