@@ -227,7 +227,8 @@ export function AuthModals({ showLogin, showRegister, onClose }: AuthModalsProps
               </button>
             </form>
 
-            <div className="mt-6">
+            {/* Google Sign-In temporarily disabled - will add access key validation later */}
+            {/* <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-border"></div>
@@ -238,10 +239,8 @@ export function AuthModals({ showLogin, showRegister, onClose }: AuthModalsProps
                   </span>
                 </div>
               </div>
-
-              {/* Google Sign-In Button */}
               <div id="google-signin-button" className="mt-4 w-full flex justify-center"></div>
-            </div>
+            </div> */}
 
             <button
               onClick={onClose}
@@ -301,7 +300,7 @@ export function AuthModals({ showLogin, showRegister, onClose }: AuthModalsProps
                   minLength={8}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  At least 8 characters, include uppercase, lowercase, and number
+                  Must contain: 8+ characters, uppercase, lowercase, number, and special character (!@#$%^&*...)
                 </p>
               </div>
 
