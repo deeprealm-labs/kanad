@@ -38,7 +38,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://your-backend-api.azurewebsites.net/api/:path*"
+      "destination": "http://172.171.222.16/api/:path*"
     }
   ]
 }
