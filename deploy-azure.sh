@@ -29,21 +29,26 @@ APP_SERVICE_PLAN="kanad-plan"
 WEB_APP_NAME="kanad-api"  # Must be globally unique
 
 # Compute tier - HPC-level for Quantum Chemistry Calculations
-# Options for Memory-Optimized (E-series - for Hamiltonian construction, VQE, SQD):
-# - E2_v3: 2 vCores, 16GB RAM - ~$150/month (minimum recommended)
-# - E4_v3: 4 vCores, 32GB RAM - ~$300/month (good for medium molecules)
-# - E8_v3: 8 vCores, 64GB RAM - ~$600/month (large molecules, multiple jobs)
-# - E16_v3: 16 vCores, 128GB RAM - ~$1200/month (HPC workloads)
+# NOTE: App Service uses Premium v3/v4 SKUs, NOT VM E-series
 #
-# Options for Compute-Optimized (D-series - balanced compute/memory):
-# - D4s_v3: 4 vCores, 16GB RAM - ~$200/month
-# - D8s_v3: 8 vCores, 32GB RAM - ~$400/month
-# - D16s_v3: 16 vCores, 64GB RAM - ~$800/month
+# App Service Premium v3 Memory-Optimized (PxMV3 - for quantum chemistry):
+# - P1MV3: 2 vCores, 8GB RAM - ~$150/month (testing)
+# - P2MV3: 4 vCores, 16GB RAM - ~$300/month (good for small-medium molecules)
+# - P3MV3: 8 vCores, 32GB RAM - ~$600/month (recommended for MVP)
+# - P4MV3: 16 vCores, 64GB RAM - ~$1200/month (large molecules)
+# - P5MV3: 32 vCores, 128GB RAM - ~$2400/month (maximum performance)
+#
+# App Service Premium v2 (older, less memory - NOT recommended):
+# - P2V2: 4 cores, 7GB RAM - ~$240/month (TOO SMALL for quantum chemistry)
+# - P3V2: 8 cores, 14GB RAM - ~$480/month (still too small)
+#
+# App Service Premium v4 (newer generation, similar specs as v3):
+# - P1MV4, P2MV4, P3MV4, P4MV4, P5MV4
 
 # Recommended for Kanad (VQE/SQD Hamiltonian construction):
-# E4_v3 provides 32GB RAM for quantum chemistry calculations
+# P3MV3 provides 32GB RAM and 8 vCores for quantum chemistry calculations
 # Good balance: handles medium-large molecules, multiple concurrent jobs
-APP_SERVICE_SKU="E4_v3"  # 4 vCores, 32GB RAM - HPC-level for quantum simulations
+APP_SERVICE_SKU="P3MV3"  # 8 vCores, 32GB RAM - Memory-optimized for quantum simulations
 
 # PostgreSQL tier - Upgraded to match compute tier
 # NOTE: SKU names must be lowercase with underscores
@@ -57,7 +62,7 @@ APP_SERVICE_SKU="E4_v3"  # 4 vCores, 32GB RAM - HPC-level for quantum simulation
 # Options (v4 and v5 - newer, similar pricing):
 # - standard_d2ds_v4/v5: 2 vCores, 8GB RAM
 # - standard_d4ds_v4/v5: 4 vCores, 16GB RAM
-POSTGRES_SKU="standard_d4s_v3"  # 4 vCores, 16GB RAM - handles large molecular data
+POSTGRES_SKU="standard_d8s_v3"  # 4 vCores, 16GB RAM - handles large molecular data
 
 # Colors for output
 GREEN='\033[0;32m'
