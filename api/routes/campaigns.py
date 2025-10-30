@@ -146,7 +146,7 @@ async def list_campaigns(
         if current_user:
             campaigns = [
                 camp for camp in campaigns
-                if camp.get('user_id') == current_user.id
+                if str(camp.get('user_id')) == str(current_user.id)
             ]
 
         return {"campaigns": campaigns}
