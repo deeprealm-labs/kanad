@@ -68,7 +68,7 @@ This script will:
 - ✅ Enable logging and monitoring
 
 **Estimated time:** 15-20 minutes
-**Estimated cost:** ~$395/month (P2V2 App Service + PostgreSQL)
+**Estimated cost:** ~$455/month (E4_v3 HPC-level App Service + PostgreSQL)
 
 ### Option 2: Manual Deployment
 
@@ -152,12 +152,12 @@ az postgres flexible-server firewall-rule create \
 APP_SERVICE_PLAN="kanad-plan"
 WEB_APP_NAME="kanad-api"  # Must be globally unique
 
-# Create plan with P2V2 (4 cores, 7GB RAM)
+# Create plan with E4_v3 (4 vCores, 32GB RAM) - HPC-level for quantum chemistry
 az appservice plan create \
   --name $APP_SERVICE_PLAN \
   --resource-group $RESOURCE_GROUP \
   --is-linux \
-  --sku P2V2
+  --sku E4_v3
 
 # Create web app
 az webapp create \
@@ -300,17 +300,17 @@ az monitor metrics list \
 ### Scale Up/Down
 
 ```bash
-# Scale to P3V2 (8 cores, 14GB RAM) for heavy workloads
+# Scale to E8_v3 (8 vCores, 64GB RAM) for heavy workloads
 az appservice plan update \
   --resource-group $RESOURCE_GROUP \
   --name $APP_SERVICE_PLAN \
-  --sku P3V2
+  --sku E8_v3
 
-# Scale back to P1V2 to save credits
+# Scale back to E2_v3 (2 vCores, 16GB RAM) to save credits during idle periods
 az appservice plan update \
   --resource-group $RESOURCE_GROUP \
   --name $APP_SERVICE_PLAN \
-  --sku P1V2
+  --sku E2_v3
 ```
 
 ### Enable Auto-Scaling
@@ -353,17 +353,22 @@ az consumption usage list \
    - Amount: $500 (adjust based on your credits)
    - Alert at: 80%, 90%, 100%
 
-### Estimated Monthly Costs
+### Estimated Monthly Costs (HPC Configuration)
 
-| Resource | SKU | Cost |
-|----------|-----|------|
-| App Service | P2V2 | ~$240/month |
-| PostgreSQL | GP_Standard_D2s_v3 | ~$150/month |
-| Container Registry | Basic | ~$5/month |
-| **Total** | | **~$395/month** |
+| Resource | SKU | Specs | Cost |
+|----------|-----|-------|------|
+| App Service | E4_v3 | 4 vCores, 32GB RAM | ~$300/month |
+| PostgreSQL | GP_Standard_D4s_v3 | 4 vCores, 16GB RAM | ~$150/month |
+| Container Registry | Basic | - | ~$5/month |
+| **Total** | | | **~$455/month** |
 
-**With $1000 credits:** ~2.5 months
-**With $5000 credits:** ~12 months
+**With $1000 credits:** ~2.2 months
+**With $5000 credits:** ~11 months
+
+**Cost optimization tips:**
+- Scale down to E2_v3 ($150/month) during idle periods
+- Use auto-scaling to adjust based on load
+- Monitor usage with Azure Cost Management
 
 ## Troubleshooting
 

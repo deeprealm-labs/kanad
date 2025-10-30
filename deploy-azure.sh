@@ -28,23 +28,30 @@ POSTGRES_DB="kanad_db"
 APP_SERVICE_PLAN="kanad-plan"
 WEB_APP_NAME="kanad-api"  # Must be globally unique
 
-# Compute tier - Choose based on your needs and credits
-# Options:
-# - F1 (Free): Free tier, very limited
-# - B1 (Basic): $13/month, good for testing
-# - B2 (Basic): $26/month, better performance
-# - P1V2 (Premium): $120/month, production-ready
-# - P2V2 (Premium): $240/month, high-compute (4 cores, 7GB RAM)
-# - P3V2 (Premium): $480/month, highest compute (8 cores, 14GB RAM)
+# Compute tier - HPC-level for Quantum Chemistry Calculations
+# Options for Memory-Optimized (E-series - for Hamiltonian construction, VQE, SQD):
+# - E2_v3: 2 vCores, 16GB RAM - ~$150/month (minimum recommended)
+# - E4_v3: 4 vCores, 32GB RAM - ~$300/month (good for medium molecules)
+# - E8_v3: 8 vCores, 64GB RAM - ~$600/month (large molecules, multiple jobs)
+# - E16_v3: 16 vCores, 128GB RAM - ~$1200/month (HPC workloads)
+#
+# Options for Compute-Optimized (D-series - balanced compute/memory):
+# - D4s_v3: 4 vCores, 16GB RAM - ~$200/month
+# - D8s_v3: 8 vCores, 32GB RAM - ~$400/month
+# - D16s_v3: 16 vCores, 64GB RAM - ~$800/month
 
-# Recommended for Kanad (VQE/SQD computations):
-APP_SERVICE_SKU="P2V2"  # 4 cores, 7GB RAM - Good balance for quantum simulations
+# Recommended for Kanad (VQE/SQD Hamiltonian construction):
+# E4_v3 provides 32GB RAM for quantum chemistry calculations
+# Good balance: handles medium-large molecules, multiple concurrent jobs
+APP_SERVICE_SKU="E4_v3"  # 4 vCores, 32GB RAM - HPC-level for quantum simulations
 
-# PostgreSQL tier
+# PostgreSQL tier - Upgraded to match compute tier
 # Options:
 # - Burstable: $12/month (B_Standard_B1ms) - for testing
-# - GeneralPurpose: $80/month (GP_Standard_D2s_v3) - for production
-POSTGRES_SKU="GP_Standard_D2s_v3"  # 2 vCores, 8GB RAM
+# - GeneralPurpose: $80/month (GP_Standard_D2s_v3) - 2 vCores, 8GB RAM
+# - GeneralPurpose: $150/month (GP_Standard_D4s_v3) - 4 vCores, 16GB RAM
+# - MemoryOptimized: $300/month (MO_Standard_E4s_v3) - 4 vCores, 32GB RAM
+POSTGRES_SKU="GP_Standard_D4s_v3"  # 4 vCores, 16GB RAM - handles large molecular data
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -358,10 +365,21 @@ echo "  3. Test the API: curl ${WEB_APP_URL}/api/health"
 echo "  4. View logs: az webapp log tail --name ${WEB_APP_NAME} --resource-group ${RESOURCE_GROUP}"
 echo "  5. Update your frontend .env with: NEXT_PUBLIC_API_URL=${WEB_APP_URL}"
 echo ""
-echo -e "${BLUE}Estimated Monthly Cost:${NC}"
-echo "  App Service ($APP_SERVICE_SKU): ~\$240/month"
-echo "  PostgreSQL ($POSTGRES_SKU): ~\$150/month"
+echo -e "${BLUE}Estimated Monthly Cost (HPC Configuration):${NC}"
+echo "  App Service (E4_v3 - 4 vCores, 32GB RAM): ~\$300/month"
+echo "  PostgreSQL (GP_Standard_D4s_v3 - 4 vCores, 16GB RAM): ~\$150/month"
 echo "  Container Registry (Basic): ~\$5/month"
-echo "  Total: ~\$395/month (well within your \$1000-5000 credits)"
+echo "  Total: ~\$455/month"
+echo ""
+echo -e "${GREEN}Credit Usage Projection:${NC}"
+echo "  - With \$1000 credits: ~2.2 months of runtime"
+echo "  - With \$5000 startup credits: ~11 months of runtime"
+echo "  - Recommended: Monitor usage and scale down to E2_v3 during idle periods"
+echo ""
+echo -e "${YELLOW}Note: This HPC-level configuration supports:${NC}"
+echo "  - Hamiltonian construction for SQD and VQE"
+echo "  - Large molecular simulations (up to 50 atoms)"
+echo "  - Multiple concurrent quantum chemistry jobs"
+echo "  - 32GB RAM handles memory-intensive PySCF calculations"
 echo ""
 print_success "Deployment successful! 🚀"
