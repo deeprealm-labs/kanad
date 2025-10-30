@@ -26,11 +26,5 @@
         }
       ]
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "http://172.171.222.16/api/:path*"
-    }
   ]
 }
