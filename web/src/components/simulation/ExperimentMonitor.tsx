@@ -116,25 +116,24 @@ export default function ExperimentMonitor({
       if (exp.results) {
         setResults(exp.results);
 
-        // Only restore convergence data if we don't have it yet
-        if (convergenceData.length === 0) {
-          if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
-            console.log("📊 Restoring convergence_history:", exp.results.convergence_history.length, "points");
-            setConvergenceData(exp.results.convergence_history);
-            if (exp.results.convergence_history.length > 0) {
-              setCurrentIteration(exp.results.convergence_history.length);
-            }
-          } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
-            console.log("📊 Restoring energy_history:", exp.results.energy_history.length, "points");
-            const convergence = exp.results.energy_history.map((energy: number, index: number) => ({
-              iteration: index + 1,
-              energy: energy
-            }));
-            setConvergenceData(convergence);
-            setCurrentIteration(convergence.length);
+        // Always restore historical convergence data from database
+        // This ensures we catch any points that were generated before WebSocket connected
+        if (exp.results.convergence_history && Array.isArray(exp.results.convergence_history)) {
+          console.log("📊 Restoring convergence_history:", exp.results.convergence_history.length, "points");
+          setConvergenceData(exp.results.convergence_history);
+          if (exp.results.convergence_history.length > 0) {
+            setCurrentIteration(exp.results.convergence_history.length);
           }
-        } else {
-          console.log("📊 Keeping existing convergence data:", convergenceData.length, "points");
+        } else if (exp.results.energy_history && Array.isArray(exp.results.energy_history)) {
+          console.log("📊 Restoring energy_history:", exp.results.energy_history.length, "points");
+          const convergence = exp.results.energy_history.map((energy: number, index: number) => ({
+            iteration: index + 1,
+            energy: energy
+          }));
+          setConvergenceData(convergence);
+          setCurrentIteration(convergence.length);
+        } else if (convergenceData.length > 0) {
+          console.log("📊 No historical data, keeping existing convergence data:", convergenceData.length, "points");
         }
       }
 
@@ -455,13 +454,23 @@ export default function ExperimentMonitor({
 
       case "convergence":
         console.log("📊 WebSocket convergence update - iteration:", message.iteration, "energy:", message.energy);
-        setConvergenceData((prev) => [
-          ...prev,
-          {
-            iteration: message.iteration,
-            energy: message.energy,
-          },
-        ]);
+        setConvergenceData((prev) => {
+          // Check if this iteration already exists (avoid duplicates from database restore)
+          const exists = prev.some(point => point.iteration === message.iteration);
+          if (exists) {
+            console.log("⚠️  Duplicate convergence point, skipping iteration:", message.iteration);
+            return prev;
+          }
+
+          // Add new point
+          return [
+            ...prev,
+            {
+              iteration: message.iteration,
+              energy: message.energy,
+            },
+          ];
+        });
         console.log("✅ Setting currentIteration to:", message.iteration);
         setCurrentIteration(message.iteration);
 
