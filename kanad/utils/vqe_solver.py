@@ -145,6 +145,11 @@ class VQESolver(BaseSolver):
         self.experiment_id = experiment_id
         self.job_id = job_id
 
+        # Track cloud provider job information
+        self.cloud_job_ids = []  # List of cloud job IDs from IBM/BlueQubit
+        self.cloud_provider = None  # 'ibm' or 'bluequbit'
+        self.execution_mode = None  # 'batch', 'session', 'instance' for IBM
+
         # Store callback (don't pass to backend via kwargs)
         self._callback = callback
 
@@ -712,6 +717,11 @@ class VQESolver(BaseSolver):
                 job_id = result['job_id']
                 logger.info(f"IBM job submitted: {job_id}")
 
+                # Track cloud job information
+                self.cloud_job_ids.append(job_id)
+                self.cloud_provider = 'ibm'
+                self.execution_mode = 'batch'  # IBM uses batch mode
+
                 # Broadcast job ID to frontend
                 if self.experiment_id:
                     try:
@@ -844,6 +854,10 @@ class VQESolver(BaseSolver):
 
                 job_id = job_info['job_id']
                 logger.info(f"BlueQubit job submitted: {job_id}")
+
+                # Track cloud job information
+                self.cloud_job_ids.append(job_id)
+                self.cloud_provider = 'bluequbit'
 
                 # Broadcast job submission
                 if self.experiment_id:
@@ -1307,6 +1321,26 @@ class VQESolver(BaseSolver):
 
         except Exception as e:
             logger.error(f"Error storing enhanced data: {e}")
+
+        # Add cloud provider job information to results
+        if self.cloud_provider:
+            self.results['cloud_provider'] = self.cloud_provider
+            if self.cloud_job_ids:
+                self.results['cloud_job_ids'] = self.cloud_job_ids
+                # Generate job URLs
+                if self.cloud_provider == 'bluequbit':
+                    # BlueQubit job URLs
+                    self.results['cloud_job_urls'] = [
+                        f"https://app.bluequbit.io/jobs/{jid}" for jid in self.cloud_job_ids
+                    ]
+                elif self.cloud_provider == 'ibm':
+                    # IBM Quantum job URLs
+                    self.results['cloud_job_urls'] = [
+                        f"https://quantum.ibm.com/jobs/{jid}" for jid in self.cloud_job_ids
+                    ]
+            if self.execution_mode:
+                self.results['execution_mode'] = self.execution_mode
+            logger.info(f"✅ Added cloud job info: provider={self.cloud_provider}, jobs={len(self.cloud_job_ids)}")
 
         logger.info(f"VQE optimization complete: {result.success}, {self.iteration_count} iterations")
 

@@ -1061,6 +1061,26 @@ def execute_experiment(experiment_id: str, job_id: str):
             results=results_serializable
         )
 
+        # Extract and save cloud provider job information
+        if results.get('cloud_provider'):
+            provider = results['cloud_provider']
+            job_ids = results.get('cloud_job_ids', [])
+            job_urls = results.get('cloud_job_urls', [])
+            execution_mode = results.get('execution_mode')
+
+            # Save the first job ID and URL to the experiment record
+            provider_job_id = job_ids[0] if job_ids else None
+            provider_job_url = job_urls[0] if job_urls else None
+
+            if provider_job_id:
+                ExperimentDB.update_cloud_job_info(
+                    experiment_id,
+                    provider_job_id=provider_job_id,
+                    provider_job_url=provider_job_url,
+                    execution_mode=execution_mode
+                )
+                print(f"✅ Saved cloud job info: {provider} job {provider_job_id}")
+
         # Update job
         JobDB.update_progress(job_id, progress=100.0)
         JobDB.update_status(job_id, 'completed')

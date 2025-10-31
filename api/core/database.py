@@ -84,6 +84,9 @@ def init_db():
                 results TEXT,
                 error_message TEXT,
                 sequence_order INTEGER DEFAULT 0,
+                provider_job_id TEXT,
+                provider_job_url TEXT,
+                execution_mode TEXT,
                 created_at TEXT NOT NULL,
                 started_at TEXT,
                 completed_at TEXT,
@@ -154,6 +157,16 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_analysis_profile
             ON analysis_results(profile)
         """)
+
+        # Migration: Add cloud job tracking columns if they don't exist
+        try:
+            cursor.execute("SELECT provider_job_id FROM experiments LIMIT 1")
+        except sqlite3.OperationalError:
+            print("🔄 Migrating database: Adding cloud job tracking columns...")
+            cursor.execute("ALTER TABLE experiments ADD COLUMN provider_job_id TEXT")
+            cursor.execute("ALTER TABLE experiments ADD COLUMN provider_job_url TEXT")
+            cursor.execute("ALTER TABLE experiments ADD COLUMN execution_mode TEXT")
+            print("✅ Migration complete: Cloud job tracking columns added")
 
         conn.commit()
 
@@ -346,6 +359,23 @@ class ExperimentDB:
                 SET campaign_id = ?, sequence_order = ?
                 WHERE id = ?
             """, (campaign_id, sequence_order, experiment_id))
+            conn.commit()
+
+    @staticmethod
+    def update_cloud_job_info(
+        experiment_id: str,
+        provider_job_id: Optional[str] = None,
+        provider_job_url: Optional[str] = None,
+        execution_mode: Optional[str] = None
+    ):
+        """Update cloud provider job information."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE experiments
+                SET provider_job_id = ?, provider_job_url = ?, execution_mode = ?
+                WHERE id = ?
+            """, (provider_job_id, provider_job_url, execution_mode, experiment_id))
             conn.commit()
 
     @staticmethod
