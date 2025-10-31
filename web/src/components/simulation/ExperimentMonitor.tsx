@@ -500,6 +500,36 @@ export default function ExperimentMonitor({
     setLogs((prev) => [...prev, message]);
   };
 
+  // Helper function to render log messages with clickable links
+  const renderLogMessage = (log: string) => {
+    // Check if log contains URLs (http or https)
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = log.split(urlRegex);
+
+    if (parts.length === 1) {
+      // No URLs found, return plain text
+      return log;
+    }
+
+    // Render with clickable links
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-orange hover:text-brand-yellow underline"
+          >
+            {part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -739,6 +769,38 @@ export default function ExperimentMonitor({
                   {experimentConfig?.molecule?.basis || "STO-3G"}
                 </span>
               </div>
+
+              {/* Cloud Job Information */}
+              {experiment?.provider_job_id && (
+                <>
+                  <div className="border-t border-border pt-2 mt-2"></div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Cloud Job:</span>
+                    {experiment?.provider_job_url ? (
+                      <a
+                        href={experiment.provider_job_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-quanto font-medium text-brand-orange hover:text-brand-yellow underline text-xs"
+                      >
+                        {experiment.provider_job_id.substring(0, 12)}...
+                      </a>
+                    ) : (
+                      <span className="font-quanto font-medium text-xs">
+                        {experiment.provider_job_id.substring(0, 12)}...
+                      </span>
+                    )}
+                  </div>
+                  {experiment?.execution_mode && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Mode:</span>
+                      <span className="font-quanto font-medium capitalize text-xs">
+                        {experiment.execution_mode}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
@@ -944,7 +1006,7 @@ export default function ExperimentMonitor({
                   <span className="text-muted-foreground mr-2">
                     [{formatTime(Math.floor((i + 1) * 1.5))}]
                   </span>
-                  {log}
+                  {renderLogMessage(log)}
                 </div>
               ))}
             </div>

@@ -85,6 +85,9 @@ export interface Experiment {
   startedAt?: string;
   completedAt?: string;
   errorMessage?: string;
+  provider_job_id?: string;
+  provider_job_url?: string;
+  execution_mode?: string;
 }
 
 // ===== Queue Types =====
