@@ -84,6 +84,34 @@ class ConnectionManager:
             data["parameters"] = parameters
 
         print(f"📊 Broadcasting convergence: iter={iteration}, E={energy:.8f}")
+
+        # Store convergence point in memory for this experiment
+        if not hasattr(self, 'convergence_buffers'):
+            self.convergence_buffers = {}
+
+        if experiment_id not in self.convergence_buffers:
+            self.convergence_buffers[experiment_id] = []
+
+        self.convergence_buffers[experiment_id].append({
+            "iteration": iteration,
+            "energy": energy,
+            "parameters": parameters
+        })
+
+        # Save to database periodically (every 5 points or if first point)
+        buffer_size = len(self.convergence_buffers[experiment_id])
+        if buffer_size == 1 or buffer_size % 5 == 0:
+            try:
+                from api.core.database import ExperimentDB
+                ExperimentDB.update_convergence_data(
+                    experiment_id,
+                    self.convergence_buffers[experiment_id]
+                )
+                print(f"💾 Saved {buffer_size} convergence points to database")
+            except Exception as e:
+                logger.error(f"Failed to save convergence data to database: {e}")
+
+        # Broadcast to connected WebSocket clients
         await self.send_update(experiment_id, data)
 
     async def broadcast_status(self, experiment_id: str, status: str, progress: float = None):
@@ -95,6 +123,21 @@ class ConnectionManager:
 
         if progress is not None:
             data["progress"] = progress
+
+        # If experiment is completing, save final convergence data to database
+        if status in ['completed', 'failed', 'cancelled']:
+            if hasattr(self, 'convergence_buffers') and experiment_id in self.convergence_buffers:
+                try:
+                    from api.core.database import ExperimentDB
+                    ExperimentDB.update_convergence_data(
+                        experiment_id,
+                        self.convergence_buffers[experiment_id]
+                    )
+                    print(f"💾 Saved final {len(self.convergence_buffers[experiment_id])} convergence points")
+                    # Clean up buffer
+                    del self.convergence_buffers[experiment_id]
+                except Exception as e:
+                    logger.error(f"Failed to save final convergence data: {e}")
 
         await self.send_update(experiment_id, data)
 

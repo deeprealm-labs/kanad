@@ -379,6 +379,32 @@ class ExperimentDB:
             conn.commit()
 
     @staticmethod
+    def update_convergence_data(experiment_id: str, convergence_history: list):
+        """Update experiment with latest convergence history (for real-time updates)."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Get current results
+            cursor.execute("SELECT results FROM experiments WHERE id = ?", (experiment_id,))
+            row = cursor.fetchone()
+
+            if row and row[0]:
+                results = json.loads(row[0])
+            else:
+                results = {}
+
+            # Update convergence history
+            results['convergence_history'] = convergence_history
+
+            # Save back to database
+            cursor.execute("""
+                UPDATE experiments
+                SET results = ?
+                WHERE id = ?
+            """, (json.dumps(results), experiment_id))
+            conn.commit()
+
+    @staticmethod
     def delete(experiment_id: str):
         """Delete experiment."""
         with get_db() as conn:
