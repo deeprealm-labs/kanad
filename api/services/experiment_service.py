@@ -230,7 +230,7 @@ def get_backend_kwargs(backend_config: Dict[str, Any], experiment_id: str = None
         except ValueError:
             # Fallback to environment variables
             settings = get_settings()
-            api_token = settings.BLUEQUBIT_API_TOKEN
+            api_token = settings.BLUEQUBIT_TOKEN
             print(f"✅ BlueQubit credentials loaded from environment")
 
             if not api_token:
