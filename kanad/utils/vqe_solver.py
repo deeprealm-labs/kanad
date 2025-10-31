@@ -1046,22 +1046,17 @@ class VQESolver(BaseSolver):
         Returns:
             Energy value to minimize
         """
-        electronic_energy = self._compute_energy(parameters)
+        energy = self._compute_energy(parameters)
 
-        # Get nuclear repulsion for total energy (for broadcasting and display)
-        nuclear_repulsion = getattr(self.hamiltonian, 'nuclear_repulsion', 0.0)
-        total_energy = electronic_energy + nuclear_repulsion
-
-        # Track history (store total energy for consistency)
-        self.energy_history.append(total_energy)
+        # Track history
+        self.energy_history.append(energy)
         self.parameter_history.append(parameters.copy())
         self.iteration_count += 1
 
         # Call user callback if provided (used for progress broadcasting from API layer)
-        # IMPORTANT: Pass total energy (with nuclear repulsion) to callback for correct display
         if hasattr(self, '_callback') and self._callback is not None:
             try:
-                self._callback(self.iteration_count, total_energy, parameters)
+                self._callback(self.iteration_count, energy, parameters)
             except Exception as e:
                 # Check if this is a cancellation exception - if so, re-raise it to stop optimizer
                 if 'ExperimentCancelledException' in type(e).__name__ or 'cancelled' in str(e).lower():
@@ -1080,12 +1075,10 @@ class VQESolver(BaseSolver):
         if self.iteration_count % 10 == 0:
             # Estimate optimizer iteration (rough approximation)
             est_iter = self.iteration_count // 40 if self.optimizer_method in ['SLSQP', 'L-BFGS-B'] else self.iteration_count
-            logger.info(f"Function eval {self.iteration_count} (~iter {est_iter}): E = {total_energy:.8f} Ha")
-            print(f"📊 Progress: {self.iteration_count} function evals (~{est_iter} iterations), E = {total_energy:.8f} Ha")
+            logger.info(f"Function eval {self.iteration_count} (~iter {est_iter}): E = {energy:.8f} Ha")
+            print(f"📊 Progress: {self.iteration_count} function evals (~{est_iter} iterations), E = {energy:.8f} Ha")
 
-        # Return electronic energy (no nuclear repulsion) for optimizer
-        # The optimizer should minimize ONLY the electronic part
-        return electronic_energy
+        return energy
 
     def solve(self, initial_parameters: Optional[np.ndarray] = None, callback: Optional[callable] = None) -> Dict[str, Any]:
         """
@@ -1222,16 +1215,9 @@ class VQESolver(BaseSolver):
             tol=self.conv_threshold
         )
 
-        # Get nuclear repulsion energy (constant energy shift)
-        nuclear_repulsion = getattr(self.hamiltonian, 'nuclear_repulsion', 0.0)
-
-        # Total energy = electronic energy + nuclear repulsion
-        total_energy = result.fun + nuclear_repulsion
-
         # Store results
         self.results = {
-            'energy': total_energy,  # FIXED: Now includes nuclear repulsion!
-            'electronic_energy': result.fun,  # Raw electronic energy from VQE
+            'energy': result.fun,
             'parameters': result.x,
             'converged': result.success,
             'iterations': result.nit if hasattr(result, 'nit') else self.iteration_count,  # Use optimizer iterations, not function evals
@@ -1244,12 +1230,10 @@ class VQESolver(BaseSolver):
         # Add HF reference and correlation energy
         if hf_energy is not None:
             self.results['hf_energy'] = hf_energy
-            self.results['correlation_energy'] = total_energy - hf_energy
+            self.results['correlation_energy'] = result.fun - hf_energy
 
-            logger.info(f"VQE energy (total): {total_energy:.8f} Hartree")
-            logger.info(f"Electronic energy: {result.fun:.8f} Hartree")
-            logger.info(f"Nuclear repulsion: {nuclear_repulsion:.8f} Hartree")
-            logger.info(f"Correlation energy: {total_energy - hf_energy:.8f} Hartree")
+            logger.info(f"VQE energy: {result.fun:.8f} Hartree")
+            logger.info(f"Correlation energy: {result.fun - hf_energy:.8f} Hartree")
 
         # Add analysis if enabled
         if self.enable_analysis:
