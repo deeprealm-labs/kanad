@@ -317,14 +317,16 @@ export default function HistoryPage() {
                     {exp.results && (
                       <div className="mt-3 pt-3 border-t border-border space-y-3">
                         {/* Energy */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">
-                            Energy:
-                          </span>
-                          <span className="font-mono text-sm font-bold">
-                            {exp.results.energy.toFixed(6)} Ha
-                          </span>
-                        </div>
+                        {exp.results.energy !== undefined && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">
+                              Energy:
+                            </span>
+                            <span className="font-mono text-sm font-bold">
+                              {exp.results.energy?.toFixed(6) || "N/A"} Ha
+                            </span>
+                          </div>
+                        )}
 
                         {/* Mini Convergence Graph */}
                         {convergenceData.length > 1 && (
@@ -354,19 +356,19 @@ export default function HistoryPage() {
                             {exp.results.analysis.dipole_moment !== undefined && (
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Dipole:</span>
-                                <span className="font-mono">{exp.results.analysis.dipole_moment.toFixed(3)} D</span>
+                                <span className="font-mono">{exp.results.analysis.dipole_moment?.toFixed(3) || "N/A"} D</span>
                               </div>
                             )}
                             {exp.results.analysis.bond_order !== undefined && (
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Bond:</span>
-                                <span className="font-mono">{exp.results.analysis.bond_order.toFixed(2)}</span>
+                                <span className="font-mono">{exp.results.analysis.bond_order?.toFixed(2) || "N/A"}</span>
                               </div>
                             )}
                             {exp.results.correlation_energy !== undefined && (
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Corr:</span>
-                                <span className="font-mono">{exp.results.correlation_energy.toFixed(4)} Ha</span>
+                                <span className="font-mono">{exp.results.correlation_energy?.toFixed(4) || "N/A"} Ha</span>
                               </div>
                             )}
                           </div>
@@ -503,7 +505,7 @@ export default function HistoryPage() {
                           Ground State Energy
                         </div>
                         <div className="text-2xl font-quando font-bold">
-                          {selectedExperiment.results.energy.toFixed(6)} Ha
+                          {selectedExperiment.results.energy?.toFixed(6) || "N/A"} Ha
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                           Converged in {selectedExperiment.results.iterations}{" "}
@@ -517,7 +519,7 @@ export default function HistoryPage() {
                             Dipole Moment
                           </div>
                           <div className="text-xl font-quando font-bold">
-                            {selectedExperiment.results.dipoleMoment.toFixed(4)}{" "}
+                            {selectedExperiment.results.dipoleMoment?.toFixed(4) || "N/A"}{" "}
                             D
                           </div>
                         </div>
