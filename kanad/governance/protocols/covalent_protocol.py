@@ -401,6 +401,203 @@ class CovalentGovernanceProtocol(BaseGovernanceProtocol):
         }
         return angles.get(hybridization, np.pi/2)
 
+    def generate_single_excitations(self, bitstring: str) -> List[str]:
+        """
+        Generate physics-aware single excitations for covalent bonding.
+
+        Covalent bonding principles:
+        1. HOMO → LUMO transitions (bonding → antibonding)
+        2. Preserve spin pairing (singlet state)
+        3. Localized excitations within bonding pairs
+        4. No long-range charge transfer
+
+        Args:
+            bitstring: Configuration bitstring
+
+        Returns:
+            List of excited configuration bitstrings
+        """
+        n_qubits = len(bitstring)
+        bits = list(bitstring)
+        excitations = []
+
+        # Find occupied and virtual orbitals
+        occupied = [i for i, b in enumerate(bits) if b == '1']
+        virtual = [i for i, b in enumerate(bits) if b == '0']
+
+        # Rule 1: HOMO → LUMO (highest occupied to lowest unoccupied)
+        if occupied and virtual:
+            homo_idx = max(occupied)
+            lumo_idx = min(virtual)
+
+            # Primary excitation: HOMO → LUMO
+            new_bits = bits.copy()
+            new_bits[homo_idx] = '0'
+            new_bits[lumo_idx] = '1'
+            excitations.append(''.join(new_bits))
+
+        # Rule 2: Bonding → Antibonding for each pair
+        # In Jordan-Wigner: spin-up/down pairs are adjacent (i, i+1)
+        for i in range(0, n_qubits-1, 2):
+            if bits[i] == '1':  # Occupied bonding orbital
+                # Excite to corresponding antibonding orbital
+                # For small molecules, antibonding is typically +2 or +4 positions
+                for offset in [2, 4]:
+                    antibonding_idx = i + offset
+                    if antibonding_idx < n_qubits and bits[antibonding_idx] == '0':
+                        new_bits = bits.copy()
+                        new_bits[i] = '0'
+                        new_bits[antibonding_idx] = '1'
+                        excitations.append(''.join(new_bits))
+
+        # Rule 3: Preserve spin pairing - also generate spin-down excitation
+        for i in range(1, n_qubits, 2):
+            if bits[i] == '1':  # Occupied spin-down
+                for offset in [2, 4]:
+                    antibonding_idx = i + offset
+                    if antibonding_idx < n_qubits and bits[antibonding_idx] == '0':
+                        new_bits = bits.copy()
+                        new_bits[i] = '0'
+                        new_bits[antibonding_idx] = '1'
+                        excitations.append(''.join(new_bits))
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_excitations = []
+        for exc in excitations:
+            if exc not in seen and exc != bitstring:
+                seen.add(exc)
+                unique_excitations.append(exc)
+
+        return unique_excitations
+
+    def generate_double_excitations(self, bitstring: str) -> List[str]:
+        """
+        Generate physics-aware double excitations for covalent bonding.
+
+        Covalent bonding principles:
+        1. Paired excitations (preserve spin singlet)
+        2. (bonding, bonding) → (antibonding, antibonding)
+        3. Avoid breaking electron pairs
+        4. Local excitations within bonding region
+
+        Args:
+            bitstring: Configuration bitstring
+
+        Returns:
+            List of doubly excited configuration bitstrings
+        """
+        n_qubits = len(bitstring)
+        bits = list(bitstring)
+        excitations = []
+
+        # Find occupied and virtual orbitals
+        occupied = [i for i, b in enumerate(bits) if b == '1']
+        virtual = [i for i, b in enumerate(bits) if b == '0']
+
+        # Rule 1: Paired double excitations (preserve singlet)
+        # Excite spin-up and spin-down together: (i, i+1) → (j, j+1)
+        for i in range(0, n_qubits-1, 2):
+            if bits[i] == '1' and bits[i+1] == '1':  # Bonding pair occupied
+                for j in range(0, n_qubits-1, 2):
+                    if bits[j] == '0' and bits[j+1] == '0':  # Antibonding pair empty
+                        # Double excitation: |↑↓⟩_bonding → |↑↓⟩_antibonding
+                        new_bits = bits.copy()
+                        new_bits[i] = '0'
+                        new_bits[i+1] = '0'
+                        new_bits[j] = '1'
+                        new_bits[j+1] = '1'
+                        excitations.append(''.join(new_bits))
+
+        # Rule 2: HOMO-1, HOMO → LUMO, LUMO+1 (important for correlation)
+        if len(occupied) >= 2 and len(virtual) >= 2:
+            homo = max(occupied)
+            homo_1 = max([o for o in occupied if o < homo], default=None)
+            lumo = min(virtual)
+            lumo_1 = min([v for v in virtual if v > lumo], default=None)
+
+            if homo_1 is not None and lumo_1 is not None:
+                new_bits = bits.copy()
+                new_bits[homo] = '0'
+                new_bits[homo_1] = '0'
+                new_bits[lumo] = '1'
+                new_bits[lumo_1] = '1'
+                excitations.append(''.join(new_bits))
+
+        # Rule 3: Same-spin double excitations (within spin manifold)
+        # Only for larger molecules where this matters
+        if n_qubits >= 8:
+            occupied_up = [i for i in occupied if i % 2 == 0]
+            occupied_down = [i for i in occupied if i % 2 == 1]
+            virtual_up = [i for i in virtual if i % 2 == 0]
+            virtual_down = [i for i in virtual if i % 2 == 1]
+
+            # Spin-up double excitations
+            if len(occupied_up) >= 2 and len(virtual_up) >= 2:
+                i, j = occupied_up[:2]
+                a, b = virtual_up[:2]
+                new_bits = bits.copy()
+                new_bits[i] = '0'
+                new_bits[j] = '0'
+                new_bits[a] = '1'
+                new_bits[b] = '1'
+                excitations.append(''.join(new_bits))
+
+            # Spin-down double excitations
+            if len(occupied_down) >= 2 and len(virtual_down) >= 2:
+                i, j = occupied_down[:2]
+                a, b = virtual_down[:2]
+                new_bits = bits.copy()
+                new_bits[i] = '0'
+                new_bits[j] = '0'
+                new_bits[a] = '1'
+                new_bits[b] = '1'
+                excitations.append(''.join(new_bits))
+
+        # Remove duplicates
+        seen = set()
+        unique_excitations = []
+        for exc in excitations:
+            if exc not in seen and exc != bitstring:
+                seen.add(exc)
+                unique_excitations.append(exc)
+
+        return unique_excitations
+
+    def is_valid_configuration(self, bitstring: str) -> bool:
+        """
+        Check if configuration is valid for covalent bonding.
+
+        Rules:
+        1. Must preserve total electron count
+        2. Should have spin pairing (equal spin-up and spin-down)
+        3. No charge separation (all atoms neutral or nearly neutral)
+
+        Args:
+            bitstring: Configuration bitstring
+
+        Returns:
+            True if configuration is physically valid
+        """
+        n_qubits = len(bitstring)
+
+        # Rule 1: Already checked by ConfigurationSubspace (electron count)
+
+        # Rule 2: Check spin pairing
+        # For covalent molecules, expect singlet state (equal spin-up and spin-down)
+        n_up = sum(1 for i in range(0, n_qubits, 2) if bitstring[i] == '1')
+        n_down = sum(1 for i in range(1, n_qubits, 2) if bitstring[i] == '1')
+
+        # Allow small spin imbalance for excited states
+        if abs(n_up - n_down) > 2:
+            return False
+
+        # Rule 3: No excessive charge separation
+        # For now, accept all configurations that pass spin check
+        # Future: Add atom-wise charge analysis
+
+        return True
+
     def __repr__(self) -> str:
         """String representation."""
         return f"CovalentGovernanceProtocol(rules={len(self.rules)}, entanglement='paired')"

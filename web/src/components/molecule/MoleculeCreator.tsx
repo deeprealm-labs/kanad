@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Search, X, Plus } from "lucide-react";
 import { moleculeLibrary } from "@/data/molecule-library";
 import Molecule3DViewer from "./Molecule3DViewer";
 import { createMoleculeData, processFileUpload, AtomData as UtilAtomData } from "@/utils/moleculeUtils";
+import * as api from "@/lib/api";
 
 interface AtomData {
   symbol: string;
@@ -71,7 +72,26 @@ export default function MoleculeCreator({
   const [xyzFile, setXyzFile] = useState<File | null>(null);
   const [xyzData, setXyzData] = useState<string>("");
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [basisSets, setBasisSets] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load basis sets from API
+  useEffect(() => {
+    const loadBasisSets = async () => {
+      try {
+        const config = await api.getConfigurationOptions();
+        setBasisSets(config.basis_sets || []);
+      } catch (error) {
+        console.error("Failed to load basis sets:", error);
+        // Fallback to minimal basis sets
+        setBasisSets([
+          { value: "sto-3g", label: "STO-3G", category: "minimal" },
+          { value: "6-31g", label: "6-31G", category: "split_valence" },
+        ]);
+      }
+    };
+    loadBasisSets();
+  }, []);
 
   const filteredAtoms = periodicTable.filter(
     (atom) =>
@@ -499,11 +519,40 @@ export default function MoleculeCreator({
                 onChange={(e) => setBasis(e.target.value)}
                 className="w-full px-3 py-1.5 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-brand-orange font-quando text-xs"
               >
-                <option value="sto-3g">STO-3G</option>
-                <option value="6-31g">6-31G</option>
-                <option value="6-31g*" disabled>6-31G* (not implemented)</option>
-                <option value="cc-pvdz" disabled>cc-pVDZ (not implemented)</option>
-                <option value="cc-pvtz" disabled>cc-pVTZ (not implemented)</option>
+                {basisSets.length > 0 ? (
+                  <>
+                    {/* Group basis sets by category */}
+                    {['minimal', 'split_valence', 'polarization', 'diffuse', 'correlation_consistent', 'def2', 'periodic'].map((category) => {
+                      const categoryBases = basisSets.filter((b) => b.category === category);
+                      if (categoryBases.length === 0) return null;
+
+                      const categoryLabels: Record<string, string> = {
+                        minimal: 'Minimal Basis',
+                        split_valence: 'Split-Valence',
+                        polarization: 'Polarization',
+                        diffuse: 'Diffuse Functions',
+                        correlation_consistent: 'Correlation-Consistent',
+                        def2: 'Def2 Series',
+                        periodic: 'Periodic Systems'
+                      };
+
+                      return (
+                        <optgroup key={category} label={categoryLabels[category] || category}>
+                          {categoryBases.map((b: any) => (
+                            <option key={b.value} value={b.value}>
+                              {b.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <>
+                    <option value="sto-3g">STO-3G</option>
+                    <option value="6-31g">6-31G</option>
+                  </>
+                )}
               </select>
             </div>
 

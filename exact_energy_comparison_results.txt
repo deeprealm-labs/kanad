@@ -1,0 +1,44 @@
+
+================================================================================
+VQE ENERGY CONVERGENCE INVESTIGATION
+Why does VQE give ~-1.117 Ha instead of ~-1.137 Ha?
+================================================================================
+
+================================================================================
+EXACT REFERENCE ENERGIES - H2 @ 0.74 Å
+================================================================================
+converged SCF energy = -1.11675930739643
+
+1. Hartree-Fock Energy: -1.11675931 Ha
+2. FCI Energy (EXACT):  -1.13728383 Ha
+3. Correlation Energy:  -0.02052453 Ha (-12.8791 kcal/mol)
+
+================================================================================
+ANSATZ CAPABILITY CHECK
+================================================================================
+
+For H2 (2 electrons, 4 qubits):
+- Hartree-Fock state: |1100⟩ (both electrons in lowest orbital)
+- FCI includes all 2-electron configurations
+- Number of 2-electron configurations: C(4,2) = 6
+
+Configurations:
+  |0011⟩, |0101⟩, |0110⟩, |1001⟩, |1010⟩, |1100⟩
+
+For EXACT energy, ansatz must:
+  1. Start from HF state |1100⟩
+  2. Mix in excited states (especially |0011⟩)
+  3. Use correct amplitudes
+
+CovalentGovernanceAnsatz:
+  Parameters: 24
+Traceback (most recent call last):
+  File "/home/mk/deeprealm/kanad/tests/test_exact_energy_comparison.py", line 287, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/home/mk/deeprealm/kanad/tests/test_exact_energy_comparison.py", line 219, in main
+    ansatz = check_ansatz_capability()
+  File "/home/mk/deeprealm/kanad/tests/test_exact_energy_comparison.py", line 200, in check_ansatz_capability
+    circuit = ansatz.build(params)
+              ^^^^^^^^^^^^
+AttributeError: 'CovalentGovernanceAnsatz' object has no attribute 'build'

@@ -68,6 +68,8 @@ async def get_circuit_preview(request: CircuitPreviewRequest):
             preview = {
                 'circuit_diagram': preview_data.get('diagram', ''),
                 'statistics': preview_data.get('stats', {}),
+                'gates': preview_data.get('gates', []),  # Include structured gates
+                'circuit_image': preview_data.get('circuit_image'),  # Include Matplotlib image
                 'n_qubits': preview_data.get('n_qubits', 0),
                 'n_electrons': preview_data.get('n_electrons', 0),
                 'n_parameters': preview_data.get('n_parameters', 0),

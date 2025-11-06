@@ -11,22 +11,12 @@ import {
   Plus,
   Ban,
 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { useToast } from "@/components/ui/toast";
 import * as api from "@/lib/api";
 import type { Experiment, ConvergencePoint, ExperimentStatus } from "@/lib/types";
 import CancelConfirmationDialog from "@/components/experiment/CancelConfirmationDialog";
-import AnalysisResults from "@/components/simulation/AnalysisResults";
+import QuantumAnimation from "@/components/simulation/QuantumAnimation";
+import ExperimentResults from "@/components/simulation/ExperimentResults";
 
 interface ExperimentMonitorProps {
   experimentId?: string | null;
@@ -49,52 +39,31 @@ export default function ExperimentMonitor({
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<string[]>([
     "Initializing experiment...",
-    "Validating molecular configuration...",
   ]);
-  const [startTime] = useState(Date.now());
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const [convergenceData, setConvergenceData] = useState<ConvergencePoint[]>(
+    []
+  );
   const [results, setResults] = useState<any>(null);
-  const [convergenceData, setConvergenceData] = useState<ConvergencePoint[]>([]);
-  const [currentIteration, setCurrentIteration] = useState(0);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
-  const [circuitData, setCircuitData] = useState<any>(null);
+  const [currentIteration, setCurrentIteration] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [startTime] = useState(Date.now());
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [circuitData, setCircuitData] = useState<any>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const wsConnectedRef = useRef<boolean>(false);
   const pollingRef = useRef<(() => void) | null>(null);
-  const previousStatusRef = useRef<ExperimentStatus>("queued");
+  const wsConnectedRef = useRef(false);
+  const previousStatusRef = useRef<ExperimentStatus | null>(null);
+
   const toast = useToast();
 
-  // Initialize or update when experiment ID changes
+  // Load initial experiment data
   useEffect(() => {
-    console.log("🔄 COMPONENT MOUNT/UPDATE - Experiment ID:", experimentId);
-    console.log("🔄 Current state - iteration:", currentIteration, "convergence points:", convergenceData.length);
+    if (!experimentId) return;
 
-    // DON'T reset state if we're remounting with the same experiment
-    // Only reset if it's truly a NEW experiment (different ID)
-    if (!experimentId) {
-      console.log("❌ No experiment ID - cannot initialize");
-      return;
-    }
-
-    // Close any existing WebSocket
-    if (wsRef.current) {
-      console.log("🔌 Closing previous WebSocket");
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-
-    // Stop any existing polling
-    if (pollingRef.current) {
-      console.log("⏹️  Stopping previous polling");
-      pollingRef.current();
-      pollingRef.current = null;
-    }
-
-    // Fetch experiment data to restore state (if reopening an experiment)
-    console.log("📥 Fetching experiment data to restore state...");
+    // Fetch initial experiment state
     api.getExperiment(experimentId).then((response) => {
       const exp = response.experiment || response;
       console.log("📥 Loaded experiment:", exp.id, "status:", exp.status);
@@ -613,6 +582,10 @@ export default function ExperimentMonitor({
     }
   };
 
+  // Determine if experiment is in progress (queued or running)
+  const isInProgress = status === "queued" || status === "running";
+  const isCompleted = status === "completed";
+
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Cancel Confirmation Dialog */}
@@ -642,9 +615,9 @@ export default function ExperimentMonitor({
                   {experiment?.molecule?.smiles || experimentConfig?.molecule?.smiles || "Custom Molecule"}
                 </span>
                 <span>•</span>
-                <span>{experiment?.method || experimentConfig?.method || "VQE"}</span>
+                <span>{experiment?.method || experimentConfig?.backendSettings?.method || "VQE"}</span>
                 <span>•</span>
-                <span>{experiment?.backend || experimentConfig?.backend || "Classical"}</span>
+                <span>{experiment?.backend || experimentConfig?.backendSettings?.backend || "Classical"}</span>
               </div>
             )}
           </div>
@@ -691,357 +664,153 @@ export default function ExperimentMonitor({
               </button>
             )}
             {status === "completed" && (
+              <>
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-2 px-4 py-2 text-sm border border-border rounded-lg hover:bg-accent transition font-quando"
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+                <button
+                  onClick={onBack}
+                  className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-accent transition font-quando"
+                >
+                  New Experiment
+                </button>
+                <button
+                  onClick={onComplete}
+                  className="px-4 py-2 text-sm bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando"
+                >
+                  View in Dashboard
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - Conditional Rendering */}
+      <div className="flex-1 overflow-hidden">
+        {isInProgress ? (
+          // DURING EXECUTION: Show animation, progress bar, and logs
+          <div className="h-full grid grid-cols-3 gap-6 p-6">
+            {/* Left & Center: Animation + Progress */}
+            <div className="col-span-2 flex flex-col gap-6">
+              {/* Animation */}
+              <div className="bg-card border border-border rounded-lg p-8 flex-1 flex items-center justify-center">
+                <QuantumAnimation status={status} />
+              </div>
+
+              {/* Progress Bar */}
+              <div className="bg-card border border-border rounded-lg p-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-quando font-bold">Experiment Progress</h3>
+                  <span className="text-sm font-quando font-semibold text-muted-foreground">
+                    {progress.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-4 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-brand-orange to-brand-yellow transition-all duration-300 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                {status === "running" && currentIteration > 0 && (
+                  <div className="mt-4 text-sm text-muted-foreground font-quando">
+                    {(() => {
+                      const method = experimentConfig?.backendSettings?.method;
+                      let maxIterations;
+
+                      if (method === "VQE") {
+                        maxIterations = experimentConfig?.backendSettings?.maxIterations || 100;
+                      } else if (method === "SQD") {
+                        maxIterations = 6; // SQD has 7 stages (0-6)
+                      } else if (method === "EXCITED_STATES") {
+                        // If using quantum backend, EXCITED_STATES redirects to SQD (7 stages)
+                        const backend = experimentConfig?.backendSettings?.backend;
+                        if (backend === "bluequbit" || backend === "ibm_quantum") {
+                          maxIterations = 6; // Redirected to SQD
+                        } else {
+                          maxIterations = experimentConfig?.backendSettings?.nStates || 5;
+                        }
+                      } else {
+                        maxIterations = 100;
+                      }
+
+                      return `Iteration ${currentIteration} / ${maxIterations}`;
+                    })()}
+                  </div>
+                )}
+
+                {/* Current Energy Display */}
+                {convergenceData.length > 0 && (
+                  <div className="mt-6 bg-gradient-to-r from-brand-orange/10 to-brand-orange/5 rounded-lg p-4 border border-brand-orange/20">
+                    <div className="text-sm text-muted-foreground mb-1">Current Energy</div>
+                    <div className="text-3xl font-quando font-bold text-brand-orange">
+                      {convergenceData[convergenceData.length - 1].energy.toFixed(8)}{" "}
+                      <span className="text-lg">Ha</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Logs */}
+            <div className="bg-card border border-border rounded-lg p-6 flex flex-col min-h-0">
+              <h3 className="text-lg font-quando font-bold mb-4">
+                Execution Logs
+              </h3>
+              <div className="flex-1 bg-muted rounded-lg p-4 font-mono text-xs overflow-auto min-h-0">
+                <div className="space-y-1">
+                  {logs.map((log, i) => (
+                    <div key={i} className="text-foreground">
+                      <span className="text-muted-foreground mr-2">
+                        [{formatTime(Math.floor((i + 1) * 1.5))}]
+                      </span>
+                      {renderLogMessage(log)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : isCompleted ? (
+          // AFTER COMPLETION: Show beautiful results with interactive graphs
+          <ExperimentResults
+            results={results}
+            experimentConfig={experimentConfig}
+          />
+        ) : (
+          // FAILED or CANCELLED: Show error message
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <div className="mb-4">
+                {status === "failed" ? (
+                  <XCircle className="w-16 h-16 text-red-500 mx-auto" />
+                ) : (
+                  <Ban className="w-16 h-16 text-orange-500 mx-auto" />
+                )}
+              </div>
+              <h2 className="text-2xl font-quando font-bold mb-2">
+                {status === "failed" ? "Experiment Failed" : "Experiment Cancelled"}
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                {status === "failed"
+                  ? "The experiment encountered an error during execution."
+                  : "The experiment was cancelled by the user."}
+              </p>
               <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2 text-sm border border-border rounded-lg hover:bg-accent transition font-quando"
+                onClick={onBack}
+                className="px-6 py-2.5 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando"
               >
-                <Download className="w-4 h-4" />
-                Export
+                Start New Experiment
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Dashboard Grid - No scrolling, everything fits */}
-      <div className="flex-1 p-6 grid grid-cols-3 gap-4 min-h-0">
-        {/* Left Column - Configuration & Progress */}
-        <div className="flex flex-col gap-4 min-h-0">
-          {/* Configuration Card */}
-          <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="text-sm font-quando font-semibold mb-3">
-              Configuration
-            </h3>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Method:</span>
-                <span className="font-quando font-medium">
-                  {experimentConfig?.backendSettings?.method || "VQE"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Backend:</span>
-                <span className="font-quando font-medium">
-                  {experimentConfig?.backendSettings?.backend || "Classical"}
-                </span>
-              </div>
-
-              {/* VQE-specific fields */}
-              {experimentConfig?.backendSettings?.method === "VQE" && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ansatz:</span>
-                  <span className="font-quando font-medium">
-                    {experimentConfig?.backendSettings?.ansatz || "HEA"}
-                  </span>
-                </div>
-              )}
-
-              {/* SQD-specific fields */}
-              {experimentConfig?.backendSettings?.method === "SQD" && (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subspace:</span>
-                    <span className="font-quando font-medium">
-                      {experimentConfig?.backendSettings?.subspaceDim || 10}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">States:</span>
-                    <span className="font-quando font-medium">
-                      {experimentConfig?.backendSettings?.nStates || 3}
-                    </span>
-                  </div>
-                </>
-              )}
-
-              {/* Excited States-specific fields */}
-              {experimentConfig?.backendSettings?.method === "EXCITED_STATES" && (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">ES Method:</span>
-                    <span className="font-quando font-medium">
-                      {(experimentConfig?.backendSettings?.excited_method || experimentConfig?.backendSettings?.excitedMethod)?.toUpperCase() || "CIS"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">States:</span>
-                    <span className="font-quando font-medium">
-                      {experimentConfig?.backendSettings?.nStates || experimentConfig?.backendSettings?.excited_n_states || experimentConfig?.backendSettings?.excitedNStates || 5}
-                    </span>
-                  </div>
-                </>
-              )}
-
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Basis:</span>
-                <span className="font-quanto font-medium">
-                  {experimentConfig?.molecule?.basis || "STO-3G"}
-                </span>
-              </div>
-
-              {/* Cloud Job Information */}
-              {experiment?.provider_job_id && (
-                <>
-                  <div className="border-t border-border pt-2 mt-2"></div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Cloud Job:</span>
-                    {experiment?.provider_job_url ? (
-                      <a
-                        href={experiment.provider_job_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-quanto font-medium text-brand-orange hover:text-brand-yellow underline text-xs"
-                      >
-                        {experiment.provider_job_id.substring(0, 12)}...
-                      </a>
-                    ) : (
-                      <span className="font-quanto font-medium text-xs">
-                        {experiment.provider_job_id.substring(0, 12)}...
-                      </span>
-                    )}
-                  </div>
-                  {experiment?.execution_mode && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Mode:</span>
-                      <span className="font-quanto font-medium capitalize text-xs">
-                        {experiment.execution_mode}
-                      </span>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Progress Card */}
-          <div className="bg-card border border-border rounded-lg p-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm font-quando font-semibold">Progress</h3>
-              <span className="text-xs font-quando text-muted-foreground">
-                {progress}%
-              </span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-              <div
-                className="h-full bg-brand-orange transition-all duration-300 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            {status === "running" && currentIteration > 0 && (
-              <div className="mt-3 text-xs text-muted-foreground font-quando">
-                {(() => {
-                  const method = experimentConfig?.backendSettings?.method;
-                  let maxIterations;
-
-                  if (method === "VQE") {
-                    maxIterations = experimentConfig?.backendSettings?.maxIterations || 100;
-                  } else if (method === "SQD") {
-                    maxIterations = 6; // SQD has 7 stages (0-6)
-                  } else if (method === "EXCITED_STATES") {
-                    // If using quantum backend, EXCITED_STATES redirects to SQD (7 stages)
-                    const backend = experimentConfig?.backendSettings?.backend;
-                    if (backend === "bluequbit" || backend === "ibm_quantum") {
-                      maxIterations = 6; // Redirected to SQD
-                    } else {
-                      maxIterations = experimentConfig?.backendSettings?.nStates || 5;
-                    }
-                  } else {
-                    maxIterations = 100;
-                  }
-
-                  return `Iteration ${currentIteration} / ${maxIterations}`;
-                })()}
-              </div>
-            )}
-          </div>
-
-          {/* Results & Analysis */}
-          <div className="bg-card border border-border rounded-lg p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
-            <h3 className="text-sm font-quando font-semibold mb-3 flex-shrink-0">
-              {status === "completed" ? "Analysis Results" : "Live Metrics"}
-            </h3>
-            <div className="flex-1 overflow-y-auto min-h-0">
-              {status === "completed" && results ? (
-                <AnalysisResults results={results} />
-              ) : (
-                <div className="space-y-3">
-                  <div className="bg-muted rounded-lg p-3">
-                    <div className="text-xs text-muted-foreground mb-1">
-                      Current Energy
-                    </div>
-                    <div className="text-lg font-quando font-bold">
-                      {convergenceData.length > 0
-                        ? convergenceData[convergenceData.length - 1].energy.toFixed(6)
-                        : "---"}{" "}
-                      <span className="text-sm font-normal">Ha</span>
-                    </div>
-                  </div>
-                  {convergenceData.length > 0 && (
-                    <div className="bg-muted rounded-lg p-3">
-                      <div className="text-xs text-muted-foreground mb-1">
-                        Current Iteration
-                      </div>
-                      <div className="text-lg font-quando font-bold">
-                        {convergenceData.length}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Center Column - Convergence Chart */}
-        <div className="bg-card border border-border rounded-lg p-4 min-h-0 flex flex-col">
-          <h3 className="text-sm font-quando font-semibold mb-3">
-            {(() => {
-              const method = experimentConfig?.backendSettings?.method;
-              if (method === "SQD") return "Energy Spectrum";
-              if (method === "EXCITED_STATES") return "Excited States Spectrum";
-              return "Energy Convergence";
-            })()}
-          </h3>
-          <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-              {(() => {
-                const method = experimentConfig?.backendSettings?.method;
-
-                // For SQD and Excited States, use BarChart to show energy levels
-                if (method === "SQD" || method === "EXCITED_STATES") {
-                  // For SQD: filter to show only eigenvalues (stages 4+)
-                  // For Excited States: show all data (already contains only states)
-                  let displayData = convergenceData;
-                  let stateOffset = 0;
-
-                  if (method === "SQD" && convergenceData.length > 4) {
-                    // SQD has 7 stages (0-6), we only want eigenvalues (4-6)
-                    displayData = convergenceData.filter(d => d.iteration >= 4);
-                    stateOffset = 4;
-                  } else if (method === "EXCITED_STATES") {
-                    // Excited States already sends only state data (iter 1, 2, 3...)
-                    stateOffset = 1; // States are labeled starting from 1
-                  }
-
-                  return (
-                    <BarChart data={displayData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis
-                        dataKey="iteration"
-                        label={{
-                          value: "Energy State",
-                          position: "insideBottom",
-                          offset: -5
-                        }}
-                        tick={{ fontSize: 11 }}
-                        stroke="hsl(var(--muted-foreground))"
-                        tickFormatter={(value) => `S${value - stateOffset}`}
-                      />
-                      <YAxis
-                        label={{ value: "Energy (Ha)", angle: -90, position: "insideLeft" }}
-                        tick={{ fontSize: 11 }}
-                        stroke="hsl(var(--muted-foreground))"
-                        domain={["auto", "auto"]}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
-                          fontSize: "12px",
-                        }}
-                        formatter={(value: any) => [value.toFixed(6) + " Ha", "Energy"]}
-                        labelFormatter={(label) => `State ${label - stateOffset}`}
-                      />
-                      <Bar
-                        dataKey="energy"
-                        fill="#ea580c"
-                        radius={[4, 4, 0, 0]}
-                        animationDuration={300}
-                      />
-                    </BarChart>
-                  );
-                }
-
-                // For VQE, use traditional LineChart
-                return (
-                  <LineChart data={convergenceData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis
-                      dataKey="iteration"
-                      label={{ value: "Iteration", position: "insideBottom", offset: -5 }}
-                      tick={{ fontSize: 11 }}
-                      stroke="hsl(var(--muted-foreground))"
-                    />
-                    <YAxis
-                      label={{ value: "Energy (Ha)", angle: -90, position: "insideLeft" }}
-                      tick={{ fontSize: 11 }}
-                      stroke="hsl(var(--muted-foreground))"
-                      domain={["auto", "auto"]}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                      }}
-                      formatter={(value: any) => [value.toFixed(6) + " Ha", "Energy"]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="energy"
-                      stroke="#ea580c"
-                      strokeWidth={2}
-                      dot={false}
-                      animationDuration={300}
-                    />
-                  </LineChart>
-                );
-              })()}
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Right Column - Logs */}
-        <div className="bg-card border border-border rounded-lg p-4 min-h-0 flex flex-col">
-          <h3 className="text-sm font-quando font-semibold mb-3">
-            Execution Logs
-          </h3>
-          <div className="flex-1 bg-muted rounded-lg p-3 font-mono text-xs overflow-auto min-h-0">
-            <div className="space-y-1">
-              {logs.map((log, i) => (
-                <div key={i} className="text-foreground">
-                  <span className="text-muted-foreground mr-2">
-                    [{formatTime(Math.floor((i + 1) * 1.5))}]
-                  </span>
-                  {renderLogMessage(log)}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer Actions - Only show when completed */}
-      {status === "completed" && (
-        <div className="border-t border-border px-6 py-4">
-          <div className="flex gap-4 justify-end">
-            <button
-              onClick={onBack}
-              className="px-6 py-2.5 text-sm border border-border rounded-lg hover:bg-accent transition font-quando"
-            >
-              New Experiment
-            </button>
-            <button
-              onClick={onComplete}
-              className="px-6 py-2.5 text-sm bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando"
-            >
-              View in Dashboard
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

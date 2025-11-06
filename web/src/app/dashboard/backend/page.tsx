@@ -114,15 +114,18 @@ export default function BackendPage() {
   };
 
   return (
-    <div className="h-full overflow-auto p-6 bg-background">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-quando font-bold mb-2">Backend</h1>
-          <p className="text-muted-foreground font-quando">
-            Configure cloud credentials for quantum backends
-          </p>
-        </div>
+    <div className="h-full flex flex-col bg-background overflow-hidden">
+      {/* Header */}
+      <div className="px-8 pt-4 pb-3 border-b border-border flex-shrink-0">
+        <h1 className="text-2xl font-quando font-bold tracking-tight">Backend Configuration</h1>
+        <p className="text-muted-foreground font-quando text-xs mt-1">
+          Configure cloud credentials for quantum backends
+        </p>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col p-6 overflow-hidden">
+        <div className="flex-1 overflow-y-auto max-w-4xl mx-auto w-full space-y-6">
 
         {/* IBM Quantum Section */}
         <div className="bg-card border border-border rounded-lg p-6 mb-6">
@@ -295,10 +298,11 @@ export default function BackendPage() {
         </div>
 
         {/* Information Footer */}
-        <div className="mt-6 p-4 bg-muted rounded-lg">
+        <div className="p-4 bg-muted rounded-lg">
           <p className="text-sm text-muted-foreground font-quando">
             <strong>Note:</strong> Credentials are stored securely in the database. They are required to submit jobs to cloud quantum backends. You can update or delete them at any time.
           </p>
+        </div>
         </div>
       </div>
     </div>

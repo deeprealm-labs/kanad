@@ -47,7 +47,9 @@ def openfermion_jordan_wigner(
     fermion_ham = FermionOperator()
 
     # Add constant term (nuclear repulsion)
+    print(f"➕ Adding nuclear repulsion constant: {nuclear_repulsion:.8f} Ha")
     fermion_ham += FermionOperator((), nuclear_repulsion)
+    print(f"   Fermion Hamiltonian now has {len(fermion_ham.terms)} terms")
 
     # One-body terms: Σ_{pq} h_{pq} a†_p a_q
     # For both spin-up and spin-down
@@ -104,12 +106,28 @@ def openfermion_jordan_wigner(
                     )
 
     # Apply Jordan-Wigner transformation
+    print(f"🔄 Applying Jordan-Wigner transformation...")
     qubit_ham = jordan_wigner(fermion_ham)
+    print(f"   Qubit Hamiltonian has {len(qubit_ham.terms)} terms")
 
     # Convert to Qiskit SparsePauliOp
     pauli_op = _openfermion_to_qiskit(qubit_ham, n_qubits)
 
-    logger.info(f"Built Hamiltonian with {len(pauli_op)} Pauli terms")
+    print(f"✅ Built Hamiltonian with {len(pauli_op)} Pauli terms")
+
+    # DEBUG: Check if nuclear repulsion is preserved
+    identity_coeff = 0.0
+    for i, pauli_str in enumerate(pauli_op.paulis):
+        if set(str(pauli_str).replace('I', '')) == set():
+            print(f"   Identity term: {str(pauli_str)} = {pauli_op.coeffs[i]:.8f}")
+            identity_coeff += pauli_op.coeffs[i]
+
+    print(f"")
+    print(f"🔍 NUCLEAR REPULSION CHECK:")
+    print(f"   Input nuclear repulsion: {nuclear_repulsion:.8f} Ha")
+    print(f"   Total identity coefficient: {identity_coeff:.8f} Ha")
+    print(f"   Note: Identity includes nuclear repulsion + electronic contributions")
+    print(f"")
 
     return pauli_op
 

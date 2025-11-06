@@ -1,0 +1,25 @@
+{
+  "job_id": "d44muugoftds73c7k0rg",
+  "backend": "ibm_torino",
+  "mode": "batch",
+  "config": {
+    "shots": 8192,
+    "circuits": 4,
+    "readout_mitigation": true,
+    "twirling": true,
+    "observable_terms": 15
+  },
+  "local_baseline": {
+    "energy": -1.137283834488502,
+    "iterations": 2
+  },
+  "subspace": {
+    "size": 4,
+    "configurations": [
+      "|1100\u27e9",
+      "|1010\u27e9",
+      "|0110\u27e9",
+      "|1001\u27e9"
+    ]
+  }
+}

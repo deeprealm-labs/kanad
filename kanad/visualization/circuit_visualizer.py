@@ -4,8 +4,12 @@ Circuit visualization module for generating text-based circuit diagrams.
 Provides ASCII art representation of quantum circuits for preview.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import numpy as np
+import base64
+import io
+import tempfile
+import os
 
 
 class CircuitVisualizer:
@@ -145,7 +149,76 @@ class CircuitVisualizer:
         }
 
 
-def visualize_from_circuit(circuit) -> tuple[str, Dict[str, Any]]:
+def generate_matplotlib_circuit(circuit) -> Optional[str]:
+    """
+    Generate circuit diagram using Qiskit's native Matplotlib drawer.
+
+    IMPORTANT: This function expects a REAL Qiskit QuantumCircuit object,
+    not the custom internal circuit representation. Use this for generating
+    production-quality circuit diagrams.
+
+    Args:
+        circuit: Qiskit QuantumCircuit instance (from ansatz.circuit.to_qiskit())
+
+    Returns:
+        Base64 encoded PNG image string, or None if generation fails
+    """
+    try:
+        import matplotlib
+        matplotlib.use('Agg')  # Non-interactive backend
+        import matplotlib.pyplot as plt
+        from qiskit.circuit import QuantumCircuit
+    except ImportError as e:
+        print(f"❌ Import failed: {e}")
+        return None
+
+    try:
+        # Check if circuit is a Qiskit QuantumCircuit
+        if not isinstance(circuit, QuantumCircuit):
+            # Try to convert if it's our internal circuit representation
+            if hasattr(circuit, 'to_qiskit'):
+                circuit = circuit.to_qiskit()
+            else:
+                print(f"❌ Circuit is not a Qiskit QuantumCircuit: {type(circuit)}")
+                return None
+
+        # Generate circuit diagram using Qiskit's native drawer
+        # Use 'mpl' style for high-quality Matplotlib output
+        fig = circuit.draw('mpl', style='iqp', fold=-1, scale=0.8)
+
+        # Convert to base64 PNG
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight',
+                    facecolor='white', edgecolor='none')
+        plt.close(fig)
+
+        buf.seek(0)
+        img_bytes = buf.read()
+
+        # Validate PNG signature
+        if len(img_bytes) < 8:
+            print("❌ PNG generation produced invalid data")
+            return None
+
+        png_signature = img_bytes[:8]
+        expected_signature = b'\x89PNG\r\n\x1a\n'
+        if png_signature != expected_signature:
+            print("❌ PNG signature validation failed")
+            return None
+
+        img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+        print(f"✅ Qiskit circuit image generated: {len(img_base64)} bytes (base64)")
+
+        return img_base64
+
+    except Exception as e:
+        print(f"❌ Qiskit circuit generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def visualize_from_circuit(circuit) -> tuple[str, Dict[str, Any], List[Dict[str, Any]]]:
     """
     Create visualization from QuantumCircuit object.
 
@@ -153,19 +226,29 @@ def visualize_from_circuit(circuit) -> tuple[str, Dict[str, Any]]:
         circuit: QuantumCircuit instance
 
     Returns:
-        Tuple of (circuit_diagram_string, stats_dict)
+        Tuple of (circuit_diagram_string, stats_dict, structured_gates_list)
     """
     visualizer = CircuitVisualizer(circuit.n_qubits)
 
+    # Collect structured gate data for frontend rendering
+    structured_gates = []
+
     # Add all gates from circuit
     for gate in circuit.gates:
+        # Store structured gate data
+        structured_gates.append({
+            'type': gate['type'],
+            'qubits': gate['qubits'],
+            'params': gate.get('params', [])
+        })
+
         visualizer.add_gate(
             gate['type'],
             gate['qubits'],
             gate.get('params', [])
         )
 
-    return visualizer.to_string(), visualizer.get_stats()
+    return visualizer.to_string(), visualizer.get_stats(), structured_gates
 
 
 def create_preview_circuit(molecule_config: Dict[str, Any],
@@ -182,7 +265,16 @@ def create_preview_circuit(molecule_config: Dict[str, Any],
     """
     from kanad.core.molecule import Molecule
     from kanad.core.atom import Atom
-    from kanad.ansatze import HardwareEfficientAnsatz, UCCAnsatz
+    from kanad.ansatze import (
+        HardwareEfficientAnsatz,
+        RealAmplitudesAnsatz,
+        EfficientSU2Ansatz,
+        UCCAnsatz,
+        TwoLocalAnsatz,
+        IonicGovernanceAnsatz,
+        CovalentGovernanceAnsatz,
+        AdaptiveGovernanceAnsatz
+    )
 
     # Create molecule - handle both SMILES and atoms
     if molecule_config.get('smiles'):
@@ -264,35 +356,111 @@ def create_preview_circuit(molecule_config: Dict[str, Any],
     method = backend_config.get('method', 'VQE')
 
     if method != 'VQE':
-        # Non-VQE methods: show simplified Hamiltonian preparation circuit
-        # Just show the HF state preparation (X gates on occupied orbitals)
-        visualizer = CircuitVisualizer(n_qubits)
+        # Non-VQE methods (SQD, SKQD): Generate real Qiskit circuit for HF state preparation
+        # These methods use quantum circuits for subspace generation
+        try:
+            from qiskit import QuantumCircuit
 
-        # Add X gates to prepare HF state (occupy the first n_electrons/2 spatial orbitals)
-        for i in range(molecule.n_electrons):
-            visualizer.add_gate('x', [i])
+            # Create a simple Hartree-Fock state preparation circuit
+            qiskit_circuit = QuantumCircuit(n_qubits)
 
-        diagram = visualizer.to_string()
-        stats = visualizer.get_stats()
+            # Add X gates to prepare HF state (occupy the first n_electrons qubits)
+            for i in range(molecule.n_electrons):
+                qiskit_circuit.x(i)
 
-        return {
-            'has_circuit': True,
-            'diagram': diagram,
-            'stats': stats,
-            'n_qubits': n_qubits,
-            'n_electrons': molecule.n_electrons,
-            'n_parameters': 0,
-            'method': method,
-            'note': f'{method} uses classical computation with quantum state preparation'
-        }
+            # Add measurement for visualization
+            qiskit_circuit.barrier()
+
+            # Generate real Qiskit circuit image
+            circuit_image = generate_matplotlib_circuit(qiskit_circuit)
+
+            # Also generate ASCII diagram for backwards compatibility
+            visualizer = CircuitVisualizer(n_qubits)
+            for i in range(molecule.n_electrons):
+                visualizer.add_gate('x', [i])
+            diagram = visualizer.to_string()
+            stats = visualizer.get_stats()
+
+            return {
+                'has_circuit': True,
+                'diagram': diagram,
+                'stats': stats,
+                'circuit_image': circuit_image,  # Real Qiskit circuit image
+                'n_qubits': n_qubits,
+                'n_electrons': molecule.n_electrons,
+                'n_parameters': 0,
+                'method': method,
+                'note': f'{method} uses quantum subspace expansion with HF state preparation'
+            }
+
+        except Exception as e:
+            print(f"❌ Error generating {method} circuit: {e}")
+            import traceback
+            traceback.print_exc()
+
+            # Fallback to ASCII only
+            visualizer = CircuitVisualizer(n_qubits)
+            for i in range(molecule.n_electrons):
+                visualizer.add_gate('x', [i])
+            diagram = visualizer.to_string()
+            stats = visualizer.get_stats()
+
+            return {
+                'has_circuit': True,
+                'diagram': diagram,
+                'stats': stats,
+                'n_qubits': n_qubits,
+                'n_electrons': molecule.n_electrons,
+                'n_parameters': 0,
+                'method': method,
+                'note': f'{method} uses classical computation with quantum state preparation'
+            }
 
     ansatz_type = backend_config.get('ansatz', 'hardware_efficient')
 
-    # Create ansatz circuit for VQE
+    # Create ansatz circuit for VQE - support all ansatz types
     if ansatz_type == 'ucc':
         ansatz = UCCAnsatz(n_qubits=n_qubits, n_electrons=molecule.n_electrons)
+    elif ansatz_type == 'real_amplitudes':
+        ansatz = RealAmplitudesAnsatz(
+            n_qubits=n_qubits,
+            n_electrons=molecule.n_electrons,
+            n_layers=2
+        )
+    elif ansatz_type == 'efficient_su2':
+        ansatz = EfficientSU2Ansatz(
+            n_qubits=n_qubits,
+            n_electrons=molecule.n_electrons,
+            n_layers=2
+        )
+    elif ansatz_type == 'two_local':
+        ansatz = TwoLocalAnsatz(
+            n_qubits=n_qubits,
+            n_electrons=molecule.n_electrons,
+            n_layers=2,
+            rotation_gates='ry',
+            entanglement='linear'
+        )
+    elif ansatz_type == 'ionic_governance':
+        ansatz = IonicGovernanceAnsatz(
+            n_qubits=n_qubits,
+            n_electrons=molecule.n_electrons,
+            n_layers=2
+        )
+    elif ansatz_type == 'covalent_governance':
+        ansatz = CovalentGovernanceAnsatz(
+            n_qubits=n_qubits,
+            n_electrons=molecule.n_electrons,
+            n_layers=2
+        )
+    elif ansatz_type == 'adaptive_governance':
+        ansatz = AdaptiveGovernanceAnsatz(
+            n_qubits=n_qubits,
+            n_electrons=molecule.n_electrons,
+            n_layers=2
+        )
     else:
-        # Hardware efficient or others
+        # Default: hardware_efficient
         ansatz = HardwareEfficientAnsatz(
             n_qubits=n_qubits,
             n_electrons=molecule.n_electrons,
@@ -302,13 +470,46 @@ def create_preview_circuit(molecule_config: Dict[str, Any],
     # Build circuit
     circuit = ansatz.build_circuit()
 
-    # Visualize
-    diagram, stats = visualize_from_circuit(circuit)
+    # Visualize (ASCII and structured gates for backwards compatibility)
+    diagram, stats, structured_gates = visualize_from_circuit(circuit)
+
+    # Generate REAL Qiskit circuit image using Qiskit's native drawer
+    # Convert internal circuit to Qiskit QuantumCircuit
+    qiskit_circuit = None
+    circuit_image = None
+
+    try:
+        # Get the real Qiskit circuit from ansatz
+        if hasattr(circuit, 'to_qiskit'):
+            qiskit_circuit = circuit.to_qiskit()
+        elif hasattr(ansatz, 'to_qiskit'):
+            qiskit_circuit = ansatz.to_qiskit()
+        else:
+            print("⚠️  Ansatz does not have to_qiskit() method")
+
+        # Generate Matplotlib circuit image using Qiskit's native drawer
+        if qiskit_circuit is not None:
+            print(f"🎨 Generating Qiskit circuit diagram for {qiskit_circuit.num_qubits} qubits, {qiskit_circuit.depth()} depth...")
+            circuit_image = generate_matplotlib_circuit(qiskit_circuit)
+
+            if circuit_image:
+                print(f"✅ Real Qiskit circuit image generated: {len(circuit_image)} bytes (base64)")
+            else:
+                print("❌ Qiskit circuit image generation failed!")
+        else:
+            print("❌ Could not obtain Qiskit circuit from ansatz")
+
+    except Exception as e:
+        print(f"❌ Error generating Qiskit circuit: {e}")
+        import traceback
+        traceback.print_exc()
 
     return {
         'has_circuit': True,
         'diagram': diagram,
         'stats': stats,
+        'gates': structured_gates,  # Add structured gate data
+        'circuit_image': circuit_image,  # Base64 PNG image from REAL Qiskit circuit
         'n_qubits': n_qubits,
         'n_electrons': molecule.n_electrons,
         'n_parameters': len(circuit.parameters),

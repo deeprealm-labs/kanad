@@ -41,6 +41,7 @@ export default function Molecule3DViewer({
 }: Molecule3DViewerProps) {
   const viewerRef = useRef<HTMLDivElement>(null);
   const viewerInstanceRef = useRef<any>(null);
+  const smilesCache = useRef<Map<string, string>>(new Map());  // Cache SMILES conversions
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -113,8 +114,8 @@ export default function Molecule3DViewer({
       viewerInstanceRef.current = window.$3Dmol.createViewer(viewerRef.current, {
         backgroundColor: "white",
         defaultcolors: window.$3Dmol.rasmolElementColors,
-        antialias: true,
-        quality: 'medium'
+        antialias: false,  // Disable for better performance
+        quality: 'low'  // Low quality for faster rendering
       });
 
       console.log("✓ Viewer instance created");
@@ -162,6 +163,12 @@ export default function Molecule3DViewer({
   const convertSMILESto3D = async (smiles: string): Promise<string | null> => {
     console.log(`🔄 Converting SMILES "${smiles}" to 3D structure...`);
 
+    // Check cache first
+    if (smilesCache.current.has(smiles)) {
+      console.log("✓ Using cached SMILES conversion");
+      return smilesCache.current.get(smiles) || null;
+    }
+
     try {
       // Try using PubChem's API to convert SMILES to SDF format
       console.log("Trying PubChem API...");
@@ -178,7 +185,7 @@ export default function Molecule3DViewer({
       if (response.ok) {
         const sdf = await response.text();
         console.log("✓ Converted SMILES to SDF using PubChem, length:", sdf.length);
-        console.log("SDF preview:", sdf.substring(0, 200));
+        smilesCache.current.set(smiles, sdf);  // Cache the result
         return sdf;
       } else {
         console.log("PubChem returned non-OK status:", response.status, response.statusText);
@@ -203,7 +210,7 @@ export default function Molecule3DViewer({
       if (response.ok) {
         const sdf = await response.text();
         console.log("✓ Converted SMILES to SDF using CACTUS, length:", sdf.length);
-        console.log("SDF preview:", sdf.substring(0, 200));
+        smilesCache.current.set(smiles, sdf);  // Cache the result
         return sdf;
       } else {
         console.log("CACTUS returned non-OK status:", response.status, response.statusText);
@@ -294,31 +301,14 @@ export default function Molecule3DViewer({
         // Zoom to fit
         viewerInstanceRef.current.zoomTo();
 
-        // Force render with proper canvas update
-        viewerInstanceRef.current.render();
-
-        // Ensure canvas is visible and properly sized
-        setTimeout(() => {
-          if (viewerInstanceRef.current && viewerRef.current) {
-            const canvas = viewerRef.current.querySelector('canvas');
-            if (canvas) {
-              console.log("Canvas found, dimensions:", canvas.width, "x", canvas.height);
-              canvas.style.display = 'block';
-              canvas.style.visibility = 'visible';
-            }
+        // Single optimized render
+        requestAnimationFrame(() => {
+          if (viewerInstanceRef.current) {
             viewerInstanceRef.current.resize();
             viewerInstanceRef.current.render();
+            console.log("✓ Molecule rendered successfully");
           }
-        }, 50);
-
-        setTimeout(() => {
-          if (viewerInstanceRef.current) {
-            viewerInstanceRef.current.render();
-            console.log("Final render completed");
-          }
-        }, 200);
-
-        console.log("✓ Molecule rendered successfully");
+        });
       } else {
         console.log("❌ No molecule data to display");
         setError("No valid molecule data provided");
@@ -398,22 +388,29 @@ export default function Molecule3DViewer({
     }
   }, [viewStyle, applyViewStyle]);
 
-  // Handle container resize
+  // Handle container resize with debouncing for performance
   useEffect(() => {
     if (!viewerRef.current || !viewerInstanceRef.current) return;
 
+    let resizeTimeout: NodeJS.Timeout | null = null;
+
     const resizeObserver = new ResizeObserver(() => {
-      if (viewerInstanceRef.current) {
-        setTimeout(() => {
-          viewerInstanceRef.current?.resize();
-          viewerInstanceRef.current?.render();
-        }, 100);
-      }
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+
+      resizeTimeout = setTimeout(() => {
+        if (viewerInstanceRef.current) {
+          requestAnimationFrame(() => {
+            viewerInstanceRef.current?.resize();
+            viewerInstanceRef.current?.render();
+          });
+        }
+      }, 150);  // Debounce resize events
     });
 
     resizeObserver.observe(viewerRef.current);
 
     return () => {
+      if (resizeTimeout) clearTimeout(resizeTimeout);
       resizeObserver.disconnect();
     };
   }, []);
@@ -514,8 +511,6 @@ export default function Molecule3DViewer({
             >
               <option value="stick">Stick</option>
               <option value="sphere">Sphere</option>
-              <option value="cartoon">Cartoon</option>
-              <option value="surface">Surface</option>
             </select>
 
             {/* View Controls */}
@@ -562,10 +557,12 @@ export default function Molecule3DViewer({
         
         {/* Loading Overlay */}
         {isLoading && (
-          <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-            <div className="flex items-center gap-2 text-sm font-quando">
-              <div className="w-4 h-4 border-2 border-brand-orange border-t-transparent rounded-full animate-spin" />
-              Loading molecule...
+          <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-3 border-brand-orange border-t-transparent rounded-full animate-spin" />
+              <div className="text-sm font-quando text-muted-foreground">
+                Preparing molecule...
+              </div>
             </div>
           </div>
         )}

@@ -422,6 +422,22 @@ class AdaptiveGovernanceAnsatz(BaseAnsatz):
         self.bonding_type = bonding_type
         self._delegate_ansatz = None
 
+    @property
+    def n_parameters(self) -> int:
+        """
+        Return number of variational parameters.
+
+        Since this is an adaptive ansatz that delegates, we need to build
+        the circuit first to determine the parameter count.
+        """
+        if self._delegate_ansatz is not None:
+            return self._delegate_ansatz.n_parameters
+        else:
+            # If not yet built, estimate based on covalent (larger parameter count)
+            # Covalent: 3 * n_qubits * n_layers
+            # This will be updated when build_circuit() is called
+            return 3 * self.n_qubits * self.n_layers
+
     def build_circuit(
         self,
         initial_state: Optional[List[int]] = None,

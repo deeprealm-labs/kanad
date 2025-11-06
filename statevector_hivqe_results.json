@@ -1,0 +1,155 @@
+{
+  "backend": "qiskit_statevector",
+  "diagonal_energies": [
+    -1.1167593073964255,
+    -0.5307733570014577,
+    -0.3495628949862606,
+    -0.3495628949862606
+  ],
+  "ground_energy": -1.1167593073964255,
+  "eigenvalues": [
+    -1.1167593073964255,
+    -0.5307733570014577,
+    -0.5307733570014576,
+    -0.16835243297106364
+  ],
+  "ground_state_amplitudes": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "counts": [
+    {
+      "0011": 8192
+    },
+    {
+      "0101": 8192
+    },
+    {
+      "0110": 8192
+    },
+    {
+      "1001": 8192
+    }
+  ],
+  "probabilities": [
+    {
+      "0011": 1.0
+    },
+    {
+      "0101": 1.0
+    },
+    {
+      "0110": 1.0
+    },
+    {
+      "1001": 1.0
+    }
+  ],
+  "visualization_data": {
+    "configurations": [
+      "|1100\u27e9",
+      "|1010\u27e9",
+      "|0110\u27e9",
+      "|1001\u27e9"
+    ],
+    "measurement_statistics": [
+      {
+        "configuration": "|1100\u27e9",
+        "diagonal_energy": -1.1167593073964255,
+        "ground_state_amplitude": 1.0,
+        "most_probable_outcome": "0011",
+        "max_probability": 1.0,
+        "num_outcomes": 1,
+        "entropy": -0.0
+      },
+      {
+        "configuration": "|1010\u27e9",
+        "diagonal_energy": -0.5307733570014577,
+        "ground_state_amplitude": 0.0,
+        "most_probable_outcome": "0101",
+        "max_probability": 1.0,
+        "num_outcomes": 1,
+        "entropy": -0.0
+      },
+      {
+        "configuration": "|0110\u27e9",
+        "diagonal_energy": -0.3495628949862606,
+        "ground_state_amplitude": 0.0,
+        "most_probable_outcome": "0110",
+        "max_probability": 1.0,
+        "num_outcomes": 1,
+        "entropy": -0.0
+      },
+      {
+        "configuration": "|1001\u27e9",
+        "diagonal_energy": -0.3495628949862606,
+        "ground_state_amplitude": 0.0,
+        "most_probable_outcome": "1001",
+        "max_probability": 1.0,
+        "num_outcomes": 1,
+        "entropy": -0.0
+      }
+    ],
+    "energy_spectrum": {
+      "eigenvalues": [
+        -1.1167593073964255,
+        -0.5307733570014577,
+        -0.5307733570014576,
+        -0.16835243297106364
+      ],
+      "ground_energy": -1.1167593073964255,
+      "excitation_energies": [
+        0.5859859503949678,
+        0.5859859503949679,
+        0.9484068744253619
+      ]
+    },
+    "ground_state_composition": {
+      "amplitudes": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "probabilities": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dominant_configs": [
+        "|1100\u27e9",
+        "|1001\u27e9",
+        "|0110\u27e9"
+      ]
+    }
+  },
+  "error_analysis": {
+    "shot_noise": {
+      "estimates": [
+        0.011048543456039804,
+        0.011048543456039804,
+        0.011048543456039804,
+        0.011048543456039804
+      ],
+      "average": 0.011048543456039804,
+      "max": 0.011048543456039804
+    },
+    "readout_fidelity": {
+      "estimates": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "average": 1.0,
+      "min": 1.0
+    },
+    "mitigation_applied": {
+      "simulation_noise": 0,
+      "ideal_measurements": 1
+    }
+  }
+}

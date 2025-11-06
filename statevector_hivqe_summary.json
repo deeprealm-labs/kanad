@@ -1,0 +1,23 @@
+{
+  "backend": "qiskit_statevector",
+  "ground_energy": -1.1167593073964255,
+  "expected_energy": -1.13728383,
+  "error_Ha": 0.020524522603574624,
+  "error_mHa": 20.524522603574624,
+  "relative_error_percent": 1.8046965992275315,
+  "diagonal_energies": [
+    -1.1167593073964255,
+    -0.5307733570014577,
+    -0.3495628949862606,
+    -0.3495628949862606
+  ],
+  "dominant_configurations": [
+    "|1100\u27e9",
+    "|1001\u27e9",
+    "|0110\u27e9"
+  ],
+  "local_baseline": {
+    "energy": -1.137283834488502,
+    "iterations": 2
+  }
+}

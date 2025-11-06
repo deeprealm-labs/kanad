@@ -1,0 +1,3175 @@
+
+================================================================================
+COMPREHENSIVE OPTIMIZER TEST SUITE
+Testing: All 8 optimizers with user-controlled iterations
+================================================================================
+
+Molecule: H2 (from SMILES: [H][H])
+Basis: sto-3g
+Ansatz: CovalentGovernance
+
+Testing 8 optimizers...
+
+================================================================================
+TEST: COBYLA with max_iterations=30
+================================================================================
+converged SCF energy = -1.11729321718008
+converged SCF energy = -1.11729321718008
+HF energy: -1.11729322 Ha
+Ansatz: CovalentGovernance with 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE with COBYLA...
+   User-requested max_iterations: 30
+converged SCF energy = -1.11729321718008
+⚠️  Analysis disabled - enable_analysis=False, molecule=False
+🔧 Optimizer: COBYLA with 30 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+🔧 Building sparse Pauli Hamiltonian with jordan_wigner mapper
+➕ Adding nuclear repulsion constant: 0.75811399 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.03916182+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.75811399 Ha
+   Total identity coefficient: -0.03916182+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+📊 Sparse Hamiltonian built: 15 Pauli terms
+🔍 VQE Hamiltonian identity coefficient: -0.03916182+0.00000000j Ha
+🔍 Nuclear repulsion from molecule: 0.75811399 Ha
+✅ Qubit counts match: 4 qubits
+🔍 Energy evaluation 1: -1.11082095 Ha
+🔍 Energy evaluation 2: -0.93890206 Ha
+🔍 Energy evaluation 3: -1.10997653 Ha
+  Iter 5: E = -1.10998870 Ha (func_eval #5)
+  Iter 10: E = -0.63783493 Ha (func_eval #10)
+📊 Progress: 10 function evals (~10 iterations), E = -0.63783493 Ha
+  Iter 15: E = -1.10985621 Ha (func_eval #15)
+  Iter 20: E = -0.97914524 Ha (func_eval #20)
+📊 Progress: 20 function evals (~20 iterations), E = -0.97914524 Ha
+  Iter 25: E = -0.75424441 Ha (func_eval #25)
+  Iter 30: E = -1.11480753 Ha (func_eval #30)
+📊 Progress: 30 function evals (~30 iterations), E = -1.11480753 Ha
+converged SCF energy = -1.11729321718008
+Correlated method energy (-1.114808) above HF (-1.117293)!
+VQE results failed validation checks!
+Dipole moment(X, Y, Z, Debye): -0.00000,  0.00000,  0.00000
+
+✅ VQE Completed
+  VQE energy:      -1.11480753 Ha
+  HF energy:       -1.11729322 Ha
+  Correlation:     0.00248568 Ha (1.5598 kcal/mol)
+  Iterations:      30 (callback logged: 30)
+  Func evals:      30 (callback counted: 30)
+  Converged:       False
+  Time:            1.26s
+
+================================================================================
+TEST: Powell with max_iterations=25
+================================================================================
+converged SCF energy = -1.11729321718008
+converged SCF energy = -1.11729321718008
+HF energy: -1.11729322 Ha
+Ansatz: CovalentGovernance with 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE with Powell...
+   User-requested max_iterations: 25
+converged SCF energy = -1.11729321718008
+🔧 Optimizer: Powell with 25 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+🔧 Building sparse Pauli Hamiltonian with jordan_wigner mapper
+➕ Adding nuclear repulsion constant: 0.75811399 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.03916182+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.75811399 Ha
+   Total identity coefficient: -0.03916182+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+📊 Sparse Hamiltonian built: 15 Pauli terms
+🔍 VQE Hamiltonian identity coefficient: -0.03916182+0.00000000j Ha
+🔍 Nuclear repulsion from molecule: 0.75811399 Ha
+✅ Qubit counts match: 4 qubits
+🔍 Energy evaluation 1: -1.10657574 Ha
+🔍 Energy evaluation 2: -1.10657574 Ha
+🔍 Energy evaluation 3: -0.91656402 Ha
+  Iter 5: E = -1.06035192 Ha (func_eval #5)
+  Iter 10: E = -1.10810868 Ha (func_eval #10)
+📊 Progress: 10 function evals (~10 iterations), E = -1.10810868 Ha
+  Iter 15: E = -1.10801294 Ha (func_eval #15)
+  Iter 20: E = -1.10810892 Ha (func_eval #20)
+📊 Progress: 20 function evals (~20 iterations), E = -1.10810892 Ha
+  Iter 25: E = -1.05242806 Ha (func_eval #25)
+  Iter 30: E = -1.10852105 Ha (func_eval #30)
+📊 Progress: 30 function evals (~30 iterations), E = -1.10852105 Ha
+  Iter 35: E = -1.10852230 Ha (func_eval #35)
+  Iter 40: E = -1.10852269 Ha (func_eval #40)
+📊 Progress: 40 function evals (~40 iterations), E = -1.10852269 Ha
+  Iter 45: E = -1.03756313 Ha (func_eval #45)
+  Iter 50: E = -1.10946020 Ha (func_eval #50)
+📊 Progress: 50 function evals (~50 iterations), E = -1.10946020 Ha
+  Iter 55: E = -1.10874025 Ha (func_eval #55)
+  Iter 60: E = -1.10954580 Ha (func_eval #60)
+📊 Progress: 60 function evals (~60 iterations), E = -1.10954580 Ha
+  Iter 65: E = -1.06895981 Ha (func_eval #65)
+  Iter 70: E = -1.11050657 Ha (func_eval #70)
+📊 Progress: 70 function evals (~70 iterations), E = -1.11050657 Ha
+  Iter 75: E = -1.11050933 Ha (func_eval #75)
+  Iter 80: E = -1.11050946 Ha (func_eval #80)
+📊 Progress: 80 function evals (~80 iterations), E = -1.11050946 Ha
+  Iter 85: E = -0.91368373 Ha (func_eval #85)
+  Iter 90: E = -1.11050958 Ha (func_eval #90)
+📊 Progress: 90 function evals (~90 iterations), E = -1.11050958 Ha
+  Iter 95: E = -0.91382142 Ha (func_eval #95)
+  Iter 100: E = -1.11050958 Ha (func_eval #100)
+📊 Progress: 100 function evals (~100 iterations), E = -1.11050958 Ha
+  Iter 105: E = -1.11050958 Ha (func_eval #105)
+  Iter 110: E = -1.12030649 Ha (func_eval #110)
+📊 Progress: 110 function evals (~110 iterations), E = -1.12030649 Ha
+  Iter 115: E = -1.12030812 Ha (func_eval #115)
+  Iter 120: E = -1.12030559 Ha (func_eval #120)
+📊 Progress: 120 function evals (~120 iterations), E = -1.12030559 Ha
+  Iter 125: E = -1.12030814 Ha (func_eval #125)
+  Iter 130: E = -1.12030727 Ha (func_eval #130)
+📊 Progress: 130 function evals (~130 iterations), E = -1.12030727 Ha
+  Iter 135: E = -1.12030826 Ha (func_eval #135)
+  Iter 140: E = -1.12031262 Ha (func_eval #140)
+📊 Progress: 140 function evals (~140 iterations), E = -1.12031262 Ha
+  Iter 145: E = -1.12031273 Ha (func_eval #145)
+  Iter 150: E = -1.12031200 Ha (func_eval #150)
+📊 Progress: 150 function evals (~150 iterations), E = -1.12031200 Ha
+  Iter 155: E = -1.12031297 Ha (func_eval #155)
+  Iter 160: E = -1.12031288 Ha (func_eval #160)
+📊 Progress: 160 function evals (~160 iterations), E = -1.12031288 Ha
+  Iter 165: E = -1.12031297 Ha (func_eval #165)
+  Iter 170: E = -1.12031297 Ha (func_eval #170)
+📊 Progress: 170 function evals (~170 iterations), E = -1.12031297 Ha
+  Iter 175: E = -1.10003760 Ha (func_eval #175)
+  Iter 180: E = -1.12033413 Ha (func_eval #180)
+📊 Progress: 180 function evals (~180 iterations), E = -1.12033413 Ha
+  Iter 185: E = -1.11975007 Ha (func_eval #185)
+  Iter 190: E = -1.12039067 Ha (func_eval #190)
+📊 Progress: 190 function evals (~190 iterations), E = -1.12039067 Ha
+  Iter 195: E = -1.09847282 Ha (func_eval #195)
+  Iter 200: E = -1.12039183 Ha (func_eval #200)
+📊 Progress: 200 function evals (~200 iterations), E = -1.12039183 Ha
+  Iter 205: E = -1.11931995 Ha (func_eval #205)
+  Iter 210: E = -1.12039183 Ha (func_eval #210)
+📊 Progress: 210 function evals (~210 iterations), E = -1.12039183 Ha
+  Iter 215: E = -1.12039183 Ha (func_eval #215)
+  Iter 220: E = -1.04607890 Ha (func_eval #220)
+📊 Progress: 220 function evals (~220 iterations), E = -1.04607890 Ha
+  Iter 225: E = -1.12041887 Ha (func_eval #225)
+  Iter 230: E = -1.04326756 Ha (func_eval #230)
+📊 Progress: 230 function evals (~230 iterations), E = -1.04326756 Ha
+  Iter 235: E = -1.12041845 Ha (func_eval #235)
+  Iter 240: E = -1.12041887 Ha (func_eval #240)
+📊 Progress: 240 function evals (~240 iterations), E = -1.12041887 Ha
+  Iter 245: E = -1.12041887 Ha (func_eval #245)
+  Iter 250: E = -1.12041887 Ha (func_eval #250)
+📊 Progress: 250 function evals (~250 iterations), E = -1.12041887 Ha
+  Iter 255: E = -1.12041887 Ha (func_eval #255)
+  Iter 260: E = -1.12041887 Ha (func_eval #260)
+📊 Progress: 260 function evals (~260 iterations), E = -1.12041887 Ha
+  Iter 265: E = -1.12079142 Ha (func_eval #265)
+  Iter 270: E = -1.12079303 Ha (func_eval #270)
+📊 Progress: 270 function evals (~270 iterations), E = -1.12079303 Ha
+  Iter 275: E = -1.12079046 Ha (func_eval #275)
+  Iter 280: E = -1.12079303 Ha (func_eval #280)
+📊 Progress: 280 function evals (~280 iterations), E = -1.12079303 Ha
+  Iter 285: E = -1.12079303 Ha (func_eval #285)
+  Iter 290: E = -1.12079303 Ha (func_eval #290)
+📊 Progress: 290 function evals (~290 iterations), E = -1.12079303 Ha
+  Iter 295: E = -1.12079303 Ha (func_eval #295)
+  Iter 300: E = -1.11251266 Ha (func_eval #300)
+📊 Progress: 300 function evals (~300 iterations), E = -1.11251266 Ha
+  Iter 305: E = -1.09467899 Ha (func_eval #305)
+  Iter 310: E = -1.12079364 Ha (func_eval #310)
+📊 Progress: 310 function evals (~310 iterations), E = -1.12079364 Ha
+  Iter 315: E = -1.12076154 Ha (func_eval #315)
+  Iter 320: E = -1.12079364 Ha (func_eval #320)
+📊 Progress: 320 function evals (~320 iterations), E = -1.12079364 Ha
+  Iter 325: E = -0.74412385 Ha (func_eval #325)
+  Iter 330: E = -1.12079374 Ha (func_eval #330)
+📊 Progress: 330 function evals (~330 iterations), E = -1.12079374 Ha
+  Iter 335: E = -1.12079066 Ha (func_eval #335)
+  Iter 340: E = -1.12079377 Ha (func_eval #340)
+📊 Progress: 340 function evals (~340 iterations), E = -1.12079377 Ha
+  Iter 345: E = -1.12079377 Ha (func_eval #345)
+  Iter 350: E = -0.79501297 Ha (func_eval #350)
+📊 Progress: 350 function evals (~350 iterations), E = -0.79501297 Ha
+  Iter 355: E = -1.12081191 Ha (func_eval #355)
+  Iter 360: E = -1.11950405 Ha (func_eval #360)
+📊 Progress: 360 function evals (~360 iterations), E = -1.11950405 Ha
+  Iter 365: E = -1.12084406 Ha (func_eval #365)
+  Iter 370: E = -0.80570994 Ha (func_eval #370)
+📊 Progress: 370 function evals (~370 iterations), E = -0.80570994 Ha
+  Iter 375: E = -1.12084562 Ha (func_eval #375)
+  Iter 380: E = -1.12083888 Ha (func_eval #380)
+📊 Progress: 380 function evals (~380 iterations), E = -1.12083888 Ha
+  Iter 385: E = -1.12085390 Ha (func_eval #385)
+  Iter 390: E = 0.01637013 Ha (func_eval #390)
+📊 Progress: 390 function evals (~390 iterations), E = 0.01637013 Ha
+  Iter 395: E = -1.12107946 Ha (func_eval #395)
+  Iter 400: E = -0.00460639 Ha (func_eval #400)
+📊 Progress: 400 function evals (~400 iterations), E = -0.00460639 Ha
+  Iter 405: E = -1.12107946 Ha (func_eval #405)
+  Iter 410: E = -1.12107946 Ha (func_eval #410)
+📊 Progress: 410 function evals (~410 iterations), E = -1.12107946 Ha
+  Iter 415: E = -1.12107946 Ha (func_eval #415)
+  Iter 420: E = -1.12151284 Ha (func_eval #420)
+📊 Progress: 420 function evals (~420 iterations), E = -1.12151284 Ha
+  Iter 425: E = -1.12151630 Ha (func_eval #425)
+  Iter 430: E = -1.12151375 Ha (func_eval #430)
+📊 Progress: 430 function evals (~430 iterations), E = -1.12151375 Ha
+  Iter 435: E = -1.12151631 Ha (func_eval #435)
+  Iter 440: E = -1.12151592 Ha (func_eval #440)
+📊 Progress: 440 function evals (~440 iterations), E = -1.12151592 Ha
+  Iter 445: E = -1.12151693 Ha (func_eval #445)
+  Iter 450: E = -1.12151728 Ha (func_eval #450)
+📊 Progress: 450 function evals (~450 iterations), E = -1.12151728 Ha
+  Iter 455: E = -1.12151739 Ha (func_eval #455)
+  Iter 460: E = -1.12151641 Ha (func_eval #460)
+📊 Progress: 460 function evals (~460 iterations), E = -1.12151641 Ha
+  Iter 465: E = -1.12151739 Ha (func_eval #465)
+  Iter 470: E = -1.12151739 Ha (func_eval #470)
+📊 Progress: 470 function evals (~470 iterations), E = -1.12151739 Ha
+  Iter 475: E = -1.08014707 Ha (func_eval #475)
+  Iter 480: E = -1.12151739 Ha (func_eval #480)
+📊 Progress: 480 function evals (~480 iterations), E = -1.12151739 Ha
+  Iter 485: E = -1.12151739 Ha (func_eval #485)
+  Iter 490: E = -1.12151739 Ha (func_eval #490)
+📊 Progress: 490 function evals (~490 iterations), E = -1.12151739 Ha
+  Iter 495: E = -0.80431235 Ha (func_eval #495)
+  Iter 500: E = -1.12152832 Ha (func_eval #500)
+📊 Progress: 500 function evals (~500 iterations), E = -1.12152832 Ha
+  Iter 505: E = -1.09762278 Ha (func_eval #505)
+  Iter 510: E = -1.12152832 Ha (func_eval #510)
+📊 Progress: 510 function evals (~510 iterations), E = -1.12152832 Ha
+  Iter 515: E = -0.98220164 Ha (func_eval #515)
+  Iter 520: E = -1.12153180 Ha (func_eval #520)
+📊 Progress: 520 function evals (~520 iterations), E = -1.12153180 Ha
+  Iter 525: E = -1.11103778 Ha (func_eval #525)
+  Iter 530: E = -1.12153180 Ha (func_eval #530)
+📊 Progress: 530 function evals (~530 iterations), E = -1.12153180 Ha
+  Iter 535: E = -1.12153180 Ha (func_eval #535)
+  Iter 540: E = -1.12153180 Ha (func_eval #540)
+📊 Progress: 540 function evals (~540 iterations), E = -1.12153180 Ha
+  Iter 545: E = -1.12153180 Ha (func_eval #545)
+  Iter 550: E = -1.05231718 Ha (func_eval #550)
+📊 Progress: 550 function evals (~550 iterations), E = -1.05231718 Ha
+  Iter 555: E = -1.12174520 Ha (func_eval #555)
+  Iter 560: E = -1.04454537 Ha (func_eval #560)
+📊 Progress: 560 function evals (~560 iterations), E = -1.04454537 Ha
+  Iter 565: E = -1.12174477 Ha (func_eval #565)
+  Iter 570: E = -1.12174520 Ha (func_eval #570)
+📊 Progress: 570 function evals (~570 iterations), E = -1.12174520 Ha
+  Iter 575: E = -1.12174520 Ha (func_eval #575)
+  Iter 580: E = -1.12174520 Ha (func_eval #580)
+📊 Progress: 580 function evals (~580 iterations), E = -1.12174520 Ha
+  Iter 585: E = -1.12174520 Ha (func_eval #585)
+  Iter 590: E = -1.12174520 Ha (func_eval #590)
+📊 Progress: 590 function evals (~590 iterations), E = -1.12174520 Ha
+  Iter 595: E = -0.96404317 Ha (func_eval #595)
+  Iter 600: E = -1.12215743 Ha (func_eval #600)
+📊 Progress: 600 function evals (~600 iterations), E = -1.12215743 Ha
+  Iter 605: E = -0.94824893 Ha (func_eval #605)
+  Iter 610: E = -1.12215743 Ha (func_eval #610)
+📊 Progress: 610 function evals (~610 iterations), E = -1.12215743 Ha
+  Iter 615: E = -1.12215743 Ha (func_eval #615)
+  Iter 620: E = -1.12598362 Ha (func_eval #620)
+📊 Progress: 620 function evals (~620 iterations), E = -1.12598362 Ha
+  Iter 625: E = -1.13353196 Ha (func_eval #625)
+  Iter 630: E = -1.13353204 Ha (func_eval #630)
+📊 Progress: 630 function evals (~630 iterations), E = -1.13353204 Ha
+  Iter 635: E = -1.05145431 Ha (func_eval #635)
+  Iter 640: E = -1.13353995 Ha (func_eval #640)
+📊 Progress: 640 function evals (~640 iterations), E = -1.13353995 Ha
+  Iter 645: E = -1.13352869 Ha (func_eval #645)
+  Iter 650: E = -1.13354025 Ha (func_eval #650)
+📊 Progress: 650 function evals (~650 iterations), E = -1.13354025 Ha
+  Iter 655: E = -1.06375699 Ha (func_eval #655)
+  Iter 660: E = -1.13355370 Ha (func_eval #660)
+📊 Progress: 660 function evals (~660 iterations), E = -1.13355370 Ha
+  Iter 665: E = -1.13355531 Ha (func_eval #665)
+  Iter 670: E = -1.13355538 Ha (func_eval #670)
+📊 Progress: 670 function evals (~670 iterations), E = -1.13355538 Ha
+  Iter 675: E = -1.11513156 Ha (func_eval #675)
+  Iter 680: E = -1.13427133 Ha (func_eval #680)
+📊 Progress: 680 function evals (~680 iterations), E = -1.13427133 Ha
+  Iter 685: E = -1.13424623 Ha (func_eval #685)
+  Iter 690: E = -1.13427332 Ha (func_eval #690)
+📊 Progress: 690 function evals (~690 iterations), E = -1.13427332 Ha
+  Iter 695: E = -1.11031893 Ha (func_eval #695)
+  Iter 700: E = -1.13430229 Ha (func_eval #700)
+📊 Progress: 700 function evals (~700 iterations), E = -1.13430229 Ha
+  Iter 705: E = -1.13438247 Ha (func_eval #705)
+  Iter 710: E = -1.13441047 Ha (func_eval #710)
+📊 Progress: 710 function evals (~710 iterations), E = -1.13441047 Ha
+  Iter 715: E = -1.07579493 Ha (func_eval #715)
+  Iter 720: E = -1.13530757 Ha (func_eval #720)
+📊 Progress: 720 function evals (~720 iterations), E = -1.13530757 Ha
+  Iter 725: E = -1.06053956 Ha (func_eval #725)
+  Iter 730: E = -1.13530757 Ha (func_eval #730)
+📊 Progress: 730 function evals (~730 iterations), E = -1.13530757 Ha
+  Iter 735: E = -1.13530757 Ha (func_eval #735)
+  Iter 740: E = -0.97309949 Ha (func_eval #740)
+📊 Progress: 740 function evals (~740 iterations), E = -0.97309949 Ha
+  Iter 745: E = -1.13557703 Ha (func_eval #745)
+  Iter 750: E = -0.96596374 Ha (func_eval #750)
+📊 Progress: 750 function evals (~750 iterations), E = -0.96596374 Ha
+  Iter 755: E = -1.13559495 Ha (func_eval #755)
+  Iter 760: E = -1.06562857 Ha (func_eval #760)
+📊 Progress: 760 function evals (~760 iterations), E = -1.06562857 Ha
+  Iter 765: E = -1.13560258 Ha (func_eval #765)
+  Iter 770: E = -1.10575193 Ha (func_eval #770)
+📊 Progress: 770 function evals (~770 iterations), E = -1.10575193 Ha
+  Iter 775: E = -1.13583226 Ha (func_eval #775)
+  Iter 780: E = -1.06727237 Ha (func_eval #780)
+📊 Progress: 780 function evals (~780 iterations), E = -1.06727237 Ha
+  Iter 785: E = -1.13583227 Ha (func_eval #785)
+  Iter 790: E = -1.10051445 Ha (func_eval #790)
+📊 Progress: 790 function evals (~790 iterations), E = -1.10051445 Ha
+  Iter 795: E = -1.13583227 Ha (func_eval #795)
+  Iter 800: E = -1.13583227 Ha (func_eval #800)
+📊 Progress: 800 function evals (~800 iterations), E = -1.13583227 Ha
+  Iter 805: E = -1.13583227 Ha (func_eval #805)
+  Iter 810: E = -1.11256195 Ha (func_eval #810)
+📊 Progress: 810 function evals (~810 iterations), E = -1.11256195 Ha
+  Iter 815: E = -1.13583908 Ha (func_eval #815)
+  Iter 820: E = -1.12163954 Ha (func_eval #820)
+📊 Progress: 820 function evals (~820 iterations), E = -1.12163954 Ha
+  Iter 825: E = -1.13583943 Ha (func_eval #825)
+  Iter 830: E = -1.11600993 Ha (func_eval #830)
+📊 Progress: 830 function evals (~830 iterations), E = -1.11600993 Ha
+  Iter 835: E = -1.13592128 Ha (func_eval #835)
+  Iter 840: E = -1.12185643 Ha (func_eval #840)
+📊 Progress: 840 function evals (~840 iterations), E = -1.12185643 Ha
+  Iter 845: E = -1.13592128 Ha (func_eval #845)
+  Iter 850: E = -1.13592128 Ha (func_eval #850)
+📊 Progress: 850 function evals (~850 iterations), E = -1.13592128 Ha
+  Iter 855: E = -0.93353790 Ha (func_eval #855)
+  Iter 860: E = -1.13593485 Ha (func_eval #860)
+📊 Progress: 860 function evals (~860 iterations), E = -1.13593485 Ha
+  Iter 865: E = -0.93668161 Ha (func_eval #865)
+  Iter 870: E = -1.13593485 Ha (func_eval #870)
+📊 Progress: 870 function evals (~870 iterations), E = -1.13593485 Ha
+  Iter 875: E = -1.13593485 Ha (func_eval #875)
+  Iter 880: E = -1.13593485 Ha (func_eval #880)
+📊 Progress: 880 function evals (~880 iterations), E = -1.13593485 Ha
+  Iter 885: E = -0.96294524 Ha (func_eval #885)
+  Iter 890: E = -1.13594406 Ha (func_eval #890)
+📊 Progress: 890 function evals (~890 iterations), E = -1.13594406 Ha
+  Iter 895: E = -1.12772444 Ha (func_eval #895)
+  Iter 900: E = -1.13599931 Ha (func_eval #900)
+📊 Progress: 900 function evals (~900 iterations), E = -1.13599931 Ha
+  Iter 905: E = -1.13599931 Ha (func_eval #905)
+  Iter 910: E = -1.13600151 Ha (func_eval #910)
+📊 Progress: 910 function evals (~910 iterations), E = -1.13600151 Ha
+  Iter 915: E = -1.13600277 Ha (func_eval #915)
+  Iter 920: E = -1.13600278 Ha (func_eval #920)
+📊 Progress: 920 function evals (~920 iterations), E = -1.13600278 Ha
+  Iter 925: E = -1.13600278 Ha (func_eval #925)
+  Iter 930: E = -1.10934754 Ha (func_eval #930)
+📊 Progress: 930 function evals (~930 iterations), E = -1.10934754 Ha
+  Iter 935: E = -1.13600280 Ha (func_eval #935)
+  Iter 940: E = -1.13600062 Ha (func_eval #940)
+📊 Progress: 940 function evals (~940 iterations), E = -1.13600062 Ha
+  Iter 945: E = -1.13600281 Ha (func_eval #945)
+  Iter 950: E = -1.13600281 Ha (func_eval #950)
+📊 Progress: 950 function evals (~950 iterations), E = -1.13600281 Ha
+  Iter 955: E = -1.06546083 Ha (func_eval #955)
+  Iter 960: E = -1.13600837 Ha (func_eval #960)
+📊 Progress: 960 function evals (~960 iterations), E = -1.13600837 Ha
+  Iter 965: E = -1.13599613 Ha (func_eval #965)
+  Iter 970: E = -1.13600838 Ha (func_eval #970)
+📊 Progress: 970 function evals (~970 iterations), E = -1.13600838 Ha
+  Iter 975: E = -1.07740952 Ha (func_eval #975)
+  Iter 980: E = -1.13601193 Ha (func_eval #980)
+📊 Progress: 980 function evals (~980 iterations), E = -1.13601193 Ha
+  Iter 985: E = -1.13601596 Ha (func_eval #985)
+  Iter 990: E = -1.13602049 Ha (func_eval #990)
+📊 Progress: 990 function evals (~990 iterations), E = -1.13602049 Ha
+  Iter 995: E = -0.94142347 Ha (func_eval #995)
+  Iter 1000: E = -1.13603117 Ha (func_eval #1000)
+📊 Progress: 1000 function evals (~1000 iterations), E = -1.13603117 Ha
+  Iter 1005: E = -0.94415469 Ha (func_eval #1005)
+  Iter 1010: E = -1.13603117 Ha (func_eval #1010)
+📊 Progress: 1010 function evals (~1010 iterations), E = -1.13603117 Ha
+  Iter 1015: E = -1.13603117 Ha (func_eval #1015)
+  Iter 1020: E = -1.13603117 Ha (func_eval #1020)
+📊 Progress: 1020 function evals (~1020 iterations), E = -1.13603117 Ha
+  Iter 1025: E = -1.13603117 Ha (func_eval #1025)
+  Iter 1030: E = -1.06681332 Ha (func_eval #1030)
+📊 Progress: 1030 function evals (~1030 iterations), E = -1.06681332 Ha
+  Iter 1035: E = -1.13603401 Ha (func_eval #1035)
+  Iter 1040: E = -1.06840655 Ha (func_eval #1040)
+📊 Progress: 1040 function evals (~1040 iterations), E = -1.06840655 Ha
+  Iter 1045: E = -1.13603426 Ha (func_eval #1045)
+  Iter 1050: E = -1.10967479 Ha (func_eval #1050)
+📊 Progress: 1050 function evals (~1050 iterations), E = -1.10967479 Ha
+  Iter 1055: E = -1.13603585 Ha (func_eval #1055)
+  Iter 1060: E = -1.12141370 Ha (func_eval #1060)
+📊 Progress: 1060 function evals (~1060 iterations), E = -1.12141370 Ha
+  Iter 1065: E = -1.13603619 Ha (func_eval #1065)
+  Iter 1070: E = -1.10927085 Ha (func_eval #1070)
+📊 Progress: 1070 function evals (~1070 iterations), E = -1.10927085 Ha
+  Iter 1075: E = -1.13603619 Ha (func_eval #1075)
+  Iter 1080: E = -1.13603619 Ha (func_eval #1080)
+📊 Progress: 1080 function evals (~1080 iterations), E = -1.13603619 Ha
+  Iter 1085: E = -1.13603619 Ha (func_eval #1085)
+  Iter 1090: E = -1.12155259 Ha (func_eval #1090)
+📊 Progress: 1090 function evals (~1090 iterations), E = -1.12155259 Ha
+  Iter 1095: E = -1.13603619 Ha (func_eval #1095)
+  Iter 1100: E = -1.13603619 Ha (func_eval #1100)
+📊 Progress: 1100 function evals (~1100 iterations), E = -1.13603619 Ha
+  Iter 1105: E = -1.13603619 Ha (func_eval #1105)
+  Iter 1110: E = -1.13603619 Ha (func_eval #1110)
+📊 Progress: 1110 function evals (~1110 iterations), E = -1.13603619 Ha
+  Iter 1115: E = -0.99068483 Ha (func_eval #1115)
+  Iter 1120: E = -1.13604178 Ha (func_eval #1120)
+📊 Progress: 1120 function evals (~1120 iterations), E = -1.13604178 Ha
+  Iter 1125: E = -1.04176782 Ha (func_eval #1125)
+  Iter 1130: E = -1.13604179 Ha (func_eval #1130)
+📊 Progress: 1130 function evals (~1130 iterations), E = -1.13604179 Ha
+  Iter 1135: E = -0.99263620 Ha (func_eval #1135)
+  Iter 1140: E = -1.13604210 Ha (func_eval #1140)
+📊 Progress: 1140 function evals (~1140 iterations), E = -1.13604210 Ha
+  Iter 1145: E = -1.04178742 Ha (func_eval #1145)
+  Iter 1150: E = -1.13604210 Ha (func_eval #1150)
+📊 Progress: 1150 function evals (~1150 iterations), E = -1.13604210 Ha
+  Iter 1155: E = -1.13604210 Ha (func_eval #1155)
+  Iter 1160: E = -1.13604210 Ha (func_eval #1160)
+📊 Progress: 1160 function evals (~1160 iterations), E = -1.13604210 Ha
+  Iter 1165: E = -0.64145981 Ha (func_eval #1165)
+  Iter 1170: E = -1.13604230 Ha (func_eval #1170)
+📊 Progress: 1170 function evals (~1170 iterations), E = -1.13604230 Ha
+  Iter 1175: E = -0.64090807 Ha (func_eval #1175)
+  Iter 1180: E = -1.13604230 Ha (func_eval #1180)
+📊 Progress: 1180 function evals (~1180 iterations), E = -1.13604230 Ha
+  Iter 1185: E = -1.13604230 Ha (func_eval #1185)
+  Iter 1190: E = -1.13604230 Ha (func_eval #1190)
+📊 Progress: 1190 function evals (~1190 iterations), E = -1.13604230 Ha
+  Iter 1195: E = -1.13604230 Ha (func_eval #1195)
+  Iter 1200: E = -1.13604230 Ha (func_eval #1200)
+📊 Progress: 1200 function evals (~1200 iterations), E = -1.13604230 Ha
+  Iter 1205: E = -0.69960927 Ha (func_eval #1205)
+  Iter 1210: E = -1.13604243 Ha (func_eval #1210)
+📊 Progress: 1210 function evals (~1210 iterations), E = -1.13604243 Ha
+  Iter 1215: E = -1.09372836 Ha (func_eval #1215)
+  Iter 1220: E = -1.13604139 Ha (func_eval #1220)
+📊 Progress: 1220 function evals (~1220 iterations), E = -1.13604139 Ha
+  Iter 1225: E = -1.13604267 Ha (func_eval #1225)
+  Iter 1230: E = -0.67653879 Ha (func_eval #1230)
+📊 Progress: 1230 function evals (~1230 iterations), E = -0.67653879 Ha
+  Iter 1235: E = -1.13604351 Ha (func_eval #1235)
+  Iter 1240: E = -1.13603810 Ha (func_eval #1240)
+📊 Progress: 1240 function evals (~1240 iterations), E = -1.13603810 Ha
+  Iter 1245: E = -1.13604351 Ha (func_eval #1245)
+  Iter 1250: E = -1.13604351 Ha (func_eval #1250)
+📊 Progress: 1250 function evals (~1250 iterations), E = -1.13604351 Ha
+  Iter 1255: E = -1.13604263 Ha (func_eval #1255)
+  Iter 1260: E = -1.13604365 Ha (func_eval #1260)
+📊 Progress: 1260 function evals (~1260 iterations), E = -1.13604365 Ha
+  Iter 1265: E = -1.13604366 Ha (func_eval #1265)
+  Iter 1270: E = -1.13604366 Ha (func_eval #1270)
+📊 Progress: 1270 function evals (~1270 iterations), E = -1.13604366 Ha
+  Iter 1275: E = -1.10771141 Ha (func_eval #1275)
+  Iter 1280: E = -1.13604451 Ha (func_eval #1280)
+📊 Progress: 1280 function evals (~1280 iterations), E = -1.13604451 Ha
+  Iter 1285: E = -1.13604515 Ha (func_eval #1285)
+  Iter 1290: E = -1.13604574 Ha (func_eval #1290)
+📊 Progress: 1290 function evals (~1290 iterations), E = -1.13604574 Ha
+  Iter 1295: E = -1.11350471 Ha (func_eval #1295)
+  Iter 1300: E = -1.13604576 Ha (func_eval #1300)
+📊 Progress: 1300 function evals (~1300 iterations), E = -1.13604576 Ha
+  Iter 1305: E = -1.13604576 Ha (func_eval #1305)
+  Iter 1310: E = -1.13603129 Ha (func_eval #1310)
+📊 Progress: 1310 function evals (~1310 iterations), E = -1.13603129 Ha
+  Iter 1315: E = -1.13604659 Ha (func_eval #1315)
+  Iter 1320: E = -0.94384966 Ha (func_eval #1320)
+📊 Progress: 1320 function evals (~1320 iterations), E = -0.94384966 Ha
+  Iter 1325: E = -1.13604674 Ha (func_eval #1325)
+  Iter 1330: E = -0.94416699 Ha (func_eval #1330)
+📊 Progress: 1330 function evals (~1330 iterations), E = -0.94416699 Ha
+  Iter 1335: E = -1.13604674 Ha (func_eval #1335)
+  Iter 1340: E = -1.13604674 Ha (func_eval #1340)
+📊 Progress: 1340 function evals (~1340 iterations), E = -1.13604674 Ha
+  Iter 1345: E = -1.13604674 Ha (func_eval #1345)
+  Iter 1350: E = -1.13604674 Ha (func_eval #1350)
+📊 Progress: 1350 function evals (~1350 iterations), E = -1.13604674 Ha
+  Iter 1355: E = -0.69991005 Ha (func_eval #1355)
+  Iter 1360: E = -1.13604675 Ha (func_eval #1360)
+📊 Progress: 1360 function evals (~1360 iterations), E = -1.13604675 Ha
+  Iter 1365: E = -0.70610426 Ha (func_eval #1365)
+  Iter 1370: E = -1.13604678 Ha (func_eval #1370)
+📊 Progress: 1370 function evals (~1370 iterations), E = -1.13604678 Ha
+  Iter 1375: E = -0.96588349 Ha (func_eval #1375)
+  Iter 1380: E = -1.13604742 Ha (func_eval #1380)
+📊 Progress: 1380 function evals (~1380 iterations), E = -1.13604742 Ha
+  Iter 1385: E = -1.04324390 Ha (func_eval #1385)
+  Iter 1390: E = -1.13604742 Ha (func_eval #1390)
+📊 Progress: 1390 function evals (~1390 iterations), E = -1.13604742 Ha
+  Iter 1395: E = -1.13604742 Ha (func_eval #1395)
+  Iter 1400: E = -1.10927921 Ha (func_eval #1400)
+📊 Progress: 1400 function evals (~1400 iterations), E = -1.10927921 Ha
+  Iter 1405: E = -1.13604742 Ha (func_eval #1405)
+  Iter 1410: E = -1.13604742 Ha (func_eval #1410)
+📊 Progress: 1410 function evals (~1410 iterations), E = -1.13604742 Ha
+  Iter 1415: E = -1.13604742 Ha (func_eval #1415)
+  Iter 1420: E = -1.12150194 Ha (func_eval #1420)
+📊 Progress: 1420 function evals (~1420 iterations), E = -1.12150194 Ha
+  Iter 1425: E = -1.13604742 Ha (func_eval #1425)
+  Iter 1430: E = -1.13604742 Ha (func_eval #1430)
+📊 Progress: 1430 function evals (~1430 iterations), E = -1.13604742 Ha
+  Iter 1435: E = -1.13604742 Ha (func_eval #1435)
+  Iter 1440: E = -1.13604742 Ha (func_eval #1440)
+📊 Progress: 1440 function evals (~1440 iterations), E = -1.13604742 Ha
+  Iter 1445: E = -1.07884571 Ha (func_eval #1445)
+  Iter 1450: E = -1.13604951 Ha (func_eval #1450)
+📊 Progress: 1450 function evals (~1450 iterations), E = -1.13604951 Ha
+  Iter 1455: E = -1.09797686 Ha (func_eval #1455)
+  Iter 1460: E = -1.13604951 Ha (func_eval #1460)
+📊 Progress: 1460 function evals (~1460 iterations), E = -1.13604951 Ha
+  Iter 1465: E = -1.13604951 Ha (func_eval #1465)
+  Iter 1470: E = -1.11353805 Ha (func_eval #1470)
+📊 Progress: 1470 function evals (~1470 iterations), E = -1.11353805 Ha
+  Iter 1475: E = -1.13604953 Ha (func_eval #1475)
+  Iter 1480: E = -1.12121464 Ha (func_eval #1480)
+📊 Progress: 1480 function evals (~1480 iterations), E = -1.12121464 Ha
+  Iter 1485: E = -1.13604953 Ha (func_eval #1485)
+  Iter 1490: E = -1.13604953 Ha (func_eval #1490)
+📊 Progress: 1490 function evals (~1490 iterations), E = -1.13604953 Ha
+  Iter 1495: E = -1.13604953 Ha (func_eval #1495)
+  Iter 1500: E = -0.00788949 Ha (func_eval #1500)
+📊 Progress: 1500 function evals (~1500 iterations), E = -0.00788949 Ha
+  Iter 1505: E = -1.13604955 Ha (func_eval #1505)
+  Iter 1510: E = -1.13604955 Ha (func_eval #1510)
+📊 Progress: 1510 function evals (~1510 iterations), E = -1.13604955 Ha
+  Iter 1515: E = -1.13604661 Ha (func_eval #1515)
+  Iter 1520: E = -1.13604955 Ha (func_eval #1520)
+📊 Progress: 1520 function evals (~1520 iterations), E = -1.13604955 Ha
+  Iter 1525: E = -1.06763002 Ha (func_eval #1525)
+  Iter 1530: E = -1.13604956 Ha (func_eval #1530)
+📊 Progress: 1530 function evals (~1530 iterations), E = -1.13604956 Ha
+  Iter 1535: E = -1.13031165 Ha (func_eval #1535)
+  Iter 1540: E = -1.13604957 Ha (func_eval #1540)
+📊 Progress: 1540 function evals (~1540 iterations), E = -1.13604957 Ha
+  Iter 1545: E = -1.13604957 Ha (func_eval #1545)
+  Iter 1550: E = -1.13604957 Ha (func_eval #1550)
+📊 Progress: 1550 function evals (~1550 iterations), E = -1.13604957 Ha
+  Iter 1555: E = -1.13604957 Ha (func_eval #1555)
+  Iter 1560: E = -1.13605248 Ha (func_eval #1560)
+📊 Progress: 1560 function evals (~1560 iterations), E = -1.13605248 Ha
+  Iter 1565: E = -1.13605248 Ha (func_eval #1565)
+  Iter 1570: E = -1.13605131 Ha (func_eval #1570)
+📊 Progress: 1570 function evals (~1570 iterations), E = -1.13605131 Ha
+  Iter 1575: E = -1.13605251 Ha (func_eval #1575)
+  Iter 1580: E = -1.13605252 Ha (func_eval #1580)
+📊 Progress: 1580 function evals (~1580 iterations), E = -1.13605252 Ha
+  Iter 1585: E = -1.13605252 Ha (func_eval #1585)
+  Iter 1590: E = -0.96625032 Ha (func_eval #1590)
+📊 Progress: 1590 function evals (~1590 iterations), E = -0.96625032 Ha
+  Iter 1595: E = -1.13605252 Ha (func_eval #1595)
+  Iter 1600: E = -1.13605252 Ha (func_eval #1600)
+📊 Progress: 1600 function evals (~1600 iterations), E = -1.13605252 Ha
+  Iter 1605: E = -1.13605239 Ha (func_eval #1605)
+  Iter 1610: E = -1.13605254 Ha (func_eval #1610)
+📊 Progress: 1610 function evals (~1610 iterations), E = -1.13605254 Ha
+  Iter 1615: E = -0.95749087 Ha (func_eval #1615)
+  Iter 1620: E = -1.13605279 Ha (func_eval #1620)
+📊 Progress: 1620 function evals (~1620 iterations), E = -1.13605279 Ha
+  Iter 1625: E = -1.13604084 Ha (func_eval #1625)
+  Iter 1630: E = -1.13605327 Ha (func_eval #1630)
+📊 Progress: 1630 function evals (~1630 iterations), E = -1.13605327 Ha
+  Iter 1635: E = -0.99245187 Ha (func_eval #1635)
+  Iter 1640: E = -1.13605327 Ha (func_eval #1640)
+📊 Progress: 1640 function evals (~1640 iterations), E = -1.13605327 Ha
+  Iter 1645: E = -1.13605327 Ha (func_eval #1645)
+  Iter 1650: E = -1.13603259 Ha (func_eval #1650)
+📊 Progress: 1650 function evals (~1650 iterations), E = -1.13603259 Ha
+  Iter 1655: E = -1.13605328 Ha (func_eval #1655)
+  Iter 1660: E = -0.05002976 Ha (func_eval #1660)
+📊 Progress: 1660 function evals (~1660 iterations), E = -0.05002976 Ha
+  Iter 1665: E = -1.13605330 Ha (func_eval #1665)
+  Iter 1670: E = -0.65923121 Ha (func_eval #1670)
+📊 Progress: 1670 function evals (~1670 iterations), E = -0.65923121 Ha
+  Iter 1675: E = -1.13605330 Ha (func_eval #1675)
+  Iter 1680: E = -1.13605329 Ha (func_eval #1680)
+📊 Progress: 1680 function evals (~1680 iterations), E = -1.13605329 Ha
+  Iter 1685: E = -1.13605330 Ha (func_eval #1685)
+  Iter 1690: E = -1.13605330 Ha (func_eval #1690)
+📊 Progress: 1690 function evals (~1690 iterations), E = -1.13605330 Ha
+  Iter 1695: E = -1.13605330 Ha (func_eval #1695)
+  Iter 1700: E = -1.13605330 Ha (func_eval #1700)
+📊 Progress: 1700 function evals (~1700 iterations), E = -1.13605330 Ha
+  Iter 1705: E = -0.96050655 Ha (func_eval #1705)
+  Iter 1710: E = -1.13605331 Ha (func_eval #1710)
+📊 Progress: 1710 function evals (~1710 iterations), E = -1.13605331 Ha
+  Iter 1715: E = -0.15713080 Ha (func_eval #1715)
+  Iter 1720: E = -1.13605332 Ha (func_eval #1720)
+📊 Progress: 1720 function evals (~1720 iterations), E = -1.13605332 Ha
+  Iter 1725: E = -1.13605332 Ha (func_eval #1725)
+  Iter 1730: E = -1.13605233 Ha (func_eval #1730)
+📊 Progress: 1730 function evals (~1730 iterations), E = -1.13605233 Ha
+  Iter 1735: E = -1.13605335 Ha (func_eval #1735)
+  Iter 1740: E = -1.09863162 Ha (func_eval #1740)
+📊 Progress: 1740 function evals (~1740 iterations), E = -1.09863162 Ha
+  Iter 1745: E = -1.13605335 Ha (func_eval #1745)
+  Iter 1750: E = -0.96527298 Ha (func_eval #1750)
+📊 Progress: 1750 function evals (~1750 iterations), E = -0.96527298 Ha
+  Iter 1755: E = -1.13605335 Ha (func_eval #1755)
+  Iter 1760: E = -1.13605335 Ha (func_eval #1760)
+📊 Progress: 1760 function evals (~1760 iterations), E = -1.13605335 Ha
+  Iter 1765: E = -1.12148010 Ha (func_eval #1765)
+  Iter 1770: E = -1.13605335 Ha (func_eval #1770)
+📊 Progress: 1770 function evals (~1770 iterations), E = -1.13605335 Ha
+  Iter 1775: E = -1.13605335 Ha (func_eval #1775)
+  Iter 1780: E = -1.13605335 Ha (func_eval #1780)
+📊 Progress: 1780 function evals (~1780 iterations), E = -1.13605335 Ha
+  Iter 1785: E = -1.13605335 Ha (func_eval #1785)
+  Iter 1790: E = -1.13029628 Ha (func_eval #1790)
+📊 Progress: 1790 function evals (~1790 iterations), E = -1.13029628 Ha
+  Iter 1795: E = -1.13605335 Ha (func_eval #1795)
+  Iter 1800: E = -1.13605335 Ha (func_eval #1800)
+📊 Progress: 1800 function evals (~1800 iterations), E = -1.13605335 Ha
+  Iter 1805: E = -1.13605279 Ha (func_eval #1805)
+  Iter 1810: E = -1.13605335 Ha (func_eval #1810)
+📊 Progress: 1810 function evals (~1810 iterations), E = -1.13605335 Ha
+  Iter 1815: E = -1.13605335 Ha (func_eval #1815)
+  Iter 1820: E = -1.13605335 Ha (func_eval #1820)
+📊 Progress: 1820 function evals (~1820 iterations), E = -1.13605335 Ha
+  Iter 1825: E = -1.07817112 Ha (func_eval #1825)
+  Iter 1830: E = -1.13605335 Ha (func_eval #1830)
+📊 Progress: 1830 function evals (~1830 iterations), E = -1.13605335 Ha
+  Iter 1835: E = -1.13605335 Ha (func_eval #1835)
+  Iter 1840: E = -1.12119224 Ha (func_eval #1840)
+📊 Progress: 1840 function evals (~1840 iterations), E = -1.12119224 Ha
+  Iter 1845: E = -1.13605335 Ha (func_eval #1845)
+  Iter 1850: E = -1.13605335 Ha (func_eval #1850)
+📊 Progress: 1850 function evals (~1850 iterations), E = -1.13605335 Ha
+  Iter 1855: E = -1.13605335 Ha (func_eval #1855)
+  Iter 1860: E = -1.13605335 Ha (func_eval #1860)
+📊 Progress: 1860 function evals (~1860 iterations), E = -1.13605335 Ha
+  Iter 1865: E = -1.13605041 Ha (func_eval #1865)
+  Iter 1870: E = -1.13605335 Ha (func_eval #1870)
+📊 Progress: 1870 function evals (~1870 iterations), E = -1.13605335 Ha
+  Iter 1875: E = -0.64092274 Ha (func_eval #1875)⚠️  Analysis disabled - enable_analysis=False, molecule=False
+
+  Iter 1880: E = -1.13605335 Ha (func_eval #1880)
+📊 Progress: 1880 function evals (~1880 iterations), E = -1.13605335 Ha
+  Iter 1885: E = -1.13605335 Ha (func_eval #1885)
+  Iter 1890: E = -1.13605335 Ha (func_eval #1890)
+📊 Progress: 1890 function evals (~1890 iterations), E = -1.13605335 Ha
+  Iter 1895: E = -1.13605335 Ha (func_eval #1895)
+  Iter 1900: E = -1.13605335 Ha (func_eval #1900)
+📊 Progress: 1900 function evals (~1900 iterations), E = -1.13605335 Ha
+  Iter 1905: E = -1.13605335 Ha (func_eval #1905)
+  Iter 1910: E = -1.06768675 Ha (func_eval #1910)
+📊 Progress: 1910 function evals (~1910 iterations), E = -1.06768675 Ha
+  Iter 1915: E = -1.13605335 Ha (func_eval #1915)
+  Iter 1920: E = -1.13605335 Ha (func_eval #1920)
+📊 Progress: 1920 function evals (~1920 iterations), E = -1.13605335 Ha
+  Iter 1925: E = -1.13605316 Ha (func_eval #1925)
+  Iter 1930: E = -1.13605339 Ha (func_eval #1930)
+📊 Progress: 1930 function evals (~1930 iterations), E = -1.13605339 Ha
+converged SCF energy = -1.11729321718008
+Dipole moment(X, Y, Z, Debye): -0.00000,  0.00000,  0.00000
+
+✅ VQE Completed
+  VQE energy:      -1.13605339 Ha
+  HF energy:       -1.11729322 Ha
+  Correlation:     -0.01876017 Ha (-11.7720 kcal/mol)
+  Iterations:      6 (callback logged: 1931)
+  Func evals:      1931 (callback counted: 1931)
+  Converged:       True
+  Time:            3.10s
+
+================================================================================
+TEST: L-BFGS-B with max_iterations=20
+================================================================================
+converged SCF energy = -1.11729321718008
+converged SCF energy = -1.11729321718008
+HF energy: -1.11729322 Ha
+Ansatz: CovalentGovernance with 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE with L-BFGS-B...
+   User-requested max_iterations: 20
+converged SCF energy = -1.11729321718008
+🔧 Optimizer: L-BFGS-B with 20 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+🔧 Building sparse Pauli Hamiltonian with jordan_wigner mapper
+➕ Adding nuclear repulsion constant: 0.75811399 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.03916182+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.75811399 Ha
+   Total identity coefficient: -0.03916182+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+📊 Sparse Hamiltonian built: 15 Pauli terms
+🔍 VQE Hamiltonian identity coefficient: -0.03916182+0.00000000j Ha
+🔍 Nuclear repulsion from molecule: 0.75811399 Ha
+✅ Qubit counts match: 4 qubits
+🔍 Energy evaluation 1: -1.11117205 Ha
+🔍 Energy evaluation 2: -1.11117205 Ha
+🔍 Energy evaluation 3: -1.11117205 Ha
+  Iter 5: E = -1.11117205 Ha (func_eval #5)
+  Iter 10: E = -1.11117205 Ha (func_eval #10)
+📊 Progress: 10 function evals (~0 iterations), E = -1.11117205 Ha
+  Iter 15: E = -1.11117205 Ha (func_eval #15)
+  Iter 20: E = -1.11117205 Ha (func_eval #20)
+📊 Progress: 20 function evals (~0 iterations), E = -1.11117205 Ha
+  Iter 25: E = -1.11117205 Ha (func_eval #25)
+  Iter 30: E = -0.09944225 Ha (func_eval #30)
+📊 Progress: 30 function evals (~0 iterations), E = -0.09944225 Ha
+  Iter 35: E = -0.09944224 Ha (func_eval #35)
+  Iter 40: E = -0.09944225 Ha (func_eval #40)
+📊 Progress: 40 function evals (~1 iterations), E = -0.09944225 Ha
+  Iter 45: E = -0.09944225 Ha (func_eval #45)
+  Iter 50: E = -0.09944224 Ha (func_eval #50)
+📊 Progress: 50 function evals (~1 iterations), E = -0.09944224 Ha
+  Iter 55: E = -1.11513555 Ha (func_eval #55)
+  Iter 60: E = -1.11513555 Ha (func_eval #60)
+📊 Progress: 60 function evals (~1 iterations), E = -1.11513555 Ha
+  Iter 65: E = -1.11513555 Ha (func_eval #65)
+  Iter 70: E = -1.11513555 Ha (func_eval #70)
+📊 Progress: 70 function evals (~1 iterations), E = -1.11513555 Ha
+  Iter 75: E = -1.11513555 Ha (func_eval #75)
+  Iter 80: E = -1.11661341 Ha (func_eval #80)
+📊 Progress: 80 function evals (~2 iterations), E = -1.11661341 Ha
+  Iter 85: E = -1.11661341 Ha (func_eval #85)
+  Iter 90: E = -1.11661341 Ha (func_eval #90)
+📊 Progress: 90 function evals (~2 iterations), E = -1.11661341 Ha
+  Iter 95: E = -1.11661341 Ha (func_eval #95)
+  Iter 100: E = -1.11661341 Ha (func_eval #100)
+📊 Progress: 100 function evals (~2 iterations), E = -1.11661341 Ha
+  Iter 105: E = -1.11921689 Ha (func_eval #105)
+  Iter 110: E = -1.11921689 Ha (func_eval #110)
+📊 Progress: 110 function evals (~2 iterations), E = -1.11921689 Ha
+  Iter 115: E = -1.11921689 Ha (func_eval #115)
+  Iter 120: E = -1.11921689 Ha (func_eval #120)
+📊 Progress: 120 function evals (~3 iterations), E = -1.11921689 Ha
+  Iter 125: E = -1.11921689 Ha (func_eval #125)
+  Iter 130: E = -1.11932591 Ha (func_eval #130)
+📊 Progress: 130 function evals (~3 iterations), E = -1.11932591 Ha
+  Iter 135: E = -1.11932591 Ha (func_eval #135)
+  Iter 140: E = -1.11932591 Ha (func_eval #140)
+📊 Progress: 140 function evals (~3 iterations), E = -1.11932591 Ha
+  Iter 145: E = -1.11932591 Ha (func_eval #145)
+  Iter 150: E = -1.11932591 Ha (func_eval #150)
+📊 Progress: 150 function evals (~3 iterations), E = -1.11932591 Ha
+  Iter 155: E = -1.11996416 Ha (func_eval #155)
+  Iter 160: E = -1.11996416 Ha (func_eval #160)
+📊 Progress: 160 function evals (~4 iterations), E = -1.11996416 Ha
+  Iter 165: E = -1.11996416 Ha (func_eval #165)
+  Iter 170: E = -1.11996416 Ha (func_eval #170)
+📊 Progress: 170 function evals (~4 iterations), E = -1.11996416 Ha
+  Iter 175: E = -1.11996416 Ha (func_eval #175)
+  Iter 180: E = -1.12056950 Ha (func_eval #180)
+📊 Progress: 180 function evals (~4 iterations), E = -1.12056950 Ha
+  Iter 185: E = -1.12056950 Ha (func_eval #185)
+  Iter 190: E = -1.12056950 Ha (func_eval #190)
+📊 Progress: 190 function evals (~4 iterations), E = -1.12056950 Ha
+  Iter 195: E = -1.12056950 Ha (func_eval #195)
+  Iter 200: E = -1.12056950 Ha (func_eval #200)
+📊 Progress: 200 function evals (~5 iterations), E = -1.12056950 Ha
+  Iter 205: E = -1.12268907 Ha (func_eval #205)
+  Iter 210: E = -1.12268907 Ha (func_eval #210)
+📊 Progress: 210 function evals (~5 iterations), E = -1.12268907 Ha
+  Iter 215: E = -1.12268907 Ha (func_eval #215)
+  Iter 220: E = -1.12268907 Ha (func_eval #220)
+📊 Progress: 220 function evals (~5 iterations), E = -1.12268907 Ha
+  Iter 225: E = -1.12268907 Ha (func_eval #225)
+  Iter 230: E = -1.06563709 Ha (func_eval #230)
+📊 Progress: 230 function evals (~5 iterations), E = -1.06563709 Ha
+  Iter 235: E = -1.06563709 Ha (func_eval #235)
+  Iter 240: E = -1.06563709 Ha (func_eval #240)
+📊 Progress: 240 function evals (~6 iterations), E = -1.06563709 Ha
+  Iter 245: E = -1.06563709 Ha (func_eval #245)
+  Iter 250: E = -1.06563709 Ha (func_eval #250)
+📊 Progress: 250 function evals (~6 iterations), E = -1.06563709 Ha
+  Iter 255: E = -1.12699782 Ha (func_eval #255)
+  Iter 260: E = -1.12699782 Ha (func_eval #260)
+📊 Progress: 260 function evals (~6 iterations), E = -1.12699782 Ha
+  Iter 265: E = -1.12699782 Ha (func_eval #265)
+  Iter 270: E = -1.12699782 Ha (func_eval #270)
+📊 Progress: 270 function evals (~6 iterations), E = -1.12699782 Ha
+  Iter 275: E = -1.12699782 Ha (func_eval #275)
+  Iter 280: E = -1.12595480 Ha (func_eval #280)
+📊 Progress: 280 function evals (~7 iterations), E = -1.12595480 Ha
+  Iter 285: E = -1.12595480 Ha (func_eval #285)
+  Iter 290: E = -1.12595480 Ha (func_eval #290)
+📊 Progress: 290 function evals (~7 iterations), E = -1.12595480 Ha
+  Iter 295: E = -1.12595480 Ha (func_eval #295)
+  Iter 300: E = -1.12595480 Ha (func_eval #300)
+📊 Progress: 300 function evals (~7 iterations), E = -1.12595480 Ha
+  Iter 305: E = -1.12910430 Ha (func_eval #305)
+  Iter 310: E = -1.12910430 Ha (func_eval #310)
+📊 Progress: 310 function evals (~7 iterations), E = -1.12910430 Ha
+  Iter 315: E = -1.12910430 Ha (func_eval #315)
+  Iter 320: E = -1.12910430 Ha (func_eval #320)
+📊 Progress: 320 function evals (~8 iterations), E = -1.12910430 Ha
+  Iter 325: E = -1.12910430 Ha (func_eval #325)
+  Iter 330: E = -1.13264440 Ha (func_eval #330)
+📊 Progress: 330 function evals (~8 iterations), E = -1.13264440 Ha
+  Iter 335: E = -1.13264440 Ha (func_eval #335)
+  Iter 340: E = -1.13264440 Ha (func_eval #340)
+📊 Progress: 340 function evals (~8 iterations), E = -1.13264440 Ha
+  Iter 345: E = -1.13264440 Ha (func_eval #345)
+  Iter 350: E = -1.13264440 Ha (func_eval #350)
+📊 Progress: 350 function evals (~8 iterations), E = -1.13264440 Ha
+  Iter 355: E = -1.13582956 Ha (func_eval #355)
+  Iter 360: E = -1.13582956 Ha (func_eval #360)
+📊 Progress: 360 function evals (~9 iterations), E = -1.13582956 Ha
+  Iter 365: E = -1.13582956 Ha (func_eval #365)
+  Iter 370: E = -1.13582956 Ha (func_eval #370)
+📊 Progress: 370 function evals (~9 iterations), E = -1.13582956 Ha
+  Iter 375: E = -1.13582956 Ha (func_eval #375)
+  Iter 380: E = -1.13587802 Ha (func_eval #380)
+📊 Progress: 380 function evals (~9 iterations), E = -1.13587802 Ha
+  Iter 385: E = -1.13587802 Ha (func_eval #385)
+  Iter 390: E = -1.13587802 Ha (func_eval #390)
+📊 Progress: 390 function evals (~9 iterations), E = -1.13587802 Ha
+  Iter 395: E = -1.13587802 Ha (func_eval #395)
+  Iter 400: E = -1.13587803 Ha (func_eval #400)
+📊 Progress: 400 function evals (~10 iterations), E = -1.13587803 Ha
+  Iter 405: E = -1.13595001 Ha (func_eval #405)
+  Iter 410: E = -1.13595001 Ha (func_eval #410)
+📊 Progress: 410 function evals (~10 iterations), E = -1.13595001 Ha
+  Iter 415: E = -1.13595001 Ha (func_eval #415)
+  Iter 420: E = -1.13595001 Ha (func_eval #420)
+📊 Progress: 420 function evals (~10 iterations), E = -1.13595001 Ha
+  Iter 425: E = -1.13595001 Ha (func_eval #425)
+  Iter 430: E = -1.13601073 Ha (func_eval #430)
+📊 Progress: 430 function evals (~10 iterations), E = -1.13601073 Ha
+  Iter 435: E = -1.13601073 Ha (func_eval #435)
+  Iter 440: E = -1.13601073 Ha (func_eval #440)
+📊 Progress: 440 function evals (~11 iterations), E = -1.13601073 Ha⚠️  Analysis disabled - enable_analysis=False, molecule=False
+
+  Iter 445: E = -1.13601073 Ha (func_eval #445)
+  Iter 450: E = -1.13601073 Ha (func_eval #450)
+📊 Progress: 450 function evals (~11 iterations), E = -1.13601073 Ha
+  Iter 455: E = -1.13604559 Ha (func_eval #455)
+  Iter 460: E = -1.13604559 Ha (func_eval #460)
+📊 Progress: 460 function evals (~11 iterations), E = -1.13604559 Ha
+  Iter 465: E = -1.13604559 Ha (func_eval #465)
+  Iter 470: E = -1.13604559 Ha (func_eval #470)
+📊 Progress: 470 function evals (~11 iterations), E = -1.13604559 Ha
+  Iter 475: E = -1.13604559 Ha (func_eval #475)
+  Iter 480: E = -1.13603972 Ha (func_eval #480)
+📊 Progress: 480 function evals (~12 iterations), E = -1.13603972 Ha
+  Iter 485: E = -1.13603972 Ha (func_eval #485)
+  Iter 490: E = -1.13603972 Ha (func_eval #490)
+📊 Progress: 490 function evals (~12 iterations), E = -1.13603972 Ha
+  Iter 495: E = -1.13603972 Ha (func_eval #495)
+  Iter 500: E = -1.13603972 Ha (func_eval #500)
+📊 Progress: 500 function evals (~12 iterations), E = -1.13603972 Ha
+  Iter 505: E = -1.13604824 Ha (func_eval #505)
+  Iter 510: E = -1.13604824 Ha (func_eval #510)
+📊 Progress: 510 function evals (~12 iterations), E = -1.13604824 Ha
+  Iter 515: E = -1.13604824 Ha (func_eval #515)
+  Iter 520: E = -1.13604824 Ha (func_eval #520)
+📊 Progress: 520 function evals (~13 iterations), E = -1.13604824 Ha
+  Iter 525: E = -1.13604824 Ha (func_eval #525)
+  Iter 530: E = -1.13604860 Ha (func_eval #530)
+📊 Progress: 530 function evals (~13 iterations), E = -1.13604860 Ha
+  Iter 535: E = -1.13604860 Ha (func_eval #535)
+  Iter 540: E = -1.13604860 Ha (func_eval #540)
+📊 Progress: 540 function evals (~13 iterations), E = -1.13604860 Ha
+  Iter 545: E = -1.13604860 Ha (func_eval #545)
+  Iter 550: E = -1.13604860 Ha (func_eval #550)
+📊 Progress: 550 function evals (~13 iterations), E = -1.13604860 Ha
+converged SCF energy = -1.11729321718008
+Dipole moment(X, Y, Z, Debye): -0.00000,  0.00000,  0.00000
+
+✅ VQE Completed
+  VQE energy:      -1.13604860 Ha
+  HF energy:       -1.11729322 Ha
+  Correlation:     -0.01875538 Ha (-11.7690 kcal/mol)
+  Iterations:      15 (callback logged: 550)
+  Func evals:      550 (callback counted: 550)
+  Converged:       True
+  Time:            1.01s
+
+================================================================================
+TEST: SLSQP with max_iterations=15
+================================================================================
+converged SCF energy = -1.11729321718008
+converged SCF energy = -1.11729321718008
+HF energy: -1.11729322 Ha
+Ansatz: CovalentGovernance with 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE with SLSQP...
+   User-requested max_iterations: 15
+converged SCF energy = -1.11729321718008
+⚠️  Analysis disabled - enable_analysis=False, molecule=False
+🔧 Optimizer: SLSQP with 15 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+🔧 Building sparse Pauli Hamiltonian with jordan_wigner mapper
+➕ Adding nuclear repulsion constant: 0.75811399 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.03916182+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.75811399 Ha
+   Total identity coefficient: -0.03916182+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+📊 Sparse Hamiltonian built: 15 Pauli terms
+🔍 VQE Hamiltonian identity coefficient: -0.03916182+0.00000000j Ha
+🔍 Nuclear repulsion from molecule: 0.75811399 Ha
+✅ Qubit counts match: 4 qubits
+🔍 Energy evaluation 1: -1.10635846 Ha
+🔍 Energy evaluation 2: -1.10635846 Ha
+🔍 Energy evaluation 3: -1.10635846 Ha
+  Iter 5: E = -1.10635846 Ha (func_eval #5)
+  Iter 10: E = -1.10635846 Ha (func_eval #10)
+📊 Progress: 10 function evals (~0 iterations), E = -1.10635846 Ha
+  Iter 15: E = -1.10635846 Ha (func_eval #15)
+  Iter 20: E = -1.10635846 Ha (func_eval #20)
+📊 Progress: 20 function evals (~0 iterations), E = -1.10635846 Ha
+  Iter 25: E = -1.10635846 Ha (func_eval #25)
+  Iter 30: E = -1.11311420 Ha (func_eval #30)
+📊 Progress: 30 function evals (~0 iterations), E = -1.11311420 Ha
+  Iter 35: E = -1.11311420 Ha (func_eval #35)
+  Iter 40: E = -1.11311420 Ha (func_eval #40)
+📊 Progress: 40 function evals (~1 iterations), E = -1.11311420 Ha
+  Iter 45: E = -1.11311420 Ha (func_eval #45)
+  Iter 50: E = -1.11311420 Ha (func_eval #50)
+📊 Progress: 50 function evals (~1 iterations), E = -1.11311420 Ha
+  Iter 55: E = -1.12003684 Ha (func_eval #55)
+  Iter 60: E = -1.12003684 Ha (func_eval #60)
+📊 Progress: 60 function evals (~1 iterations), E = -1.12003684 Ha
+  Iter 65: E = -1.12003684 Ha (func_eval #65)
+  Iter 70: E = -1.12003684 Ha (func_eval #70)
+📊 Progress: 70 function evals (~1 iterations), E = -1.12003684 Ha
+  Iter 75: E = -1.12003684 Ha (func_eval #75)
+  Iter 80: E = -1.12047120 Ha (func_eval #80)
+📊 Progress: 80 function evals (~2 iterations), E = -1.12047120 Ha
+  Iter 85: E = -1.12047120 Ha (func_eval #85)
+  Iter 90: E = -1.12047120 Ha (func_eval #90)
+📊 Progress: 90 function evals (~2 iterations), E = -1.12047120 Ha
+  Iter 95: E = -1.12047120 Ha (func_eval #95)
+  Iter 100: E = -1.12047120 Ha (func_eval #100)
+📊 Progress: 100 function evals (~2 iterations), E = -1.12047120 Ha
+  Iter 105: E = -1.12371206 Ha (func_eval #105)
+  Iter 110: E = -1.12371206 Ha (func_eval #110)
+📊 Progress: 110 function evals (~2 iterations), E = -1.12371206 Ha
+  Iter 115: E = -1.12371206 Ha (func_eval #115)
+  Iter 120: E = -1.12371206 Ha (func_eval #120)
+📊 Progress: 120 function evals (~3 iterations), E = -1.12371206 Ha
+  Iter 125: E = -1.12371206 Ha (func_eval #125)
+  Iter 130: E = -1.12691448 Ha (func_eval #130)
+📊 Progress: 130 function evals (~3 iterations), E = -1.12691448 Ha
+  Iter 135: E = -1.12691448 Ha (func_eval #135)
+  Iter 140: E = -1.12691448 Ha (func_eval #140)
+📊 Progress: 140 function evals (~3 iterations), E = -1.12691448 Ha
+  Iter 145: E = -1.12691448 Ha (func_eval #145)
+  Iter 150: E = -1.12691448 Ha (func_eval #150)
+📊 Progress: 150 function evals (~3 iterations), E = -1.12691448 Ha
+  Iter 155: E = -1.13185041 Ha (func_eval #155)
+  Iter 160: E = -1.13185041 Ha (func_eval #160)
+📊 Progress: 160 function evals (~4 iterations), E = -1.13185041 Ha
+  Iter 165: E = -1.13185041 Ha (func_eval #165)
+  Iter 170: E = -1.13185041 Ha (func_eval #170)
+📊 Progress: 170 function evals (~4 iterations), E = -1.13185041 Ha
+  Iter 175: E = -1.13185042 Ha (func_eval #175)
+  Iter 180: E = -1.13465068 Ha (func_eval #180)
+📊 Progress: 180 function evals (~4 iterations), E = -1.13465068 Ha
+  Iter 185: E = -1.13465068 Ha (func_eval #185)
+  Iter 190: E = -1.13465068 Ha (func_eval #190)
+📊 Progress: 190 function evals (~4 iterations), E = -1.13465068 Ha
+  Iter 195: E = -1.13465068 Ha (func_eval #195)
+  Iter 200: E = -1.13465068 Ha (func_eval #200)
+📊 Progress: 200 function evals (~5 iterations), E = -1.13465068 Ha
+  Iter 205: E = -1.13555965 Ha (func_eval #205)
+  Iter 210: E = -1.13555965 Ha (func_eval #210)
+📊 Progress: 210 function evals (~5 iterations), E = -1.13555965 Ha
+  Iter 215: E = -1.13555965 Ha (func_eval #215)
+  Iter 220: E = -1.13555965 Ha (func_eval #220)
+📊 Progress: 220 function evals (~5 iterations), E = -1.13555965 Ha
+  Iter 225: E = -1.13555966 Ha (func_eval #225)
+  Iter 230: E = -1.13595961 Ha (func_eval #230)
+📊 Progress: 230 function evals (~5 iterations), E = -1.13595961 Ha
+  Iter 235: E = -1.13595961 Ha (func_eval #235)
+  Iter 240: E = -1.13595961 Ha (func_eval #240)
+📊 Progress: 240 function evals (~6 iterations), E = -1.13595961 Ha
+  Iter 245: E = -1.13595961 Ha (func_eval #245)
+  Iter 250: E = -1.13595961 Ha (func_eval #250)
+📊 Progress: 250 function evals (~6 iterations), E = -1.13595961 Ha
+  Iter 255: E = -1.13597341 Ha (func_eval #255)
+  Iter 260: E = -1.13597341 Ha (func_eval #260)
+📊 Progress: 260 function evals (~6 iterations), E = -1.13597341 Ha
+  Iter 265: E = -1.13597341 Ha (func_eval #265)
+  Iter 270: E = -1.13597341 Ha (func_eval #270)
+📊 Progress: 270 function evals (~6 iterations), E = -1.13597341 Ha
+  Iter 275: E = -1.13597341 Ha (func_eval #275)
+  Iter 280: E = -1.13597898 Ha (func_eval #280)
+📊 Progress: 280 function evals (~7 iterations), E = -1.13597898 Ha
+  Iter 285: E = -1.13597898 Ha (func_eval #285)
+  Iter 290: E = -1.13597898 Ha (func_eval #290)
+📊 Progress: 290 function evals (~7 iterations), E = -1.13597898 Ha
+  Iter 295: E = -1.13597898 Ha (func_eval #295)
+  Iter 300: E = -1.13597898 Ha (func_eval #300)
+📊 Progress: 300 function evals (~7 iterations), E = -1.13597898 Ha
+  Iter 305: E = -1.13599005 Ha (func_eval #305)
+  Iter 310: E = -1.13599005 Ha (func_eval #310)
+📊 Progress: 310 function evals (~7 iterations), E = -1.13599005 Ha
+  Iter 315: E = -1.13599005 Ha (func_eval #315)
+  Iter 320: E = -1.13599005 Ha (func_eval #320)
+📊 Progress: 320 function evals (~8 iterations), E = -1.13599005 Ha
+  Iter 325: E = -1.13599005 Ha (func_eval #325)
+  Iter 330: E = -1.13600364 Ha (func_eval #330)
+📊 Progress: 330 function evals (~8 iterations), E = -1.13600364 Ha
+  Iter 335: E = -1.13600364 Ha (func_eval #335)
+  Iter 340: E = -1.13600364 Ha (func_eval #340)
+📊 Progress: 340 function evals (~8 iterations), E = -1.13600364 Ha
+  Iter 345: E = -1.13600364 Ha (func_eval #345)
+  Iter 350: E = -1.13600364 Ha (func_eval #350)
+📊 Progress: 350 function evals (~8 iterations), E = -1.13600364 Ha
+  Iter 355: E = -1.13601612 Ha (func_eval #355)
+  Iter 360: E = -1.13601612 Ha (func_eval #360)
+📊 Progress: 360 function evals (~9 iterations), E = -1.13601612 Ha
+  Iter 365: E = -1.13601612 Ha (func_eval #365)
+  Iter 370: E = -1.13601612 Ha (func_eval #370)
+📊 Progress: 370 function evals (~9 iterations), E = -1.13601612 Ha
+  Iter 375: E = -1.13601612 Ha (func_eval #375)
+  Iter 380: E = -1.13602356 Ha (func_eval #380)
+📊 Progress: 380 function evals (~9 iterations), E = -1.13602356 Ha
+  Iter 385: E = -1.13602356 Ha (func_eval #385)
+  Iter 390: E = -1.13602356 Ha (func_eval #390)
+📊 Progress: 390 function evals (~9 iterations), E = -1.13602356 Ha
+  Iter 395: E = -1.13602356 Ha (func_eval #395)
+  Iter 400: E = -1.13602356 Ha (func_eval #400)
+📊 Progress: 400 function evals (~10 iterations), E = -1.13602356 Ha
+converged SCF energy = -1.11729321718008
+Dipole moment(X, Y, Z, Debye): -0.00000,  0.00000,  0.00000
+
+✅ VQE Completed
+  VQE energy:      -1.13602356 Ha
+  HF energy:       -1.11729322 Ha
+  Correlation:     -0.01873035 Ha (-11.7533 kcal/mol)
+  Iterations:      15 (callback logged: 401)
+  Func evals:      401 (callback counted: 401)
+  Converged:       False
+  Time:            0.71s
+
+================================================================================
+TEST: Nelder-Mead with max_iterations=30
+================================================================================
+converged SCF energy = -1.11729321718008
+converged SCF energy = -1.11729321718008
+HF energy: -1.11729322 Ha
+Ansatz: CovalentGovernance with 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE with Nelder-Mead...
+   User-requested max_iterations: 30
+converged SCF energy = -1.11729321718008
+⚠️  Analysis disabled - enable_analysis=False, molecule=False
+🔧 Optimizer: Nelder-Mead with 30 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+🔧 Building sparse Pauli Hamiltonian with jordan_wigner mapper
+➕ Adding nuclear repulsion constant: 0.75811399 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.03916182+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.75811399 Ha
+   Total identity coefficient: -0.03916182+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+📊 Sparse Hamiltonian built: 15 Pauli terms
+🔍 VQE Hamiltonian identity coefficient: -0.03916182+0.00000000j Ha
+🔍 Nuclear repulsion from molecule: 0.75811399 Ha
+✅ Qubit counts match: 4 qubits
+🔍 Energy evaluation 1: -1.10326153 Ha
+🔍 Energy evaluation 2: -1.10328055 Ha
+🔍 Energy evaluation 3: -1.10326155 Ha
+  Iter 5: E = -1.10326162 Ha (func_eval #5)
+  Iter 10: E = -1.10306284 Ha (func_eval #10)
+📊 Progress: 10 function evals (~10 iterations), E = -1.10306284 Ha
+  Iter 15: E = -1.10326125 Ha (func_eval #15)
+  Iter 20: E = -1.10324684 Ha (func_eval #20)
+📊 Progress: 20 function evals (~20 iterations), E = -1.10324684 Ha
+  Iter 25: E = -1.10281894 Ha (func_eval #25)
+  Iter 30: E = -1.10364194 Ha (func_eval #30)
+📊 Progress: 30 function evals (~30 iterations), E = -1.10364194 Ha
+  Iter 35: E = -1.10369728 Ha (func_eval #35)
+  Iter 40: E = -1.10385421 Ha (func_eval #40)
+📊 Progress: 40 function evals (~40 iterations), E = -1.10385421 Ha
+  Iter 45: E = -1.10413901 Ha (func_eval #45)
+  Iter 50: E = -1.10440566 Ha (func_eval #50)
+📊 Progress: 50 function evals (~50 iterations), E = -1.10440566 Ha
+  Iter 55: E = -1.10438455 Ha (func_eval #55)
+converged SCF energy = -1.11729321718008
+Correlated method energy (-1.104751) above HF (-1.117293)!
+VQE results failed validation checks!
+Dipole moment(X, Y, Z, Debye): -0.00000,  0.00000,  0.00000
+
+✅ VQE Completed
+  VQE energy:      -1.10475054 Ha
+  HF energy:       -1.11729322 Ha
+  Correlation:     0.01254267 Ha (7.8705 kcal/mol)
+  Iterations:      30 (callback logged: 56)
+  Func evals:      56 (callback counted: 56)
+  Converged:       False
+  Time:            0.10s
+
+================================================================================
+TEST: CG with max_iterations=25
+================================================================================
+converged SCF energy = -1.11729321718008
+converged SCF energy = -1.11729321718008
+HF energy: -1.11729322 Ha
+Ansatz: CovalentGovernance with 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE with CG...
+   User-requested max_iterations: 25
+converged SCF energy = -1.11729321718008
+🔧 Optimizer: CG with 25 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+🔧 Building sparse Pauli Hamiltonian with jordan_wigner mapper
+➕ Adding nuclear repulsion constant: 0.75811399 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.03916182+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.75811399 Ha
+   Total identity coefficient: -0.03916182+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+📊 Sparse Hamiltonian built: 15 Pauli terms
+🔍 VQE Hamiltonian identity coefficient: -0.03916182+0.00000000j Ha
+🔍 Nuclear repulsion from molecule: 0.75811399 Ha
+✅ Qubit counts match: 4 qubits
+🔍 Energy evaluation 1: -1.11078793 Ha
+🔍 Energy evaluation 2: -1.11078793 Ha
+🔍 Energy evaluation 3: -1.11078793 Ha
+  Iter 5: E = -1.11078793 Ha (func_eval #5)
+  Iter 10: E = -1.11078793 Ha (func_eval #10)
+📊 Progress: 10 function evals (~10 iterations), E = -1.11078793 Ha
+  Iter 15: E = -1.11078793 Ha (func_eval #15)
+  Iter 20: E = -1.11078793 Ha (func_eval #20)
+📊 Progress: 20 function evals (~20 iterations), E = -1.11078793 Ha
+  Iter 25: E = -1.11078793 Ha (func_eval #25)
+  Iter 30: E = -1.07622840 Ha (func_eval #30)
+📊 Progress: 30 function evals (~30 iterations), E = -1.07622840 Ha
+  Iter 35: E = -1.07622841 Ha (func_eval #35)
+  Iter 40: E = -1.07622840 Ha (func_eval #40)
+📊 Progress: 40 function evals (~40 iterations), E = -1.07622840 Ha
+  Iter 45: E = -1.07622840 Ha (func_eval #45)
+  Iter 50: E = -1.07622840 Ha (func_eval #50)
+📊 Progress: 50 function evals (~50 iterations), E = -1.07622840 Ha
+  Iter 55: E = -1.11606678 Ha (func_eval #55)
+  Iter 60: E = -1.11606678 Ha (func_eval #60)
+📊 Progress: 60 function evals (~60 iterations), E = -1.11606678 Ha
+  Iter 65: E = -1.11606678 Ha (func_eval #65)
+  Iter 70: E = -1.11606678 Ha (func_eval #70)
+📊 Progress: 70 function evals (~70 iterations), E = -1.11606678 Ha
+  Iter 75: E = -1.11606678 Ha (func_eval #75)
+  Iter 80: E = -1.11707026 Ha (func_eval #80)
+📊 Progress: 80 function evals (~80 iterations), E = -1.11707026 Ha
+  Iter 85: E = -1.11707026 Ha (func_eval #85)
+  Iter 90: E = -1.11707026 Ha (func_eval #90)
+📊 Progress: 90 function evals (~90 iterations), E = -1.11707026 Ha
+  Iter 95: E = -1.11707026 Ha (func_eval #95)
+  Iter 100: E = -1.11707026 Ha (func_eval #100)
+📊 Progress: 100 function evals (~100 iterations), E = -1.11707026 Ha
+  Iter 105: E = -1.11730323 Ha (func_eval #105)
+  Iter 110: E = -1.11730323 Ha (func_eval #110)
+📊 Progress: 110 function evals (~110 iterations), E = -1.11730323 Ha
+  Iter 115: E = -1.11730323 Ha (func_eval #115)
+  Iter 120: E = -1.11730323 Ha (func_eval #120)
+📊 Progress: 120 function evals (~120 iterations), E = -1.11730323 Ha
+  Iter 125: E = -1.11730323 Ha (func_eval #125)
+  Iter 130: E = -1.11764264 Ha (func_eval #130)
+📊 Progress: 130 function evals (~130 iterations), E = -1.11764264 Ha
+  Iter 135: E = -1.11764264 Ha (func_eval #135)
+  Iter 140: E = -1.11764264 Ha (func_eval #140)
+📊 Progress: 140 function evals (~140 iterations), E = -1.11764264 Ha
+  Iter 145: E = -1.11764264 Ha (func_eval #145)
+  Iter 150: E = -1.11764264 Ha (func_eval #150)
+📊 Progress: 150 function evals (~150 iterations), E = -1.11764264 Ha
+  Iter 155: E = -1.11781227 Ha (func_eval #155)
+  Iter 160: E = -1.11781227 Ha (func_eval #160)
+📊 Progress: 160 function evals (~160 iterations), E = -1.11781227 Ha
+  Iter 165: E = -1.11781227 Ha (func_eval #165)
+  Iter 170: E = -1.11781227 Ha (func_eval #170)
+📊 Progress: 170 function evals (~170 iterations), E = -1.11781227 Ha
+  Iter 175: E = -1.11781227 Ha (func_eval #175)
+  Iter 180: E = -1.11813204 Ha (func_eval #180)
+📊 Progress: 180 function evals (~180 iterations), E = -1.11813204 Ha
+  Iter 185: E = -1.11813204 Ha (func_eval #185)
+  Iter 190: E = -1.11813204 Ha (func_eval #190)
+📊 Progress: 190 function evals (~190 iterations), E = -1.11813204 Ha
+  Iter 195: E = -1.11813204 Ha (func_eval #195)
+  Iter 200: E = -1.11813204 Ha (func_eval #200)
+📊 Progress: 200 function evals (~200 iterations), E = -1.11813204 Ha
+  Iter 205: E = -1.11917632 Ha (func_eval #205)
+  Iter 210: E = -1.11917632 Ha (func_eval #210)
+📊 Progress: 210 function evals (~210 iterations), E = -1.11917632 Ha
+  Iter 215: E = -1.11917632 Ha (func_eval #215)
+  Iter 220: E = -1.11917632 Ha (func_eval #220)
+📊 Progress: 220 function evals (~220 iterations), E = -1.11917632 Ha
+  Iter 225: E = -1.11917632 Ha (func_eval #225)
+  Iter 230: E = -1.12181360 Ha (func_eval #230)
+📊 Progress: 230 function evals (~230 iterations), E = -1.12181360 Ha
+  Iter 235: E = -1.12181360 Ha (func_eval #235)
+  Iter 240: E = -1.12181360 Ha (func_eval #240)
+📊 Progress: 240 function evals (~240 iterations), E = -1.12181360 Ha
+  Iter 245: E = -1.12181360 Ha (func_eval #245)
+  Iter 250: E = -1.12181360 Ha (func_eval #250)
+📊 Progress: 250 function evals (~250 iterations), E = -1.12181360 Ha
+  Iter 255: E = -1.09089834 Ha (func_eval #255)
+  Iter 260: E = -1.09089833 Ha (func_eval #260)
+📊 Progress: 260 function evals (~260 iterations), E = -1.09089833 Ha
+  Iter 265: E = -1.09089834 Ha (func_eval #265)
+  Iter 270: E = -1.09089834 Ha (func_eval #270)
+📊 Progress: 270 function evals (~270 iterations), E = -1.09089834 Ha
+  Iter 275: E = -1.09089834 Ha (func_eval #275)
+  Iter 280: E = -1.12247520 Ha (func_eval #280)
+📊 Progress: 280 function evals (~280 iterations), E = -1.12247520 Ha
+  Iter 285: E = -1.12247520 Ha (func_eval #285)
+  Iter 290: E = -1.12247520 Ha (func_eval #290)
+📊 Progress: 290 function evals (~290 iterations), E = -1.12247520 Ha
+  Iter 295: E = -1.12247520 Ha (func_eval #295)
+  Iter 300: E = -1.12247520 Ha (func_eval #300)
+📊 Progress: 300 function evals (~300 iterations), E = -1.12247520 Ha
+  Iter 305: E = -1.12375347 Ha (func_eval #305)
+  Iter 310: E = -1.12375347 Ha (func_eval #310)
+📊 Progress: 310 function evals (~310 iterations), E = -1.12375347 Ha
+  Iter 315: E = -1.12375347 Ha (func_eval #315)
+  Iter 320: E = -1.12375347 Ha (func_eval #320)
+📊 Progress: 320 function evals (~320 iterations), E = -1.12375347 Ha
+  Iter 325: E = -1.12375347 Ha (func_eval #325)
+  Iter 330: E = -1.12769659 Ha (func_eval #330)
+📊 Progress: 330 function evals (~330 iterations), E = -1.12769659 Ha
+  Iter 335: E = -1.12769659 Ha (func_eval #335)
+  Iter 340: E = -1.12769659 Ha (func_eval #340)
+📊 Progress: 340 function evals (~340 iterations), E = -1.12769659 Ha
+  Iter 345: E = -1.12769659 Ha (func_eval #345)
+  Iter 350: E = -1.12769659 Ha (func_eval #350)
+📊 Progress: 350 function evals (~350 iterations), E = -1.12769659 Ha
+  Iter 355: E = -1.13006842 Ha (func_eval #355)
+  Iter 360: E = -1.13006842 Ha (func_eval #360)
+📊 Progress: 360 function evals (~360 iterations), E = -1.13006842 Ha
+  Iter 365: E = -1.13006842 Ha (func_eval #365)
+  Iter 370: E = -1.13006842 Ha (func_eval #370)
+📊 Progress: 370 function evals (~370 iterations), E = -1.13006842 Ha
+  Iter 375: E = -1.13006842 Ha (func_eval #375)
+  Iter 380: E = -1.13234363 Ha (func_eval #380)
+📊 Progress: 380 function evals (~380 iterations), E = -1.13234363 Ha
+  Iter 385: E = -1.13234363 Ha (func_eval #385)
+  Iter 390: E = -1.13234363 Ha (func_eval #390)
+📊 Progress: 390 function evals (~390 iterations), E = -1.13234363 Ha
+  Iter 395: E = -1.13234363 Ha (func_eval #395)
+  Iter 400: E = -1.13234363 Ha (func_eval #400)
+📊 Progress: 400 function evals (~400 iterations), E = -1.13234363 Ha
+  Iter 405: E = -1.13458447 Ha (func_eval #405)
+  Iter 410: E = -1.13458447 Ha (func_eval #410)
+📊 Progress: 410 function evals (~410 iterations), E = -1.13458447 Ha
+  Iter 415: E = -1.13458447 Ha (func_eval #415)
+  Iter 420: E = -1.13458447 Ha (func_eval #420)
+📊 Progress: 420 function evals (~420 iterations), E = -1.13458447 Ha
+  Iter 425: E = -1.13458447 Ha (func_eval #425)
+  Iter 430: E = -1.13490827 Ha (func_eval #430)
+📊 Progress: 430 function evals (~430 iterations), E = -1.13490827 Ha
+  Iter 435: E = -1.13490827 Ha (func_eval #435)
+  Iter 440: E = -1.13490827 Ha (func_eval #440)
+📊 Progress: 440 function evals (~440 iterations), E = -1.13490827 Ha
+  Iter 445: E = -1.13490827 Ha (func_eval #445)
+  Iter 450: E = -1.13490827 Ha (func_eval #450)
+📊 Progress: 450 function evals (~450 iterations), E = -1.13490827 Ha
+  Iter 455: E = -1.13527050 Ha (func_eval #455)
+  Iter 460: E = -1.13527049 Ha (func_eval #460)
+📊 Progress: 460 function evals (~460 iterations), E = -1.13527049 Ha
+  Iter 465: E = -1.13527050 Ha (func_eval #465)
+  Iter 470: E = -1.13527050 Ha (func_eval #470)
+📊 Progress: 470 function evals (~470 iterations), E = -1.13527050 Ha
+  Iter 475: E = -1.13527049 Ha (func_eval #475)
+  Iter 480: E = -1.13564944 Ha (func_eval #480)
+📊 Progress: 480 function evals (~480 iterations), E = -1.13564944 Ha
+  Iter 485: E = -1.13564944 Ha (func_eval #485)
+  Iter 490: E = -1.13564944 Ha (func_eval #490)
+📊 Progress: 490 function evals (~490 iterations), E = -1.13564944 Ha
+  Iter 495: E = -1.13564944 Ha (func_eval #495)
+  Iter 500: E = -1.13564944 Ha (func_eval #500)
+📊 Progress: 500 function evals (~500 iterations), E = -1.13564944 Ha
+  Iter 505: E = -1.13571739 Ha (func_eval #505)
+  Iter 510: E = -1.13571739 Ha (func_eval #510)
+📊 Progress: 510 function evals (~510 iterations), E = -1.13571739 Ha
+  Iter 515: E = -1.13571739 Ha (func_eval #515)
+  Iter 520: E = -1.13571739 Ha (func_eval #520)
+📊 Progress: 520 function evals (~520 iterations), E = -1.13571739 Ha
+  Iter 525: E = -1.13571739 Ha (func_eval #525)
+  Iter 530: E = -1.13580677 Ha (func_eval #530)
+📊 Progress: 530 function evals (~530 iterations), E = -1.13580677 Ha
+  Iter 535: E = -1.13580677 Ha (func_eval #535)
+  Iter 540: E = -1.13580677 Ha (func_eval #540)
+📊 Progress: 540 function evals (~540 iterations), E = -1.13580677 Ha
+  Iter 545: E = -1.13580677 Ha (func_eval #545)
+  Iter 550: E = -1.13580677 Ha (func_eval #550)
+📊 Progress: 550 function evals (~550 iterations), E = -1.13580677 Ha
+  Iter 555: E = -1.13586183 Ha (func_eval #555)
+  Iter 560: E = -1.13586183 Ha (func_eval #560)
+📊 Progress: 560 function evals (~560 iterations), E = -1.13586183 Ha
+  Iter 565: E = -1.13586183 Ha (func_eval #565)
+  Iter 570: E = -1.13586183 Ha (func_eval #570)
+📊 Progress: 570 function evals (~570 iterations), E = -1.13586183 Ha
+  Iter 575: E = -1.13586183 Ha (func_eval #575)
+  Iter 580: E = -1.13588913 Ha (func_eval #580)
+📊 Progress: 580 function evals (~580 iterations), E = -1.13588913 Ha
+  Iter 585: E = -1.13588913 Ha (func_eval #585)
+  Iter 590: E = -1.13588913 Ha (func_eval #590)
+📊 Progress: 590 function evals (~590 iterations), E = -1.13588913 Ha
+  Iter 595: E = -1.13588913 Ha (func_eval #595)
+  Iter 600: E = -1.13588913 Ha (func_eval #600)
+📊 Progress: 600 function evals (~600 iterations), E = -1.13588913 Ha
+  Iter 605: E = -1.13597156 Ha (func_eval #605)
+  Iter 610: E = -1.13597156 Ha (func_eval #610)
+📊 Progress: 610 function evals (~610 iterations), E = -1.13597156 Ha
+  Iter 615: E = -1.13597156 Ha (func_eval #615)
+  Iter 620: E = -1.13597156 Ha (func_eval #620)
+📊 Progress: 620 function evals (~620 iterations), E = -1.13597156 Ha
+  Iter 625: E = -1.13597156 Ha (func_eval #625)
+  Iter 630: E = -1.13590663 Ha (func_eval #630)
+📊 Progress: 630 function evals (~630 iterations), E = -1.13590663 Ha
+  Iter 635: E = -1.13590663 Ha (func_eval #635)
+  Iter 640: E = -1.13590663 Ha (func_eval #640)
+📊 Progress: 640 function evals (~640 iterations), E = -1.13590663 Ha
+  Iter 645: E = -1.13590663 Ha (func_eval #645)
+  Iter 650: E = -1.13590663 Ha (func_eval #650)
+📊 Progress: 650 function evals (~650 iterations), E = -1.13590663 Ha
+  Iter 655: E = -1.13598732 Ha (func_eval #655)
+  Iter 660: E = -1.13598732 Ha (func_eval #660)
+📊 Progress: 660 function evals (~660 iterations), E = -1.13598732 Ha
+  Iter 665: E = -1.13598732 Ha (func_eval #665)
+  Iter 670: E = -1.13598732 Ha (func_eval #670)
+📊 Progress: 670 function evals (~670 iterations), E = -1.13598732 Ha
+  Iter 675: E = -1.13598732 Ha (func_eval #675)
+  Iter 680: E = -1.13600424 Ha (func_eval #680)
+📊 Progress: 680 function evals (~680 iterations), E = -1.13600424 Ha
+  Iter 685: E = -1.13600424 Ha (func_eval #685)
+  Iter 690: E = -1.13600424 Ha (func_eval #690)
+📊 Progress: 690 function evals (~690 iterations), E = -1.13600424 Ha
+  Iter 695: E = -1.13600424 Ha (func_eval #695)
+  Iter 700: E = -1.13600424 Ha (func_eval #700)
+📊 Progress: 700 function evals (~700 iterations), E = -1.13600424 Ha
+  Iter 705: E = -1.13601011 Ha (func_eval #705)
+  Iter 710: E = -1.13601011 Ha (func_eval #710)
+📊 Progress: 710 function evals (~710 iterations), E = -1.13601011 Ha
+  Iter 715: E = -1.13601011 Ha (func_eval #715)
+  Iter 720: E = -1.13601011 Ha (func_eval #720)
+📊 Progress: 720 function evals (~720 iterations), E = -1.13601011 Ha
+  Iter 725: E = -1.13601011 Ha (func_eval #725)
+  Iter 730: E = -1.13601175 Ha (func_eval #730)
+📊 Progress: 730 function evals (~730 iterations), E = -1.13601175 Ha
+  Iter 735: E = -1.13601175 Ha (func_eval #735)
+  Iter 740: E = -1.13601175 Ha (func_eval #740)
+📊 Progress: 740 function evals (~740 iterations), E = -1.13601175 Ha
+  Iter 745: E = -1.13601175 Ha (func_eval #745)
+  Iter 750: E = -1.13601175 Ha (func_eval #750)
+📊 Progress: 750 function evals (~750 iterations), E = -1.13601175 Ha
+  Iter 755: E = -1.13601409 Ha (func_eval #755)
+  Iter 760: E = -1.13601409 Ha (func_eval #760)
+📊 Progress: 760 function evals (~760 iterations), E = -1.13601409 Ha
+  Iter 765: E = -1.13601409 Ha (func_eval #765)
+  Iter 770: E = -1.13601409 Ha (func_eval #770)
+📊 Progress: 770 function evals (~770 iterations), E = -1.13601409 Ha
+  Iter 775: E = -1.13601409 Ha (func_eval #775)
+  Iter 780: E = -1.13601456 Ha (func_eval #780)
+📊 Progress: 780 function evals (~780 iterations), E = -1.13601456 Ha
+  Iter 785: E = -1.13601456 Ha (func_eval #785)
+  Iter 790: E = -1.13601456 Ha (func_eval #790)
+📊 Progress: 790 function evals (~790 iterations), E = -1.13601456 Ha
+  Iter 795: E = -1.13601456 Ha (func_eval #795)
+  Iter 800: E = -1.13601456 Ha (func_eval #800)
+📊 Progress: 800 function evals (~800 iterations), E = -1.13601456 Ha
+  Iter 805: E = -1.13601710 Ha (func_eval #805)
+  Iter 810: E = -1.13601710 Ha (func_eval #810)
+📊 Progress: 810 function evals (~810 iterations), E = -1.13601710 Ha
+  Iter 815: E = -1.13601710 Ha (func_eval #815)
+  Iter 820: E = -1.13601710 Ha (func_eval #820)
+📊 Progress: 820 function evals (~820 iterations), E = -1.13601710 Ha
+  Iter 825: E = -1.13601710 Ha (func_eval #825)
+  Iter 830: E = -1.13602092 Ha (func_eval #830)
+📊 Progress: 830 function evals (~830 iterations), E = -1.13602092 Ha
+  Iter 835: E = -1.13602092 Ha (func_eval #835)
+  Iter 840: E = -1.13602092 Ha (func_eval #840)
+📊 Progress: 840 function evals (~840 iterations), E = -1.13602092 Ha
+  Iter 845: E = -1.13602092 Ha (func_eval #845)
+  Iter 850: E = -1.13602092 Ha (func_eval #850)
+📊 Progress: 850 function evals (~850 iterations), E = -1.13602092 Ha
+  Iter 855: E = -1.13602437 Ha (func_eval #855)
+  Iter 860: E = -1.13602437 Ha (func_eval #860)
+📊 Progress: 860 function evals (~860 iterations), E = -1.13602437 Ha
+  Iter 865: E = -1.13602437 Ha (func_eval #865)
+  Iter 870: E = -1.13602437 Ha (func_eval #870)
+📊 Progress: 870 function evals (~870 iterations), E = -1.13602437 Ha
+  Iter 875: E = -1.13602437 Ha (func_eval #875)
+  Iter 880: E = -1.13602764 Ha (func_eval #880)
+📊 Progress: 880 function evals (~880 iterations), E = -1.13602764 Ha
+  Iter 885: E = -1.13602764 Ha (func_eval #885)
+  Iter 890: E = -1.13602764 Ha (func_eval #890)
+📊 Progress: 890 function evals (~890 iterations), E = -1.13602764 Ha
+  Iter 895: E = -1.13602764 Ha (func_eval #895)
+  Iter 900: E = -1.13602764 Ha (func_eval #900)
+📊 Progress: 900 function evals (~900 iterations), E = -1.13602764 Ha
+  Iter 905: E = -1.13602909 Ha (func_eval #905)
+  Iter 910: E = -1.13602909 Ha (func_eval #910)
+📊 Progress: 910 function evals (~910 iterations), E = -1.13602909 Ha
+  Iter 915: E = -1.13602909 Ha (func_eval #915)
+  Iter 920: E = -1.13602909 Ha (func_eval #920)
+📊 Progress: 920 function evals (~920 iterations), E = -1.13602909 Ha
+  Iter 925: E = -1.13602909 Ha (func_eval #925)
+  Iter 930: E = -1.13603168 Ha (func_eval #930)⚠️  Analysis disabled - enable_analysis=False, molecule=False
+
+📊 Progress: 930 function evals (~930 iterations), E = -1.13603168 Ha
+  Iter 935: E = -1.13603168 Ha (func_eval #935)
+  Iter 940: E = -1.13603168 Ha (func_eval #940)
+📊 Progress: 940 function evals (~940 iterations), E = -1.13603168 Ha
+  Iter 945: E = -1.13603168 Ha (func_eval #945)
+  Iter 950: E = -1.13603168 Ha (func_eval #950)
+📊 Progress: 950 function evals (~950 iterations), E = -1.13603168 Ha
+  Iter 955: E = -1.13603292 Ha (func_eval #955)
+  Iter 960: E = -1.13603292 Ha (func_eval #960)
+📊 Progress: 960 function evals (~960 iterations), E = -1.13603292 Ha
+  Iter 965: E = -1.13603292 Ha (func_eval #965)
+  Iter 970: E = -1.13603292 Ha (func_eval #970)
+📊 Progress: 970 function evals (~970 iterations), E = -1.13603292 Ha
+  Iter 975: E = -1.13603292 Ha (func_eval #975)
+  Iter 980: E = -1.13603388 Ha (func_eval #980)
+📊 Progress: 980 function evals (~980 iterations), E = -1.13603388 Ha
+  Iter 985: E = -1.13603388 Ha (func_eval #985)
+  Iter 990: E = -1.13603388 Ha (func_eval #990)
+📊 Progress: 990 function evals (~990 iterations), E = -1.13603388 Ha
+  Iter 995: E = -1.13603388 Ha (func_eval #995)
+  Iter 1000: E = -1.13603388 Ha (func_eval #1000)
+📊 Progress: 1000 function evals (~1000 iterations), E = -1.13603388 Ha
+  Iter 1005: E = -1.13603512 Ha (func_eval #1005)
+  Iter 1010: E = -1.13603512 Ha (func_eval #1010)
+📊 Progress: 1010 function evals (~1010 iterations), E = -1.13603512 Ha
+  Iter 1015: E = -1.13603512 Ha (func_eval #1015)
+  Iter 1020: E = -1.13603512 Ha (func_eval #1020)
+📊 Progress: 1020 function evals (~1020 iterations), E = -1.13603512 Ha
+  Iter 1025: E = -1.13603512 Ha (func_eval #1025)
+  Iter 1030: E = -1.13603680 Ha (func_eval #1030)
+📊 Progress: 1030 function evals (~1030 iterations), E = -1.13603680 Ha
+  Iter 1035: E = -1.13603680 Ha (func_eval #1035)
+  Iter 1040: E = -1.13603680 Ha (func_eval #1040)
+📊 Progress: 1040 function evals (~1040 iterations), E = -1.13603680 Ha
+  Iter 1045: E = -1.13603680 Ha (func_eval #1045)
+  Iter 1050: E = -1.13603680 Ha (func_eval #1050)
+📊 Progress: 1050 function evals (~1050 iterations), E = -1.13603680 Ha
+  Iter 1055: E = -1.13603889 Ha (func_eval #1055)
+  Iter 1060: E = -1.13603889 Ha (func_eval #1060)
+📊 Progress: 1060 function evals (~1060 iterations), E = -1.13603889 Ha
+  Iter 1065: E = -1.13603889 Ha (func_eval #1065)
+  Iter 1070: E = -1.13603889 Ha (func_eval #1070)
+📊 Progress: 1070 function evals (~1070 iterations), E = -1.13603889 Ha
+  Iter 1075: E = -1.13603889 Ha (func_eval #1075)
+converged SCF energy = -1.11729321718008
+Dipole moment(X, Y, Z, Debye): -0.00000,  0.00000,  0.00000
+
+✅ VQE Completed
+  VQE energy:      -1.13603889 Ha
+  HF energy:       -1.11729322 Ha
+  Correlation:     -0.01874567 Ha (-11.7629 kcal/mol)
+  Iterations:      25 (callback logged: 1075)
+  Func evals:      1075 (callback counted: 1075)
+  Converged:       False
+  Time:            1.71s
+
+================================================================================
+TEST: BFGS with max_iterations=20
+================================================================================
+converged SCF energy = -1.11729321718008
+converged SCF energy = -1.11729321718008
+HF energy: -1.11729322 Ha
+Ansatz: CovalentGovernance with 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE with BFGS...
+   User-requested max_iterations: 20
+converged SCF energy = -1.11729321718008
+🔧 Optimizer: BFGS with 20 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+🔧 Building sparse Pauli Hamiltonian with jordan_wigner mapper
+➕ Adding nuclear repulsion constant: 0.75811399 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.03916182+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.75811399 Ha
+   Total identity coefficient: -0.03916182+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+📊 Sparse Hamiltonian built: 15 Pauli terms
+🔍 VQE Hamiltonian identity coefficient: -0.03916182+0.00000000j Ha
+🔍 Nuclear repulsion from molecule: 0.75811399 Ha
+✅ Qubit counts match: 4 qubits
+🔍 Energy evaluation 1: -1.11508717 Ha
+🔍 Energy evaluation 2: -1.11508717 Ha
+🔍 Energy evaluation 3: -1.11508717 Ha
+  Iter 5: E = -1.11508717 Ha (func_eval #5)
+  Iter 10: E = -1.11508717 Ha (func_eval #10)
+📊 Progress: 10 function evals (~10 iterations), E = -1.11508717 Ha
+  Iter 15: E = -1.11508717 Ha (func_eval #15)
+  Iter 20: E = -1.11508717 Ha (func_eval #20)
+📊 Progress: 20 function evals (~20 iterations), E = -1.11508717 Ha
+  Iter 25: E = -1.11508717 Ha (func_eval #25)
+  Iter 30: E = -1.11573647 Ha (func_eval #30)
+📊 Progress: 30 function evals (~30 iterations), E = -1.11573647 Ha
+  Iter 35: E = -1.11573647 Ha (func_eval #35)
+  Iter 40: E = -1.11573647 Ha (func_eval #40)
+📊 Progress: 40 function evals (~40 iterations), E = -1.11573647 Ha
+  Iter 45: E = -1.11573647 Ha (func_eval #45)
+  Iter 50: E = -1.11573647 Ha (func_eval #50)
+📊 Progress: 50 function evals (~50 iterations), E = -1.11573647 Ha
+  Iter 55: E = -1.11678893 Ha (func_eval #55)
+  Iter 60: E = -1.11678893 Ha (func_eval #60)
+📊 Progress: 60 function evals (~60 iterations), E = -1.11678893 Ha
+  Iter 65: E = -1.11678893 Ha (func_eval #65)
+  Iter 70: E = -1.11678893 Ha (func_eval #70)
+📊 Progress: 70 function evals (~70 iterations), E = -1.11678893 Ha
+  Iter 75: E = -1.11678893 Ha (func_eval #75)
+  Iter 80: E = -1.11744189 Ha (func_eval #80)
+📊 Progress: 80 function evals (~80 iterations), E = -1.11744189 Ha
+  Iter 85: E = -1.11744189 Ha (func_eval #85)
+  Iter 90: E = -1.11744189 Ha (func_eval #90)
+📊 Progress: 90 function evals (~90 iterations), E = -1.11744189 Ha
+  Iter 95: E = -1.11744189 Ha (func_eval #95)
+  Iter 100: E = -1.11744189 Ha (func_eval #100)
+📊 Progress: 100 function evals (~100 iterations), E = -1.11744189 Ha
+  Iter 105: E = -1.11751266 Ha (func_eval #105)
+  Iter 110: E = -1.11751266 Ha (func_eval #110)
+📊 Progress: 110 function evals (~110 iterations), E = -1.11751266 Ha
+  Iter 115: E = -1.11751266 Ha (func_eval #115)
+  Iter 120: E = -1.11751266 Ha (func_eval #120)
+📊 Progress: 120 function evals (~120 iterations), E = -1.11751266 Ha
+  Iter 125: E = -1.11751266 Ha (func_eval #125)
+  Iter 130: E = -1.11765016 Ha (func_eval #130)
+📊 Progress: 130 function evals (~130 iterations), E = -1.11765016 Ha
+  Iter 135: E = -1.11765016 Ha (func_eval #135)
+  Iter 140: E = -1.11765016 Ha (func_eval #140)
+📊 Progress: 140 function evals (~140 iterations), E = -1.11765016 Ha
+  Iter 145: E = -1.11765016 Ha (func_eval #145)
+  Iter 150: E = -1.11765016 Ha (func_eval #150)
+📊 Progress: 150 function evals (~150 iterations), E = -1.11765016 Ha
+  Iter 155: E = -1.11809132 Ha (func_eval #155)
+  Iter 160: E = -1.11809132 Ha (func_eval #160)
+📊 Progress: 160 function evals (~160 iterations), E = -1.11809132 Ha
+  Iter 165: E = -1.11809132 Ha (func_eval #165)
+  Iter 170: E = -1.11809132 Ha (func_eval #170)
+📊 Progress: 170 function evals (~170 iterations), E = -1.11809132 Ha
+  Iter 175: E = -1.11809132 Ha (func_eval #175)
+  Iter 180: E = -1.11918600 Ha (func_eval #180)
+📊 Progress: 180 function evals (~180 iterations), E = -1.11918600 Ha
+  Iter 185: E = -1.11918600 Ha (func_eval #185)
+  Iter 190: E = -1.11918600 Ha (func_eval #190)
+📊 Progress: 190 function evals (~190 iterations), E = -1.11918600 Ha
+  Iter 195: E = -1.11918600 Ha (func_eval #195)
+  Iter 200: E = -1.11918600 Ha (func_eval #200)
+📊 Progress: 200 function evals (~200 iterations), E = -1.11918600 Ha
+  Iter 205: E = -1.12143318 Ha (func_eval #205)
+  Iter 210: E = -1.12143318 Ha (func_eval #210)
+📊 Progress: 210 function evals (~210 iterations), E = -1.12143318 Ha
+  Iter 215: E = -1.12143318 Ha (func_eval #215)
+  Iter 220: E = -1.12143318 Ha (func_eval #220)
+📊 Progress: 220 function evals (~220 iterations), E = -1.12143318 Ha
+  Iter 225: E = -1.12143318 Ha (func_eval #225)
+  Iter 230: E = -1.12554926 Ha (func_eval #230)
+📊 Progress: 230 function evals (~230 iterations), E = -1.12554926 Ha
+  Iter 235: E = -1.12554925 Ha (func_eval #235)
+  Iter 240: E = -1.12554926 Ha (func_eval #240)
+📊 Progress: 240 function evals (~240 iterations), E = -1.12554926 Ha
+  Iter 245: E = -1.12554926 Ha (func_eval #245)
+  Iter 250: E = -1.12554926 Ha (func_eval #250)
+📊 Progress: 250 function evals (~250 iterations), E = -1.12554926 Ha
+  Iter 255: E = -1.12842481 Ha (func_eval #255)
+  Iter 260: E = -1.12842481 Ha (func_eval #260)
+📊 Progress: 260 function evals (~260 iterations), E = -1.12842481 Ha
+  Iter 265: E = -1.12842481 Ha (func_eval #265)
+  Iter 270: E = -1.12842481 Ha (func_eval #270)
+📊 Progress: 270 function evals (~270 iterations), E = -1.12842481 Ha
+  Iter 275: E = -1.12842481 Ha (func_eval #275)
+  Iter 280: E = -1.13326427 Ha (func_eval #280)
+📊 Progress: 280 function evals (~280 iterations), E = -1.13326427 Ha
+  Iter 285: E = -1.13326427 Ha (func_eval #285)
+  Iter 290: E = -1.13326427 Ha (func_eval #290)
+📊 Progress: 290 function evals (~290 iterations), E = -1.13326427 Ha
+  Iter 295: E = -1.13326427 Ha (func_eval #295)
+  Iter 300: E = -1.13326427 Ha (func_eval #300)
+📊 Progress: 300 function evals (~300 iterations), E = -1.13326427 Ha
+  Iter 305: E = -1.13468706 Ha (func_eval #305)
+  Iter 310: E = -1.13468706 Ha (func_eval #310)
+📊 Progress: 310 function evals (~310 iterations), E = -1.13468706 Ha
+  Iter 315: E = -1.13468706 Ha (func_eval #315)
+  Iter 320: E = -1.13468706 Ha (func_eval #320)
+📊 Progress: 320 function evals (~320 iterations), E = -1.13468706 Ha
+  Iter 325: E = -1.13468706 Ha (func_eval #325)
+  Iter 330: E = -1.13594145 Ha (func_eval #330)
+📊 Progress: 330 function evals (~330 iterations), E = -1.13594145 Ha
+  Iter 335: E = -1.13594145 Ha (func_eval #335)
+  Iter 340: E = -1.13594145 Ha (func_eval #340)
+📊 Progress: 340 function evals (~340 iterations), E = -1.13594145 Ha
+  Iter 345: E = -1.13594145 Ha (func_eval #345)
+  Iter 350: E = -1.13594145 Ha (func_eval #350)
+📊 Progress: 350 function evals (~350 iterations), E = -1.13594145 Ha
+  Iter 355: E = -1.13598277 Ha (func_eval #355)
+  Iter 360: E = -1.13598277 Ha (func_eval #360)
+📊 Progress: 360 function evals (~360 iterations), E = -1.13598277 Ha
+  Iter 365: E = -1.13598277 Ha (func_eval #365)
+  Iter 370: E = -1.13598277 Ha (func_eval #370)
+📊 Progress: 370 function evals (~370 iterations), E = -1.13598277 Ha
+  Iter 375: E = -1.13598277 Ha (func_eval #375)
+  Iter 380: E = -1.13599543 Ha (func_eval #380)
+📊 Progress: 380 function evals (~380 iterations), E = -1.13599543 Ha
+  Iter 385: E = -1.13599543 Ha (func_eval #385)
+  Iter 390: E = -1.13599543 Ha (func_eval #390)
+📊 Progress: 390 function evals (~390 iterations), E = -1.13599543 Ha
+  Iter 395: E = -1.13599543 Ha (func_eval #395)
+  Iter 400: E = -1.13599543 Ha (func_eval #400)
+📊 Progress: 400 function evals (~400 iterations), E = -1.13599543 Ha
+  Iter 405: E = -1.13600632 Ha (func_eval #405)
+  Iter 410: E = -1.13600632 Ha (func_eval #410)
+📊 Progress: 410 function evals (~410 iterations), E = -1.13600632 Ha
+  Iter 415: E = -1.13600632 Ha (func_eval #415)
+  Iter 420: E = -1.13600632 Ha (func_eval #420)
+📊 Progress: 420 function evals (~420 iterations), E = -1.13600632 Ha
+  Iter 425: E = -1.13600632 Ha (func_eval #425)
+  Iter 430: E = -1.13601738 Ha (func_eval #430)
+📊 Progress: 430 function evals (~430 iterations), E = -1.13601738 Ha
+  Iter 435: E = -1.13601738 Ha (func_eval #435)
+  Iter 440: E = -1.13601738 Ha (func_eval #440)⚠️  Analysis disabled - enable_analysis=False, molecule=False
+
+📊 Progress: 440 function evals (~440 iterations), E = -1.13601738 Ha
+  Iter 445: E = -1.13601738 Ha (func_eval #445)
+  Iter 450: E = -1.13601738 Ha (func_eval #450)
+📊 Progress: 450 function evals (~450 iterations), E = -1.13601738 Ha
+  Iter 455: E = -1.13602312 Ha (func_eval #455)
+  Iter 460: E = -1.13602312 Ha (func_eval #460)
+📊 Progress: 460 function evals (~460 iterations), E = -1.13602312 Ha
+  Iter 465: E = -1.13602312 Ha (func_eval #465)
+  Iter 470: E = -1.13602312 Ha (func_eval #470)
+📊 Progress: 470 function evals (~470 iterations), E = -1.13602312 Ha
+  Iter 475: E = -1.13602312 Ha (func_eval #475)
+  Iter 480: E = -1.13602629 Ha (func_eval #480)
+📊 Progress: 480 function evals (~480 iterations), E = -1.13602629 Ha
+  Iter 485: E = -1.13602629 Ha (func_eval #485)
+  Iter 490: E = -1.13602629 Ha (func_eval #490)
+📊 Progress: 490 function evals (~490 iterations), E = -1.13602629 Ha
+  Iter 495: E = -1.13602629 Ha (func_eval #495)
+  Iter 500: E = -1.13602629 Ha (func_eval #500)
+📊 Progress: 500 function evals (~500 iterations), E = -1.13602629 Ha
+  Iter 505: E = -1.13602915 Ha (func_eval #505)
+  Iter 510: E = -1.13602915 Ha (func_eval #510)
+📊 Progress: 510 function evals (~510 iterations), E = -1.13602915 Ha
+  Iter 515: E = -1.13602915 Ha (func_eval #515)
+  Iter 520: E = -1.13602915 Ha (func_eval #520)
+📊 Progress: 520 function evals (~520 iterations), E = -1.13602915 Ha
+  Iter 525: E = -1.13602915 Ha (func_eval #525)
+  Iter 530: E = -1.13603220 Ha (func_eval #530)
+📊 Progress: 530 function evals (~530 iterations), E = -1.13603220 Ha
+  Iter 535: E = -1.13603220 Ha (func_eval #535)
+  Iter 540: E = -1.13603220 Ha (func_eval #540)
+📊 Progress: 540 function evals (~540 iterations), E = -1.13603220 Ha
+  Iter 545: E = -1.13603220 Ha (func_eval #545)
+  Iter 550: E = -1.13603220 Ha (func_eval #550)
+📊 Progress: 550 function evals (~550 iterations), E = -1.13603220 Ha
+  Iter 555: E = -1.13603441 Ha (func_eval #555)
+  Iter 560: E = -1.13603441 Ha (func_eval #560)
+📊 Progress: 560 function evals (~560 iterations), E = -1.13603441 Ha
+  Iter 565: E = -1.13603441 Ha (func_eval #565)
+  Iter 570: E = -1.13603441 Ha (func_eval #570)
+📊 Progress: 570 function evals (~570 iterations), E = -1.13603441 Ha
+  Iter 575: E = -1.13603441 Ha (func_eval #575)
+converged SCF energy = -1.11729321718008
+Dipole moment(X, Y, Z, Debye): -0.00000,  0.00000,  0.00000
+
+✅ VQE Completed
+  VQE energy:      -1.13603441 Ha
+  HF energy:       -1.11729322 Ha
+  Correlation:     -0.01874120 Ha (-11.7601 kcal/mol)
+  Iterations:      20 (callback logged: 575)
+  Func evals:      575 (callback counted: 575)
+  Converged:       False
+  Time:            1.02s
+
+================================================================================
+TEST: TNC with max_iterations=20
+================================================================================
+converged SCF energy = -1.11729321718008
+converged SCF energy = -1.11729321718008
+HF energy: -1.11729322 Ha
+Ansatz: CovalentGovernance with 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE with TNC...
+   User-requested max_iterations: 20
+converged SCF energy = -1.11729321718008
+/home/mk/deeprealm/kanad/kanad/utils/vqe_solver.py:1210: OptimizeWarning: Unknown solver options: maxiter
+  result = minimize(
+🔧 Optimizer: TNC with 20 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+🔧 Building sparse Pauli Hamiltonian with jordan_wigner mapper
+➕ Adding nuclear repulsion constant: 0.75811399 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.03916182+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.75811399 Ha
+   Total identity coefficient: -0.03916182+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+📊 Sparse Hamiltonian built: 15 Pauli terms
+🔍 VQE Hamiltonian identity coefficient: -0.03916182+0.00000000j Ha
+🔍 Nuclear repulsion from molecule: 0.75811399 Ha
+✅ Qubit counts match: 4 qubits
+🔍 Energy evaluation 1: -1.08879174 Ha
+🔍 Energy evaluation 2: -1.08879174 Ha
+🔍 Energy evaluation 3: -1.08879174 Ha
+  Iter 5: E = -1.08879174 Ha (func_eval #5)
+  Iter 10: E = -1.08879174 Ha (func_eval #10)
+📊 Progress: 10 function evals (~10 iterations), E = -1.08879174 Ha
+  Iter 15: E = -1.08879174 Ha (func_eval #15)
+  Iter 20: E = -1.08879174 Ha (func_eval #20)
+📊 Progress: 20 function evals (~20 iterations), E = -1.08879174 Ha
+  Iter 25: E = -1.08879174 Ha (func_eval #25)
+  Iter 30: E = -1.08879174 Ha (func_eval #30)
+📊 Progress: 30 function evals (~30 iterations), E = -1.08879174 Ha
+  Iter 35: E = -1.08879174 Ha (func_eval #35)
+  Iter 40: E = -1.08879174 Ha (func_eval #40)
+📊 Progress: 40 function evals (~40 iterations), E = -1.08879174 Ha
+  Iter 45: E = -1.08879174 Ha (func_eval #45)
+  Iter 50: E = -1.08879174 Ha (func_eval #50)
+📊 Progress: 50 function evals (~50 iterations), E = -1.08879174 Ha
+  Iter 55: E = -1.08879185 Ha (func_eval #55)
+  Iter 60: E = -1.08879185 Ha (func_eval #60)
+📊 Progress: 60 function evals (~60 iterations), E = -1.08879185 Ha
+  Iter 65: E = -1.08879185 Ha (func_eval #65)
+  Iter 70: E = -1.08879185 Ha (func_eval #70)
+📊 Progress: 70 function evals (~70 iterations), E = -1.08879185 Ha
+  Iter 75: E = -1.08879184 Ha (func_eval #75)
+  Iter 80: E = -1.08879186 Ha (func_eval #80)
+📊 Progress: 80 function evals (~80 iterations), E = -1.08879186 Ha
+  Iter 85: E = -1.08879186 Ha (func_eval #85)
+  Iter 90: E = -1.08879186 Ha (func_eval #90)
+📊 Progress: 90 function evals (~90 iterations), E = -1.08879186 Ha
+  Iter 95: E = -1.08879186 Ha (func_eval #95)
+  Iter 100: E = -1.08879185 Ha (func_eval #100)
+📊 Progress: 100 function evals (~100 iterations), E = -1.08879185 Ha
+  Iter 105: E = -1.08879186 Ha (func_eval #105)
+  Iter 110: E = -1.08879186 Ha (func_eval #110)
+📊 Progress: 110 function evals (~110 iterations), E = -1.08879186 Ha
+  Iter 115: E = -1.08879186 Ha (func_eval #115)
+  Iter 120: E = -1.08879186 Ha (func_eval #120)
+📊 Progress: 120 function evals (~120 iterations), E = -1.08879186 Ha
+  Iter 125: E = -1.08879186 Ha (func_eval #125)
+  Iter 130: E = -1.08879187 Ha (func_eval #130)
+📊 Progress: 130 function evals (~130 iterations), E = -1.08879187 Ha
+  Iter 135: E = -1.08879187 Ha (func_eval #135)
+  Iter 140: E = -1.08879187 Ha (func_eval #140)
+📊 Progress: 140 function evals (~140 iterations), E = -1.08879187 Ha
+  Iter 145: E = -1.08879187 Ha (func_eval #145)
+  Iter 150: E = -1.08879187 Ha (func_eval #150)
+📊 Progress: 150 function evals (~150 iterations), E = -1.08879187 Ha
+  Iter 155: E = -1.08879189 Ha (func_eval #155)
+  Iter 160: E = -1.08879189 Ha (func_eval #160)
+📊 Progress: 160 function evals (~160 iterations), E = -1.08879189 Ha
+  Iter 165: E = -1.08879189 Ha (func_eval #165)
+  Iter 170: E = -1.08879189 Ha (func_eval #170)
+📊 Progress: 170 function evals (~170 iterations), E = -1.08879189 Ha
+  Iter 175: E = -1.08879189 Ha (func_eval #175)
+  Iter 180: E = -1.08879190 Ha (func_eval #180)
+📊 Progress: 180 function evals (~180 iterations), E = -1.08879190 Ha
+  Iter 185: E = -1.08879190 Ha (func_eval #185)
+  Iter 190: E = -1.08879190 Ha (func_eval #190)
+📊 Progress: 190 function evals (~190 iterations), E = -1.08879190 Ha
+  Iter 195: E = -1.08879190 Ha (func_eval #195)
+  Iter 200: E = -1.08879190 Ha (func_eval #200)
+📊 Progress: 200 function evals (~200 iterations), E = -1.08879190 Ha
+  Iter 205: E = -1.08879191 Ha (func_eval #205)
+  Iter 210: E = -1.08879192 Ha (func_eval #210)
+📊 Progress: 210 function evals (~210 iterations), E = -1.08879192 Ha
+  Iter 215: E = -1.08879191 Ha (func_eval #215)
+  Iter 220: E = -1.08879191 Ha (func_eval #220)
+📊 Progress: 220 function evals (~220 iterations), E = -1.08879191 Ha
+  Iter 225: E = -1.08879191 Ha (func_eval #225)
+  Iter 230: E = -1.08879195 Ha (func_eval #230)
+📊 Progress: 230 function evals (~230 iterations), E = -1.08879195 Ha
+  Iter 235: E = -1.08879195 Ha (func_eval #235)
+  Iter 240: E = -1.08879195 Ha (func_eval #240)
+📊 Progress: 240 function evals (~240 iterations), E = -1.08879195 Ha
+  Iter 245: E = -1.08879195 Ha (func_eval #245)
+  Iter 250: E = -1.08879194 Ha (func_eval #250)
+📊 Progress: 250 function evals (~250 iterations), E = -1.08879194 Ha
+  Iter 255: E = -1.08879197 Ha (func_eval #255)
+  Iter 260: E = -1.08879197 Ha (func_eval #260)
+📊 Progress: 260 function evals (~260 iterations), E = -1.08879197 Ha
+  Iter 265: E = -1.08879197 Ha (func_eval #265)
+  Iter 270: E = -1.08879197 Ha (func_eval #270)
+📊 Progress: 270 function evals (~270 iterations), E = -1.08879197 Ha
+  Iter 275: E = -1.08879197 Ha (func_eval #275)
+  Iter 280: E = -1.08879199 Ha (func_eval #280)
+📊 Progress: 280 function evals (~280 iterations), E = -1.08879199 Ha
+  Iter 285: E = -1.08879199 Ha (func_eval #285)
+  Iter 290: E = -1.08879199 Ha (func_eval #290)
+📊 Progress: 290 function evals (~290 iterations), E = -1.08879199 Ha
+  Iter 295: E = -1.08879199 Ha (func_eval #295)
+  Iter 300: E = -1.08879199 Ha (func_eval #300)
+📊 Progress: 300 function evals (~300 iterations), E = -1.08879199 Ha
+  Iter 305: E = -1.08879203 Ha (func_eval #305)
+  Iter 310: E = -1.08879203 Ha (func_eval #310)
+📊 Progress: 310 function evals (~310 iterations), E = -1.08879203 Ha
+  Iter 315: E = -1.08879203 Ha (func_eval #315)
+  Iter 320: E = -1.08879203 Ha (func_eval #320)
+📊 Progress: 320 function evals (~320 iterations), E = -1.08879203 Ha
+  Iter 325: E = -1.08879203 Ha (func_eval #325)
+  Iter 330: E = -0.25433846 Ha (func_eval #330)
+📊 Progress: 330 function evals (~330 iterations), E = -0.25433846 Ha
+  Iter 335: E = -0.25433846 Ha (func_eval #335)
+  Iter 340: E = -0.25433846 Ha (func_eval #340)
+📊 Progress: 340 function evals (~340 iterations), E = -0.25433846 Ha
+  Iter 345: E = -0.25433846 Ha (func_eval #345)
+  Iter 350: E = -0.25433845 Ha (func_eval #350)
+📊 Progress: 350 function evals (~350 iterations), E = -0.25433845 Ha
+  Iter 355: E = -0.11878535 Ha (func_eval #355)
+  Iter 360: E = -0.11878535 Ha (func_eval #360)
+📊 Progress: 360 function evals (~360 iterations), E = -0.11878535 Ha
+  Iter 365: E = -0.11878535 Ha (func_eval #365)
+  Iter 370: E = -0.11878535 Ha (func_eval #370)
+📊 Progress: 370 function evals (~370 iterations), E = -0.11878535 Ha
+  Iter 375: E = -0.11878536 Ha (func_eval #375)
+  Iter 380: E = -0.82083961 Ha (func_eval #380)
+📊 Progress: 380 function evals (~380 iterations), E = -0.82083961 Ha
+  Iter 385: E = -0.82083961 Ha (func_eval #385)
+  Iter 390: E = -0.82083961 Ha (func_eval #390)
+📊 Progress: 390 function evals (~390 iterations), E = -0.82083961 Ha
+  Iter 395: E = -0.82083961 Ha (func_eval #395)
+  Iter 400: E = -0.82083962 Ha (func_eval #400)
+📊 Progress: 400 function evals (~400 iterations), E = -0.82083962 Ha
+  Iter 405: E = -1.06704950 Ha (func_eval #405)
+  Iter 410: E = -1.06704950 Ha (func_eval #410)
+📊 Progress: 410 function evals (~410 iterations), E = -1.06704950 Ha
+  Iter 415: E = -1.06704950 Ha (func_eval #415)
+  Iter 420: E = -1.06704950 Ha (func_eval #420)
+📊 Progress: 420 function evals (~420 iterations), E = -1.06704950 Ha
+  Iter 425: E = -1.06704950 Ha (func_eval #425)
+  Iter 430: E = -1.10953566 Ha (func_eval #430)
+📊 Progress: 430 function evals (~430 iterations), E = -1.10953566 Ha
+  Iter 435: E = -1.10953566 Ha (func_eval #435)
+  Iter 440: E = -1.10953566 Ha (func_eval #440)
+📊 Progress: 440 function evals (~440 iterations), E = -1.10953566 Ha
+  Iter 445: E = -1.10953566 Ha (func_eval #445)
+  Iter 450: E = -1.10953566 Ha (func_eval #450)
+📊 Progress: 450 function evals (~450 iterations), E = -1.10953566 Ha
+  Iter 455: E = -1.10953566 Ha (func_eval #455)
+  Iter 460: E = -1.10953566 Ha (func_eval #460)
+📊 Progress: 460 function evals (~460 iterations), E = -1.10953566 Ha
+  Iter 465: E = -1.10953566 Ha (func_eval #465)
+  Iter 470: E = -1.10953566 Ha (func_eval #470)
+📊 Progress: 470 function evals (~470 iterations), E = -1.10953566 Ha
+  Iter 475: E = -1.10953566 Ha (func_eval #475)
+  Iter 480: E = -1.10953566 Ha (func_eval #480)
+📊 Progress: 480 function evals (~480 iterations), E = -1.10953566 Ha
+  Iter 485: E = -1.10953566 Ha (func_eval #485)
+  Iter 490: E = -1.10953566 Ha (func_eval #490)
+📊 Progress: 490 function evals (~490 iterations), E = -1.10953566 Ha
+  Iter 495: E = -1.10953566 Ha (func_eval #495)
+  Iter 500: E = -1.10953566 Ha (func_eval #500)
+📊 Progress: 500 function evals (~500 iterations), E = -1.10953566 Ha
+  Iter 505: E = -1.10953566 Ha (func_eval #505)
+  Iter 510: E = -1.10953566 Ha (func_eval #510)
+📊 Progress: 510 function evals (~510 iterations), E = -1.10953566 Ha
+  Iter 515: E = -1.10953566 Ha (func_eval #515)
+  Iter 520: E = -1.10953566 Ha (func_eval #520)
+📊 Progress: 520 function evals (~520 iterations), E = -1.10953566 Ha
+  Iter 525: E = -1.10953566 Ha (func_eval #525)
+  Iter 530: E = -1.10953568 Ha (func_eval #530)
+📊 Progress: 530 function evals (~530 iterations), E = -1.10953568 Ha
+  Iter 535: E = -1.10953568 Ha (func_eval #535)
+  Iter 540: E = -1.10953568 Ha (func_eval #540)
+📊 Progress: 540 function evals (~540 iterations), E = -1.10953568 Ha
+  Iter 545: E = -1.10953567 Ha (func_eval #545)
+  Iter 550: E = -1.10953568 Ha (func_eval #550)
+📊 Progress: 550 function evals (~550 iterations), E = -1.10953568 Ha
+  Iter 555: E = -1.10953569 Ha (func_eval #555)
+  Iter 560: E = -1.10953569 Ha (func_eval #560)
+📊 Progress: 560 function evals (~560 iterations), E = -1.10953569 Ha
+  Iter 565: E = -1.10953569 Ha (func_eval #565)
+  Iter 570: E = -1.10953569 Ha (func_eval #570)
+📊 Progress: 570 function evals (~570 iterations), E = -1.10953569 Ha
+  Iter 575: E = -1.10953569 Ha (func_eval #575)
+  Iter 580: E = -1.10953569 Ha (func_eval #580)
+📊 Progress: 580 function evals (~580 iterations), E = -1.10953569 Ha
+  Iter 585: E = -1.10953569 Ha (func_eval #585)
+  Iter 590: E = -1.10953569 Ha (func_eval #590)
+📊 Progress: 590 function evals (~590 iterations), E = -1.10953569 Ha
+  Iter 595: E = -1.10953569 Ha (func_eval #595)
+  Iter 600: E = -1.10953569 Ha (func_eval #600)
+📊 Progress: 600 function evals (~600 iterations), E = -1.10953569 Ha
+  Iter 605: E = -1.10953570 Ha (func_eval #605)
+  Iter 610: E = -1.10953570 Ha (func_eval #610)
+📊 Progress: 610 function evals (~610 iterations), E = -1.10953570 Ha
+  Iter 615: E = -1.10953570 Ha (func_eval #615)
+  Iter 620: E = -1.10953570 Ha (func_eval #620)
+📊 Progress: 620 function evals (~620 iterations), E = -1.10953570 Ha
+  Iter 625: E = -1.10953570 Ha (func_eval #625)
+  Iter 630: E = -1.10953570 Ha (func_eval #630)
+📊 Progress: 630 function evals (~630 iterations), E = -1.10953570 Ha
+  Iter 635: E = -1.10953570 Ha (func_eval #635)
+  Iter 640: E = -1.10953570 Ha (func_eval #640)
+📊 Progress: 640 function evals (~640 iterations), E = -1.10953570 Ha
+  Iter 645: E = -1.10953570 Ha (func_eval #645)
+  Iter 650: E = -1.10953570 Ha (func_eval #650)
+📊 Progress: 650 function evals (~650 iterations), E = -1.10953570 Ha
+  Iter 655: E = -1.10953570 Ha (func_eval #655)
+  Iter 660: E = -1.10953570 Ha (func_eval #660)
+📊 Progress: 660 function evals (~660 iterations), E = -1.10953570 Ha
+  Iter 665: E = -1.10953570 Ha (func_eval #665)
+  Iter 670: E = -1.10953570 Ha (func_eval #670)
+📊 Progress: 670 function evals (~670 iterations), E = -1.10953570 Ha
+  Iter 675: E = -1.10953570 Ha (func_eval #675)
+  Iter 680: E = -1.10953571 Ha (func_eval #680)
+📊 Progress: 680 function evals (~680 iterations), E = -1.10953571 Ha
+  Iter 685: E = -1.10953571 Ha (func_eval #685)
+  Iter 690: E = -1.10953571 Ha (func_eval #690)
+📊 Progress: 690 function evals (~690 iterations), E = -1.10953571 Ha
+  Iter 695: E = -1.10953571 Ha (func_eval #695)
+  Iter 700: E = -1.10953571 Ha (func_eval #700)
+📊 Progress: 700 function evals (~700 iterations), E = -1.10953571 Ha
+  Iter 705: E = -1.10953571 Ha (func_eval #705)
+  Iter 710: E = -1.10953571 Ha (func_eval #710)
+📊 Progress: 710 function evals (~710 iterations), E = -1.10953571 Ha
+  Iter 715: E = -1.10953571 Ha (func_eval #715)
+  Iter 720: E = -1.10953571 Ha (func_eval #720)
+📊 Progress: 720 function evals (~720 iterations), E = -1.10953571 Ha
+  Iter 725: E = -1.10953571 Ha (func_eval #725)
+  Iter 730: E = -1.10953572 Ha (func_eval #730)
+📊 Progress: 730 function evals (~730 iterations), E = -1.10953572 Ha
+  Iter 735: E = -1.10953572 Ha (func_eval #735)
+  Iter 740: E = -1.10953572 Ha (func_eval #740)
+📊 Progress: 740 function evals (~740 iterations), E = -1.10953572 Ha
+  Iter 745: E = -1.10953572 Ha (func_eval #745)
+  Iter 750: E = -1.10953572 Ha (func_eval #750)
+📊 Progress: 750 function evals (~750 iterations), E = -1.10953572 Ha
+  Iter 755: E = -0.54314277 Ha (func_eval #755)
+  Iter 760: E = -0.54314276 Ha (func_eval #760)
+📊 Progress: 760 function evals (~760 iterations), E = -0.54314276 Ha
+  Iter 765: E = -0.54314277 Ha (func_eval #765)
+  Iter 770: E = -0.54314277 Ha (func_eval #770)
+📊 Progress: 770 function evals (~770 iterations), E = -0.54314277 Ha
+  Iter 775: E = -0.54314277 Ha (func_eval #775)
+  Iter 780: E = -0.96820261 Ha (func_eval #780)
+📊 Progress: 780 function evals (~780 iterations), E = -0.96820261 Ha
+  Iter 785: E = -0.96820261 Ha (func_eval #785)
+  Iter 790: E = -0.96820261 Ha (func_eval #790)
+📊 Progress: 790 function evals (~790 iterations), E = -0.96820261 Ha
+  Iter 795: E = -0.96820261 Ha (func_eval #795)
+  Iter 800: E = -0.96820261 Ha (func_eval #800)
+📊 Progress: 800 function evals (~800 iterations), E = -0.96820261 Ha
+  Iter 805: E = -1.08649995 Ha (func_eval #805)
+  Iter 810: E = -1.08649995 Ha (func_eval #810)
+📊 Progress: 810 function evals (~810 iterations), E = -1.08649995 Ha
+  Iter 815: E = -1.08649995 Ha (func_eval #815)
+  Iter 820: E = -1.08649995 Ha (func_eval #820)
+📊 Progress: 820 function evals (~820 iterations), E = -1.08649995 Ha
+  Iter 825: E = -1.08649995 Ha (func_eval #825)
+  Iter 830: E = -1.11071429 Ha (func_eval #830)
+📊 Progress: 830 function evals (~830 iterations), E = -1.11071429 Ha
+  Iter 835: E = -1.11071429 Ha (func_eval #835)
+  Iter 840: E = -1.11071429 Ha (func_eval #840)
+📊 Progress: 840 function evals (~840 iterations), E = -1.11071429 Ha
+  Iter 845: E = -1.11071429 Ha (func_eval #845)
+  Iter 850: E = -1.11071429 Ha (func_eval #850)
+📊 Progress: 850 function evals (~850 iterations), E = -1.11071429 Ha
+  Iter 855: E = -1.11333591 Ha (func_eval #855)
+  Iter 860: E = -1.11333591 Ha (func_eval #860)
+📊 Progress: 860 function evals (~860 iterations), E = -1.11333591 Ha
+  Iter 865: E = -1.11333591 Ha (func_eval #865)
+  Iter 870: E = -1.11333591 Ha (func_eval #870)
+📊 Progress: 870 function evals (~870 iterations), E = -1.11333591 Ha
+  Iter 875: E = -1.11333591 Ha (func_eval #875)
+  Iter 880: E = -1.11333591 Ha (func_eval #880)
+📊 Progress: 880 function evals (~880 iterations), E = -1.11333591 Ha
+  Iter 885: E = -1.11333591 Ha (func_eval #885)
+  Iter 890: E = -1.11333591 Ha (func_eval #890)
+📊 Progress: 890 function evals (~890 iterations), E = -1.11333591 Ha
+  Iter 895: E = -1.11333591 Ha (func_eval #895)
+  Iter 900: E = -1.11333591 Ha (func_eval #900)
+📊 Progress: 900 function evals (~900 iterations), E = -1.11333591 Ha
+  Iter 905: E = -1.11380574 Ha (func_eval #905)
+  Iter 910: E = -1.11380574 Ha (func_eval #910)
+📊 Progress: 910 function evals (~910 iterations), E = -1.11380574 Ha
+  Iter 915: E = -1.11380574 Ha (func_eval #915)
+  Iter 920: E = -1.11380574 Ha (func_eval #920)
+📊 Progress: 920 function evals (~920 iterations), E = -1.11380574 Ha
+  Iter 925: E = -1.11380574 Ha (func_eval #925)
+  Iter 930: E = -1.10975364 Ha (func_eval #930)
+📊 Progress: 930 function evals (~930 iterations), E = -1.10975364 Ha
+  Iter 935: E = -1.10975364 Ha (func_eval #935)
+  Iter 940: E = -1.10975364 Ha (func_eval #940)
+📊 Progress: 940 function evals (~940 iterations), E = -1.10975364 Ha
+  Iter 945: E = -1.10975364 Ha (func_eval #945)
+  Iter 950: E = -1.10975364 Ha (func_eval #950)
+📊 Progress: 950 function evals (~950 iterations), E = -1.10975364 Ha
+  Iter 955: E = -1.11311428 Ha (func_eval #955)
+  Iter 960: E = -1.11311428 Ha (func_eval #960)
+📊 Progress: 960 function evals (~960 iterations), E = -1.11311428 Ha
+  Iter 965: E = -1.11311428 Ha (func_eval #965)
+  Iter 970: E = -1.11311428 Ha (func_eval #970)
+📊 Progress: 970 function evals (~970 iterations), E = -1.11311428 Ha
+  Iter 975: E = -1.11311428 Ha (func_eval #975)
+  Iter 980: E = -1.11379354 Ha (func_eval #980)
+📊 Progress: 980 function evals (~980 iterations), E = -1.11379354 Ha
+  Iter 985: E = -1.11379354 Ha (func_eval #985)
+  Iter 990: E = -1.11379354 Ha (func_eval #990)
+📊 Progress: 990 function evals (~990 iterations), E = -1.11379354 Ha
+  Iter 995: E = -1.11379354 Ha (func_eval #995)
+  Iter 1000: E = -1.11379354 Ha (func_eval #1000)
+📊 Progress: 1000 function evals (~1000 iterations), E = -1.11379354 Ha
+  Iter 1005: E = -1.11388297 Ha (func_eval #1005)
+  Iter 1010: E = -1.11388297 Ha (func_eval #1010)
+📊 Progress: 1010 function evals (~1010 iterations), E = -1.11388297 Ha
+  Iter 1015: E = -1.11388297 Ha (func_eval #1015)
+  Iter 1020: E = -1.11388297 Ha (func_eval #1020)
+📊 Progress: 1020 function evals (~1020 iterations), E = -1.11388297 Ha
+  Iter 1025: E = -1.11388297 Ha (func_eval #1025)
+  Iter 1030: E = -1.11388297 Ha (func_eval #1030)
+📊 Progress: 1030 function evals (~1030 iterations), E = -1.11388297 Ha
+  Iter 1035: E = -1.11388297 Ha (func_eval #1035)
+  Iter 1040: E = -1.11388297 Ha (func_eval #1040)
+📊 Progress: 1040 function evals (~1040 iterations), E = -1.11388297 Ha
+  Iter 1045: E = -1.11388297 Ha (func_eval #1045)
+  Iter 1050: E = -1.11388297 Ha (func_eval #1050)
+📊 Progress: 1050 function evals (~1050 iterations), E = -1.11388297 Ha
+  Iter 1055: E = -1.11420974 Ha (func_eval #1055)
+  Iter 1060: E = -1.11420974 Ha (func_eval #1060)
+📊 Progress: 1060 function evals (~1060 iterations), E = -1.11420974 Ha
+  Iter 1065: E = -1.11420974 Ha (func_eval #1065)
+  Iter 1070: E = -1.11420974 Ha (func_eval #1070)
+📊 Progress: 1070 function evals (~1070 iterations), E = -1.11420974 Ha
+  Iter 1075: E = -1.11420974 Ha (func_eval #1075)
+  Iter 1080: E = -1.11545908 Ha (func_eval #1080)
+📊 Progress: 1080 function evals (~1080 iterations), E = -1.11545908 Ha
+  Iter 1085: E = -1.11545908 Ha (func_eval #1085)
+  Iter 1090: E = -1.11545908 Ha (func_eval #1090)
+📊 Progress: 1090 function evals (~1090 iterations), E = -1.11545908 Ha
+  Iter 1095: E = -1.11545908 Ha (func_eval #1095)
+  Iter 1100: E = -1.11545908 Ha (func_eval #1100)
+📊 Progress: 1100 function evals (~1100 iterations), E = -1.11545908 Ha
+  Iter 1105: E = -0.93329063 Ha (func_eval #1105)
+  Iter 1110: E = -0.93329063 Ha (func_eval #1110)
+📊 Progress: 1110 function evals (~1110 iterations), E = -0.93329063 Ha
+  Iter 1115: E = -0.93329063 Ha (func_eval #1115)
+  Iter 1120: E = -0.93329063 Ha (func_eval #1120)
+📊 Progress: 1120 function evals (~1120 iterations), E = -0.93329063 Ha
+  Iter 1125: E = -0.93329063 Ha (func_eval #1125)
+  Iter 1130: E = -1.07632476 Ha (func_eval #1130)
+📊 Progress: 1130 function evals (~1130 iterations), E = -1.07632476 Ha
+  Iter 1135: E = -1.07632476 Ha (func_eval #1135)
+  Iter 1140: E = -1.07632476 Ha (func_eval #1140)
+📊 Progress: 1140 function evals (~1140 iterations), E = -1.07632476 Ha
+  Iter 1145: E = -1.07632476 Ha (func_eval #1145)
+  Iter 1150: E = -1.07632476 Ha (func_eval #1150)
+📊 Progress: 1150 function evals (~1150 iterations), E = -1.07632476 Ha
+  Iter 1155: E = -1.10866291 Ha (func_eval #1155)
+  Iter 1160: E = -1.10866291 Ha (func_eval #1160)
+📊 Progress: 1160 function evals (~1160 iterations), E = -1.10866291 Ha
+  Iter 1165: E = -1.10866291 Ha (func_eval #1165)
+  Iter 1170: E = -1.10866291 Ha (func_eval #1170)
+📊 Progress: 1170 function evals (~1170 iterations), E = -1.10866291 Ha
+  Iter 1175: E = -1.10866291 Ha (func_eval #1175)
+  Iter 1180: E = -1.11522009 Ha (func_eval #1180)
+📊 Progress: 1180 function evals (~1180 iterations), E = -1.11522009 Ha
+  Iter 1185: E = -1.11522009 Ha (func_eval #1185)
+  Iter 1190: E = -1.11522009 Ha (func_eval #1190)
+📊 Progress: 1190 function evals (~1190 iterations), E = -1.11522009 Ha
+  Iter 1195: E = -1.11522009 Ha (func_eval #1195)
+  Iter 1200: E = -1.11522009 Ha (func_eval #1200)
+📊 Progress: 1200 function evals (~1200 iterations), E = -1.11522009 Ha
+  Iter 1205: E = -1.11612584 Ha (func_eval #1205)
+  Iter 1210: E = -1.11612584 Ha (func_eval #1210)
+📊 Progress: 1210 function evals (~1210 iterations), E = -1.11612584 Ha
+  Iter 1215: E = -1.11612584 Ha (func_eval #1215)
+  Iter 1220: E = -1.11612584 Ha (func_eval #1220)
+📊 Progress: 1220 function evals (~1220 iterations), E = -1.11612584 Ha
+  Iter 1225: E = -1.11612584 Ha (func_eval #1225)
+  Iter 1230: E = -1.11612584 Ha (func_eval #1230)
+📊 Progress: 1230 function evals (~1230 iterations), E = -1.11612584 Ha
+  Iter 1235: E = -1.11612584 Ha (func_eval #1235)
+  Iter 1240: E = -1.11612584 Ha (func_eval #1240)
+📊 Progress: 1240 function evals (~1240 iterations), E = -1.11612584 Ha
+  Iter 1245: E = -1.11612584 Ha (func_eval #1245)
+  Iter 1250: E = -1.11612584 Ha (func_eval #1250)
+📊 Progress: 1250 function evals (~1250 iterations), E = -1.11612584 Ha
+  Iter 1255: E = -1.11612584 Ha (func_eval #1255)
+  Iter 1260: E = -1.11612584 Ha (func_eval #1260)
+📊 Progress: 1260 function evals (~1260 iterations), E = -1.11612584 Ha
+  Iter 1265: E = -1.11612584 Ha (func_eval #1265)
+  Iter 1270: E = -1.11612584 Ha (func_eval #1270)
+📊 Progress: 1270 function evals (~1270 iterations), E = -1.11612584 Ha
+  Iter 1275: E = -1.11612584 Ha (func_eval #1275)
+  Iter 1280: E = -1.11612584 Ha (func_eval #1280)
+📊 Progress: 1280 function evals (~1280 iterations), E = -1.11612584 Ha
+  Iter 1285: E = -1.11612584 Ha (func_eval #1285)
+  Iter 1290: E = -1.11612584 Ha (func_eval #1290)
+📊 Progress: 1290 function evals (~1290 iterations), E = -1.11612584 Ha
+  Iter 1295: E = -1.11612584 Ha (func_eval #1295)
+  Iter 1300: E = -1.11612584 Ha (func_eval #1300)
+📊 Progress: 1300 function evals (~1300 iterations), E = -1.11612584 Ha
+  Iter 1305: E = -1.11612584 Ha (func_eval #1305)
+  Iter 1310: E = -1.11612584 Ha (func_eval #1310)
+📊 Progress: 1310 function evals (~1310 iterations), E = -1.11612584 Ha
+  Iter 1315: E = -1.11612584 Ha (func_eval #1315)
+  Iter 1320: E = -1.11612584 Ha (func_eval #1320)
+📊 Progress: 1320 function evals (~1320 iterations), E = -1.11612584 Ha
+  Iter 1325: E = -1.11612584 Ha (func_eval #1325)
+  Iter 1330: E = -1.11612584 Ha (func_eval #1330)
+📊 Progress: 1330 function evals (~1330 iterations), E = -1.11612584 Ha
+  Iter 1335: E = -1.11612584 Ha (func_eval #1335)
+  Iter 1340: E = -1.11612584 Ha (func_eval #1340)
+📊 Progress: 1340 function evals (~1340 iterations), E = -1.11612584 Ha
+  Iter 1345: E = -1.11612584 Ha (func_eval #1345)
+  Iter 1350: E = -1.11612584 Ha (func_eval #1350)
+📊 Progress: 1350 function evals (~1350 iterations), E = -1.11612584 Ha
+  Iter 1355: E = -1.11615599 Ha (func_eval #1355)
+  Iter 1360: E = -1.11615599 Ha (func_eval #1360)
+📊 Progress: 1360 function evals (~1360 iterations), E = -1.11615599 Ha
+  Iter 1365: E = -1.11615599 Ha (func_eval #1365)
+  Iter 1370: E = -1.11615599 Ha (func_eval #1370)
+📊 Progress: 1370 function evals (~1370 iterations), E = -1.11615599 Ha
+  Iter 1375: E = -1.11615599 Ha (func_eval #1375)
+  Iter 1380: E = -1.11623366 Ha (func_eval #1380)
+📊 Progress: 1380 function evals (~1380 iterations), E = -1.11623366 Ha
+  Iter 1385: E = -1.11623366 Ha (func_eval #1385)
+  Iter 1390: E = -1.11623366 Ha (func_eval #1390)
+📊 Progress: 1390 function evals (~1390 iterations), E = -1.11623366 Ha
+  Iter 1395: E = -1.11623366 Ha (func_eval #1395)
+  Iter 1400: E = -1.11623366 Ha (func_eval #1400)
+📊 Progress: 1400 function evals (~1400 iterations), E = -1.11623366 Ha
+  Iter 1405: E = -1.11623366 Ha (func_eval #1405)
+  Iter 1410: E = -1.11623366 Ha (func_eval #1410)
+📊 Progress: 1410 function evals (~1410 iterations), E = -1.11623366 Ha
+  Iter 1415: E = -1.11623366 Ha (func_eval #1415)
+  Iter 1420: E = -1.11623366 Ha (func_eval #1420)
+📊 Progress: 1420 function evals (~1420 iterations), E = -1.11623366 Ha
+  Iter 1425: E = -1.11623366 Ha (func_eval #1425)
+  Iter 1430: E = -1.11626147 Ha (func_eval #1430)
+📊 Progress: 1430 function evals (~1430 iterations), E = -1.11626147 Ha
+  Iter 1435: E = -1.11626147 Ha (func_eval #1435)
+  Iter 1440: E = -1.11626147 Ha (func_eval #1440)
+📊 Progress: 1440 function evals (~1440 iterations), E = -1.11626147 Ha
+  Iter 1445: E = -1.11626147 Ha (func_eval #1445)
+  Iter 1450: E = -1.11626147 Ha (func_eval #1450)
+📊 Progress: 1450 function evals (~1450 iterations), E = -1.11626147 Ha
+  Iter 1455: E = -1.11635830 Ha (func_eval #1455)
+  Iter 1460: E = -1.11635830 Ha (func_eval #1460)
+📊 Progress: 1460 function evals (~1460 iterations), E = -1.11635830 Ha
+  Iter 1465: E = -1.11635830 Ha (func_eval #1465)
+  Iter 1470: E = -1.11635830 Ha (func_eval #1470)
+📊 Progress: 1470 function evals (~1470 iterations), E = -1.11635830 Ha
+  Iter 1475: E = -1.11635830 Ha (func_eval #1475)
+  Iter 1480: E = -1.09596621 Ha (func_eval #1480)
+📊 Progress: 1480 function evals (~1480 iterations), E = -1.09596621 Ha
+  Iter 1485: E = -1.09596621 Ha (func_eval #1485)
+  Iter 1490: E = -1.09596621 Ha (func_eval #1490)
+📊 Progress: 1490 function evals (~1490 iterations), E = -1.09596621 Ha
+  Iter 1495: E = -1.09596621 Ha (func_eval #1495)
+  Iter 1500: E = -1.09596621 Ha (func_eval #1500)
+📊 Progress: 1500 function evals (~1500 iterations), E = -1.09596621 Ha
+  Iter 1505: E = -1.11163268 Ha (func_eval #1505)
+  Iter 1510: E = -1.11163268 Ha (func_eval #1510)
+📊 Progress: 1510 function evals (~1510 iterations), E = -1.11163268 Ha
+  Iter 1515: E = -1.11163268 Ha (func_eval #1515)
+  Iter 1520: E = -1.11163268 Ha (func_eval #1520)
+📊 Progress: 1520 function evals (~1520 iterations), E = -1.11163268 Ha
+  Iter 1525: E = -1.11163268 Ha (func_eval #1525)
+  Iter 1530: E = -1.11536890 Ha (func_eval #1530)
+📊 Progress: 1530 function evals (~1530 iterations), E = -1.11536890 Ha
+  Iter 1535: E = -1.11536890 Ha (func_eval #1535)
+  Iter 1540: E = -1.11536890 Ha (func_eval #1540)
+📊 Progress: 1540 function evals (~1540 iterations), E = -1.11536890 Ha
+  Iter 1545: E = -1.11536890 Ha (func_eval #1545)
+  Iter 1550: E = -1.11536890 Ha (func_eval #1550)
+📊 Progress: 1550 function evals (~1550 iterations), E = -1.11536890 Ha
+  Iter 1555: E = -1.11620725 Ha (func_eval #1555)
+  Iter 1560: E = -1.11620725 Ha (func_eval #1560)
+📊 Progress: 1560 function evals (~1560 iterations), E = -1.11620725 Ha
+  Iter 1565: E = -1.11620725 Ha (func_eval #1565)
+  Iter 1570: E = -1.11620725 Ha (func_eval #1570)
+📊 Progress: 1570 function evals (~1570 iterations), E = -1.11620725 Ha
+  Iter 1575: E = -1.11620725 Ha (func_eval #1575)
+  Iter 1580: E = -1.11636870 Ha (func_eval #1580)
+📊 Progress: 1580 function evals (~1580 iterations), E = -1.11636870 Ha
+  Iter 1585: E = -1.11636870 Ha (func_eval #1585)
+  Iter 1590: E = -1.11636870 Ha (func_eval #1590)
+📊 Progress: 1590 function evals (~1590 iterations), E = -1.11636870 Ha
+  Iter 1595: E = -1.11636870 Ha (func_eval #1595)
+  Iter 1600: E = -1.11636870 Ha (func_eval #1600)
+📊 Progress: 1600 function evals (~1600 iterations), E = -1.11636870 Ha
+  Iter 1605: E = -1.11638498 Ha (func_eval #1605)
+  Iter 1610: E = -1.11638498 Ha (func_eval #1610)
+📊 Progress: 1610 function evals (~1610 iterations), E = -1.11638498 Ha
+  Iter 1615: E = -1.11638498 Ha (func_eval #1615)
+  Iter 1620: E = -1.11638498 Ha (func_eval #1620)
+📊 Progress: 1620 function evals (~1620 iterations), E = -1.11638498 Ha
+  Iter 1625: E = -1.11638498 Ha (func_eval #1625)
+  Iter 1630: E = -1.11638498 Ha (func_eval #1630)
+📊 Progress: 1630 function evals (~1630 iterations), E = -1.11638498 Ha
+  Iter 1635: E = -1.11638498 Ha (func_eval #1635)
+  Iter 1640: E = -1.11638498 Ha (func_eval #1640)
+📊 Progress: 1640 function evals (~1640 iterations), E = -1.11638498 Ha
+  Iter 1645: E = -1.11638498 Ha (func_eval #1645)
+  Iter 1650: E = -1.11638498 Ha (func_eval #1650)
+📊 Progress: 1650 function evals (~1650 iterations), E = -1.11638498 Ha
+  Iter 1655: E = -1.11658651 Ha (func_eval #1655)
+  Iter 1660: E = -1.11658651 Ha (func_eval #1660)
+📊 Progress: 1660 function evals (~1660 iterations), E = -1.11658651 Ha
+  Iter 1665: E = -1.11658651 Ha (func_eval #1665)
+  Iter 1670: E = -1.11658651 Ha (func_eval #1670)
+📊 Progress: 1670 function evals (~1670 iterations), E = -1.11658651 Ha
+  Iter 1675: E = -1.11658651 Ha (func_eval #1675)
+  Iter 1680: E = -1.11694711 Ha (func_eval #1680)
+📊 Progress: 1680 function evals (~1680 iterations), E = -1.11694711 Ha
+  Iter 1685: E = -1.11694711 Ha (func_eval #1685)
+  Iter 1690: E = -1.11694711 Ha (func_eval #1690)
+📊 Progress: 1690 function evals (~1690 iterations), E = -1.11694711 Ha
+  Iter 1695: E = -1.11694711 Ha (func_eval #1695)
+  Iter 1700: E = -1.11694711 Ha (func_eval #1700)
+📊 Progress: 1700 function evals (~1700 iterations), E = -1.11694711 Ha
+  Iter 1705: E = -1.11694711 Ha (func_eval #1705)
+  Iter 1710: E = -1.11694711 Ha (func_eval #1710)
+📊 Progress: 1710 function evals (~1710 iterations), E = -1.11694711 Ha
+  Iter 1715: E = -1.11694711 Ha (func_eval #1715)
+  Iter 1720: E = -1.11694711 Ha (func_eval #1720)
+📊 Progress: 1720 function evals (~1720 iterations), E = -1.11694711 Ha
+  Iter 1725: E = -1.11694711 Ha (func_eval #1725)
+  Iter 1730: E = -1.11694864 Ha (func_eval #1730)
+📊 Progress: 1730 function evals (~1730 iterations), E = -1.11694864 Ha
+  Iter 1735: E = -1.11694864 Ha (func_eval #1735)
+  Iter 1740: E = -1.11694864 Ha (func_eval #1740)
+📊 Progress: 1740 function evals (~1740 iterations), E = -1.11694864 Ha
+  Iter 1745: E = -1.11694864 Ha (func_eval #1745)
+  Iter 1750: E = -1.11694864 Ha (func_eval #1750)
+📊 Progress: 1750 function evals (~1750 iterations), E = -1.11694864 Ha
+  Iter 1755: E = -1.11694863 Ha (func_eval #1755)
+  Iter 1760: E = -1.11694863 Ha (func_eval #1760)
+📊 Progress: 1760 function evals (~1760 iterations), E = -1.11694863 Ha
+  Iter 1765: E = -1.11694863 Ha (func_eval #1765)
+  Iter 1770: E = -1.11694863 Ha (func_eval #1770)
+📊 Progress: 1770 function evals (~1770 iterations), E = -1.11694863 Ha
+  Iter 1775: E = -1.11694863 Ha (func_eval #1775)
+  Iter 1780: E = -1.11694863 Ha (func_eval #1780)
+📊 Progress: 1780 function evals (~1780 iterations), E = -1.11694863 Ha
+  Iter 1785: E = -1.11694863 Ha (func_eval #1785)
+  Iter 1790: E = -1.11694863 Ha (func_eval #1790)
+📊 Progress: 1790 function evals (~1790 iterations), E = -1.11694863 Ha
+  Iter 1795: E = -1.11694863 Ha (func_eval #1795)
+  Iter 1800: E = -1.11694863 Ha (func_eval #1800)
+📊 Progress: 1800 function evals (~1800 iterations), E = -1.11694863 Ha
+  Iter 1805: E = -1.11694862 Ha (func_eval #1805)
+  Iter 1810: E = -1.11694862 Ha (func_eval #1810)
+📊 Progress: 1810 function evals (~1810 iterations), E = -1.11694862 Ha
+  Iter 1815: E = -1.11694862 Ha (func_eval #1815)
+  Iter 1820: E = -1.11694862 Ha (func_eval #1820)
+📊 Progress: 1820 function evals (~1820 iterations), E = -1.11694862 Ha
+  Iter 1825: E = -1.11694862 Ha (func_eval #1825)
+  Iter 1830: E = -1.11694861 Ha (func_eval #1830)
+📊 Progress: 1830 function evals (~1830 iterations), E = -1.11694861 Ha
+  Iter 1835: E = -1.11694862 Ha (func_eval #1835)
+  Iter 1840: E = -1.11694861 Ha (func_eval #1840)
+📊 Progress: 1840 function evals (~1840 iterations), E = -1.11694861 Ha
+  Iter 1845: E = -1.11694861 Ha (func_eval #1845)
+  Iter 1850: E = -1.11694861 Ha (func_eval #1850)
+📊 Progress: 1850 function evals (~1850 iterations), E = -1.11694861 Ha
+  Iter 1855: E = -1.11694861 Ha (func_eval #1855)
+  Iter 1860: E = -1.11694861 Ha (func_eval #1860)
+📊 Progress: 1860 function evals (~1860 iterations), E = -1.11694861 Ha
+  Iter 1865: E = -1.11694861 Ha (func_eval #1865)
+  Iter 1870: E = -1.11694861 Ha (func_eval #1870)
+📊 Progress: 1870 function evals (~1870 iterations), E = -1.11694861 Ha
+  Iter 1875: E = -1.11694861 Ha (func_eval #1875)
+  Iter 1880: E = -1.11694861 Ha (func_eval #1880)
+📊 Progress: 1880 function evals (~1880 iterations), E = -1.11694861 Ha
+  Iter 1885: E = -1.11694861 Ha (func_eval #1885)
+  Iter 1890: E = -1.11694861 Ha (func_eval #1890)
+📊 Progress: 1890 function evals (~1890 iterations), E = -1.11694861 Ha
+  Iter 1895: E = -1.11694861 Ha (func_eval #1895)
+  Iter 1900: E = -1.11694861 Ha (func_eval #1900)
+📊 Progress: 1900 function evals (~1900 iterations), E = -1.11694861 Ha
+  Iter 1905: E = -1.11694861 Ha (func_eval #1905)
+  Iter 1910: E = -1.11694861 Ha (func_eval #1910)
+📊 Progress: 1910 function evals (~1910 iterations), E = -1.11694861 Ha
+  Iter 1915: E = -1.11694861 Ha (func_eval #1915)
+  Iter 1920: E = -1.11694861 Ha (func_eval #1920)
+📊 Progress: 1920 function evals (~1920 iterations), E = -1.11694861 Ha
+  Iter 1925: E = -1.11694861 Ha (func_eval #1925)
+  Iter 1930: E = -1.11694861 Ha (func_eval #1930)
+📊 Progress: 1930 function evals (~1930 iterations), E = -1.11694861 Ha
+  Iter 1935: E = -1.11694861 Ha (func_eval #1935)
+  Iter 1940: E = -1.11694861 Ha (func_eval #1940)
+📊 Progress: 1940 function evals (~1940 iterations), E = -1.11694861 Ha
+  Iter 1945: E = -1.11694861 Ha (func_eval #1945)
+  Iter 1950: E = -1.11694861 Ha (func_eval #1950)
+📊 Progress: 1950 function evals (~1950 iterations), E = -1.11694861 Ha
+  Iter 1955: E = -1.11694861 Ha (func_eval #1955)
+  Iter 1960: E = -1.11694861 Ha (func_eval #1960)
+📊 Progress: 1960 function evals (~1960 iterations), E = -1.11694861 Ha
+  Iter 1965: E = -1.11694861 Ha (func_eval #1965)
+  Iter 1970: E = -1.11694861 Ha (func_eval #1970)
+📊 Progress: 1970 function evals (~1970 iterations), E = -1.11694861 Ha
+  Iter 1975: E = -1.11694861 Ha (func_eval #1975)
+  Iter 1980: E = -1.11694861 Ha (func_eval #1980)
+📊 Progress: 1980 function evals (~1980 iterations), E = -1.11694861 Ha
+  Iter 1985: E = -1.11694862 Ha (func_eval #1985)
+  Iter 1990: E = -1.11694861 Ha (func_eval #1990)
+📊 Progress: 1990 function evals (~1990 iterations), E = -1.11694861 Ha
+  Iter 1995: E = -1.11694861 Ha (func_eval #1995)
+  Iter 2000: E = -1.11694861 Ha (func_eval #2000)
+📊 Progress: 2000 function evals (~2000 iterations), E = -1.11694861 Ha
+  Iter 2005: E = -1.05802126 Ha (func_eval #2005)
+  Iter 2010: E = -1.05802126 Ha (func_eval #2010)
+📊 Progress: 2010 function evals (~2010 iterations), E = -1.05802126 Ha
+  Iter 2015: E = -1.05802126 Ha (func_eval #2015)
+  Iter 2020: E = -1.05802126 Ha (func_eval #2020)
+📊 Progress: 2020 function evals (~2020 iterations), E = -1.05802126 Ha
+  Iter 2025: E = -1.05802126 Ha (func_eval #2025)
+  Iter 2030: E = -1.10387703 Ha (func_eval #2030)
+📊 Progress: 2030 function evals (~2030 iterations), E = -1.10387703 Ha
+  Iter 2035: E = -1.10387703 Ha (func_eval #2035)
+  Iter 2040: E = -1.10387703 Ha (func_eval #2040)
+📊 Progress: 2040 function evals (~2040 iterations), E = -1.10387703 Ha
+  Iter 2045: E = -1.10387703 Ha (func_eval #2045)
+  Iter 2050: E = -1.10387703 Ha (func_eval #2050)
+📊 Progress: 2050 function evals (~2050 iterations), E = -1.10387703 Ha
+  Iter 2055: E = -1.11459722 Ha (func_eval #2055)
+  Iter 2060: E = -1.11459721 Ha (func_eval #2060)
+📊 Progress: 2060 function evals (~2060 iterations), E = -1.11459721 Ha
+  Iter 2065: E = -1.11459722 Ha (func_eval #2065)
+  Iter 2070: E = -1.11459722 Ha (func_eval #2070)
+📊 Progress: 2070 function evals (~2070 iterations), E = -1.11459722 Ha
+  Iter 2075: E = -1.11459722 Ha (func_eval #2075)
+  Iter 2080: E = -1.11682361 Ha (func_eval #2080)
+📊 Progress: 2080 function evals (~2080 iterations), E = -1.11682361 Ha
+  Iter 2085: E = -1.11682360 Ha (func_eval #2085)
+  Iter 2090: E = -1.11682361 Ha (func_eval #2090)
+📊 Progress: 2090 function evals (~2090 iterations), E = -1.11682361 Ha
+  Iter 2095: E = -1.11682361 Ha (func_eval #2095)
+  Iter 2100: E = -1.11682361 Ha (func_eval #2100)
+📊 Progress: 2100 function evals (~2100 iterations), E = -1.11682361 Ha
+  Iter 2105: E = -1.11714850 Ha (func_eval #2105)
+  Iter 2110: E = -1.11714850 Ha (func_eval #2110)
+📊 Progress: 2110 function evals (~2110 iterations), E = -1.11714850 Ha
+  Iter 2115: E = -1.11714850 Ha (func_eval #2115)
+  Iter 2120: E = -1.11714850 Ha (func_eval #2120)
+📊 Progress: 2120 function evals (~2120 iterations), E = -1.11714850 Ha
+  Iter 2125: E = -1.11714850 Ha (func_eval #2125)
+  Iter 2130: E = -1.11714850 Ha (func_eval #2130)
+📊 Progress: 2130 function evals (~2130 iterations), E = -1.11714850 Ha
+  Iter 2135: E = -1.11714850 Ha (func_eval #2135)
+  Iter 2140: E = -1.11714850 Ha (func_eval #2140)
+📊 Progress: 2140 function evals (~2140 iterations), E = -1.11714850 Ha
+  Iter 2145: E = -1.11714850 Ha (func_eval #2145)
+  Iter 2150: E = -1.11714850 Ha (func_eval #2150)
+📊 Progress: 2150 function evals (~2150 iterations), E = -1.11714850 Ha
+  Iter 2155: E = -1.11714850 Ha (func_eval #2155)
+  Iter 2160: E = -1.11714850 Ha (func_eval #2160)
+📊 Progress: 2160 function evals (~2160 iterations), E = -1.11714850 Ha
+  Iter 2165: E = -1.11714850 Ha (func_eval #2165)
+  Iter 2170: E = -1.11714850 Ha (func_eval #2170)
+📊 Progress: 2170 function evals (~2170 iterations), E = -1.11714850 Ha
+  Iter 2175: E = -1.11714850 Ha (func_eval #2175)
+  Iter 2180: E = -1.11714850 Ha (func_eval #2180)
+📊 Progress: 2180 function evals (~2180 iterations), E = -1.11714850 Ha
+  Iter 2185: E = -1.11714850 Ha (func_eval #2185)
+  Iter 2190: E = -1.11714850 Ha (func_eval #2190)
+📊 Progress: 2190 function evals (~2190 iterations), E = -1.11714850 Ha
+  Iter 2195: E = -1.11714850 Ha (func_eval #2195)
+  Iter 2200: E = -1.11714850 Ha (func_eval #2200)
+📊 Progress: 2200 function evals (~2200 iterations), E = -1.11714850 Ha
+  Iter 2205: E = -1.11714850 Ha (func_eval #2205)
+  Iter 2210: E = -1.11714850 Ha (func_eval #2210)
+📊 Progress: 2210 function evals (~2210 iterations), E = -1.11714850 Ha
+  Iter 2215: E = -1.11714850 Ha (func_eval #2215)
+  Iter 2220: E = -1.11714850 Ha (func_eval #2220)
+📊 Progress: 2220 function evals (~2220 iterations), E = -1.11714850 Ha
+  Iter 2225: E = -1.11714850 Ha (func_eval #2225)
+  Iter 2230: E = -1.11714851 Ha (func_eval #2230)
+📊 Progress: 2230 function evals (~2230 iterations), E = -1.11714851 Ha
+  Iter 2235: E = -1.11714851 Ha (func_eval #2235)
+  Iter 2240: E = -1.11714851 Ha (func_eval #2240)
+📊 Progress: 2240 function evals (~2240 iterations), E = -1.11714851 Ha
+  Iter 2245: E = -1.11714851 Ha (func_eval #2245)
+  Iter 2250: E = -1.11714851 Ha (func_eval #2250)
+📊 Progress: 2250 function evals (~2250 iterations), E = -1.11714851 Ha
+  Iter 2255: E = -1.11714851 Ha (func_eval #2255)
+  Iter 2260: E = -1.11714851 Ha (func_eval #2260)
+📊 Progress: 2260 function evals (~2260 iterations), E = -1.11714851 Ha
+  Iter 2265: E = -1.11714851 Ha (func_eval #2265)
+  Iter 2270: E = -1.11714851 Ha (func_eval #2270)
+📊 Progress: 2270 function evals (~2270 iterations), E = -1.11714851 Ha
+  Iter 2275: E = -1.11714851 Ha (func_eval #2275)
+  Iter 2280: E = -1.11539332 Ha (func_eval #2280)
+📊 Progress: 2280 function evals (~2280 iterations), E = -1.11539332 Ha
+  Iter 2285: E = -1.11539332 Ha (func_eval #2285)
+  Iter 2290: E = -1.11539332 Ha (func_eval #2290)
+📊 Progress: 2290 function evals (~2290 iterations), E = -1.11539332 Ha
+  Iter 2295: E = -1.11539332 Ha (func_eval #2295)
+  Iter 2300: E = -1.11539332 Ha (func_eval #2300)
+📊 Progress: 2300 function evals (~2300 iterations), E = -1.11539332 Ha
+  Iter 2305: E = -1.11718923 Ha (func_eval #2305)
+  Iter 2310: E = -1.11718923 Ha (func_eval #2310)
+📊 Progress: 2310 function evals (~2310 iterations), E = -1.11718923 Ha
+  Iter 2315: E = -1.11718923 Ha (func_eval #2315)
+  Iter 2320: E = -1.11718923 Ha (func_eval #2320)
+📊 Progress: 2320 function evals (~2320 iterations), E = -1.11718923 Ha
+  Iter 2325: E = -1.11718923 Ha (func_eval #2325)
+  Iter 2330: E = -1.11739882 Ha (func_eval #2330)
+📊 Progress: 2330 function evals (~2330 iterations), E = -1.11739882 Ha
+  Iter 2335: E = -1.11739882 Ha (func_eval #2335)
+  Iter 2340: E = -1.11739882 Ha (func_eval #2340)
+📊 Progress: 2340 function evals (~2340 iterations), E = -1.11739882 Ha
+  Iter 2345: E = -1.11739882 Ha (func_eval #2345)
+  Iter 2350: E = -1.11739882 Ha (func_eval #2350)
+📊 Progress: 2350 function evals (~2350 iterations), E = -1.11739882 Ha
+  Iter 2355: E = -1.11739882 Ha (func_eval #2355)
+  Iter 2360: E = -1.11739882 Ha (func_eval #2360)
+📊 Progress: 2360 function evals (~2360 iterations), E = -1.11739882 Ha
+  Iter 2365: E = -1.11739882 Ha (func_eval #2365)
+  Iter 2370: E = -1.11739882 Ha (func_eval #2370)
+📊 Progress: 2370 function evals (~2370 iterations), E = -1.11739882 Ha
+  Iter 2375: E = -1.11739882 Ha (func_eval #2375)
+  Iter 2380: E = -1.11750024 Ha (func_eval #2380)
+📊 Progress: 2380 function evals (~2380 iterations), E = -1.11750024 Ha
+  Iter 2385: E = -1.11750024 Ha (func_eval #2385)
+  Iter 2390: E = -1.11750024 Ha (func_eval #2390)
+📊 Progress: 2390 function evals (~2390 iterations), E = -1.11750024 Ha
+  Iter 2395: E = -1.11750024 Ha (func_eval #2395)
+  Iter 2400: E = -1.11750024 Ha (func_eval #2400)
+📊 Progress: 2400 function evals (~2400 iterations), E = -1.11750024 Ha
+  Iter 2405: E = -1.11678711 Ha (func_eval #2405)
+  Iter 2410: E = -1.11678711 Ha (func_eval #2410)
+📊 Progress: 2410 function evals (~2410 iterations), E = -1.11678711 Ha
+  Iter 2415: E = -1.11678711 Ha (func_eval #2415)
+  Iter 2420: E = -1.11678711 Ha (func_eval #2420)
+📊 Progress: 2420 function evals (~2420 iterations), E = -1.11678711 Ha
+  Iter 2425: E = -1.11678711 Ha (func_eval #2425)
+  Iter 2430: E = -1.11739790 Ha (func_eval #2430)
+📊 Progress: 2430 function evals (~2430 iterations), E = -1.11739790 Ha
+  Iter 2435: E = -1.11739790 Ha (func_eval #2435)
+  Iter 2440: E = -1.11739790 Ha (func_eval #2440)
+📊 Progress: 2440 function evals (~2440 iterations), E = -1.11739790 Ha
+  Iter 2445: E = -1.11739790 Ha (func_eval #2445)
+  Iter 2450: E = -1.11739790 Ha (func_eval #2450)
+📊 Progress: 2450 function evals (~2450 iterations), E = -1.11739790 Ha
+  Iter 2455: E = -1.11751264 Ha (func_eval #2455)
+  Iter 2460: E = -1.11751264 Ha (func_eval #2460)
+📊 Progress: 2460 function evals (~2460 iterations), E = -1.11751264 Ha
+  Iter 2465: E = -1.11751264 Ha (func_eval #2465)
+  Iter 2470: E = -1.11751264 Ha (func_eval #2470)
+📊 Progress: 2470 function evals (~2470 iterations), E = -1.11751264 Ha
+  Iter 2475: E = -1.11751264 Ha (func_eval #2475)
+  Iter 2480: E = -1.11752233 Ha (func_eval #2480)
+📊 Progress: 2480 function evals (~2480 iterations), E = -1.11752233 Ha
+  Iter 2485: E = -1.11752233 Ha (func_eval #2485)
+  Iter 2490: E = -1.11752233 Ha (func_eval #2490)
+📊 Progress: 2490 function evals (~2490 iterations), E = -1.11752233 Ha
+  Iter 2495: E = -1.11752233 Ha (func_eval #2495)
+  Iter 2500: E = -1.11752233 Ha (func_eval #2500)
+📊 Progress: 2500 function evals (~2500 iterations), E = -1.11752233 Ha
+  Iter 2505: E = -1.11752233 Ha (func_eval #2505)
+  Iter 2510: E = -1.11752233 Ha (func_eval #2510)
+📊 Progress: 2510 function evals (~2510 iterations), E = -1.11752233 Ha
+  Iter 2515: E = -1.11752233 Ha (func_eval #2515)
+  Iter 2520: E = -1.11752233 Ha (func_eval #2520)
+📊 Progress: 2520 function evals (~2520 iterations), E = -1.11752233 Ha
+  Iter 2525: E = -1.11752233 Ha (func_eval #2525)
+  Iter 2530: E = -1.11752233 Ha (func_eval #2530)
+📊 Progress: 2530 function evals (~2530 iterations), E = -1.11752233 Ha
+  Iter 2535: E = -1.11752233 Ha (func_eval #2535)
+  Iter 2540: E = -1.11752233 Ha (func_eval #2540)
+📊 Progress: 2540 function evals (~2540 iterations), E = -1.11752233 Ha
+  Iter 2545: E = -1.11752233 Ha (func_eval #2545)
+  Iter 2550: E = -1.11752233 Ha (func_eval #2550)
+📊 Progress: 2550 function evals (~2550 iterations), E = -1.11752233 Ha
+  Iter 2555: E = -1.11752233 Ha (func_eval #2555)
+  Iter 2560: E = -1.11752233 Ha (func_eval #2560)
+📊 Progress: 2560 function evals (~2560 iterations), E = -1.11752233 Ha
+  Iter 2565: E = -1.11752233 Ha (func_eval #2565)
+  Iter 2570: E = -1.11752233 Ha (func_eval #2570)
+📊 Progress: 2570 function evals (~2570 iterations), E = -1.11752233 Ha
+  Iter 2575: E = -1.11752233 Ha (func_eval #2575)
+  Iter 2580: E = -1.11752233 Ha (func_eval #2580)
+📊 Progress: 2580 function evals (~2580 iterations), E = -1.11752233 Ha
+  Iter 2585: E = -1.11752233 Ha (func_eval #2585)
+  Iter 2590: E = -1.11752233 Ha (func_eval #2590)
+📊 Progress: 2590 function evals (~2590 iterations), E = -1.11752233 Ha
+  Iter 2595: E = -1.11752233 Ha (func_eval #2595)
+  Iter 2600: E = -1.11752233 Ha (func_eval #2600)
+📊 Progress: 2600 function evals (~2600 iterations), E = -1.11752233 Ha
+  Iter 2605: E = -1.11752233 Ha (func_eval #2605)
+  Iter 2610: E = -1.11752233 Ha (func_eval #2610)
+📊 Progress: 2610 function evals (~2610 iterations), E = -1.11752233 Ha
+  Iter 2615: E = -1.11752233 Ha (func_eval #2615)
+  Iter 2620: E = -1.11752233 Ha (func_eval #2620)
+📊 Progress: 2620 function evals (~2620 iterations), E = -1.11752233 Ha
+  Iter 2625: E = -1.11752233 Ha (func_eval #2625)
+  Iter 2630: E = -1.11752233 Ha (func_eval #2630)
+📊 Progress: 2630 function evals (~2630 iterations), E = -1.11752233 Ha
+  Iter 2635: E = -1.11752233 Ha (func_eval #2635)
+  Iter 2640: E = -1.11752233 Ha (func_eval #2640)
+📊 Progress: 2640 function evals (~2640 iterations), E = -1.11752233 Ha
+  Iter 2645: E = -1.11752233 Ha (func_eval #2645)
+  Iter 2650: E = -1.11752233 Ha (func_eval #2650)
+📊 Progress: 2650 function evals (~2650 iterations), E = -1.11752233 Ha
+  Iter 2655: E = -1.11752233 Ha (func_eval #2655)
+  Iter 2660: E = -1.11752233 Ha (func_eval #2660)
+📊 Progress: 2660 function evals (~2660 iterations), E = -1.11752233 Ha
+  Iter 2665: E = -1.11752233 Ha (func_eval #2665)
+  Iter 2670: E = -1.11752233 Ha (func_eval #2670)
+📊 Progress: 2670 function evals (~2670 iterations), E = -1.11752233 Ha
+  Iter 2675: E = -1.11752233 Ha (func_eval #2675)
+  Iter 2680: E = -1.11752233 Ha (func_eval #2680)
+📊 Progress: 2680 function evals (~2680 iterations), E = -1.11752233 Ha
+  Iter 2685: E = -1.11752233 Ha (func_eval #2685)
+  Iter 2690: E = -1.11752233 Ha (func_eval #2690)
+📊 Progress: 2690 function evals (~2690 iterations), E = -1.11752233 Ha
+  Iter 2695: E = -1.11752233 Ha (func_eval #2695)
+  Iter 2700: E = -1.11752233 Ha (func_eval #2700)
+📊 Progress: 2700 function evals (~2700 iterations), E = -1.11752233 Ha
+  Iter 2705: E = -1.11752233 Ha (func_eval #2705)
+  Iter 2710: E = -1.11752233 Ha (func_eval #2710)
+📊 Progress: 2710 function evals (~2710 iterations), E = -1.11752233 Ha
+  Iter 2715: E = -1.11752233 Ha (func_eval #2715)
+  Iter 2720: E = -1.11752233 Ha (func_eval #2720)
+📊 Progress: 2720 function evals (~2720 iterations), E = -1.11752233 Ha
+  Iter 2725: E = -1.11752233 Ha (func_eval #2725)
+  Iter 2730: E = -1.11426478 Ha (func_eval #2730)
+📊 Progress: 2730 function evals (~2730 iterations), E = -1.11426478 Ha
+  Iter 2735: E = -1.11426478 Ha (func_eval #2735)
+  Iter 2740: E = -1.11426478 Ha (func_eval #2740)
+📊 Progress: 2740 function evals (~2740 iterations), E = -1.11426478 Ha
+  Iter 2745: E = -1.11426478 Ha (func_eval #2745)
+  Iter 2750: E = -1.11426478 Ha (func_eval #2750)
+📊 Progress: 2750 function evals (~2750 iterations), E = -1.11426478 Ha
+  Iter 2755: E = -1.11701028 Ha (func_eval #2755)
+  Iter 2760: E = -1.11701028 Ha (func_eval #2760)
+📊 Progress: 2760 function evals (~2760 iterations), E = -1.11701028 Ha
+  Iter 2765: E = -1.11701028 Ha (func_eval #2765)
+  Iter 2770: E = -1.11701028 Ha (func_eval #2770)
+📊 Progress: 2770 function evals (~2770 iterations), E = -1.11701028 Ha
+  Iter 2775: E = -1.11701028 Ha (func_eval #2775)
+  Iter 2780: E = -1.11754619 Ha (func_eval #2780)
+📊 Progress: 2780 function evals (~2780 iterations), E = -1.11754619 Ha
+  Iter 2785: E = -1.11754619 Ha (func_eval #2785)
+  Iter 2790: E = -1.11754619 Ha (func_eval #2790)
+📊 Progress: 2790 function evals (~2790 iterations), E = -1.11754619 Ha
+  Iter 2795: E = -1.11754619 Ha (func_eval #2795)
+  Iter 2800: E = -1.11754619 Ha (func_eval #2800)
+📊 Progress: 2800 function evals (~2800 iterations), E = -1.11754619 Ha
+  Iter 2805: E = -1.11760429 Ha (func_eval #2805)
+  Iter 2810: E = -1.11760429 Ha (func_eval #2810)
+📊 Progress: 2810 function evals (~2810 iterations), E = -1.11760429 Ha
+  Iter 2815: E = -1.11760429 Ha (func_eval #2815)
+  Iter 2820: E = -1.11760429 Ha (func_eval #2820)
+📊 Progress: 2820 function evals (~2820 iterations), E = -1.11760429 Ha
+  Iter 2825: E = -1.11760429 Ha (func_eval #2825)
+  Iter 2830: E = -1.11760429 Ha (func_eval #2830)
+📊 Progress: 2830 function evals (~2830 iterations), E = -1.11760429 Ha
+  Iter 2835: E = -1.11760429 Ha (func_eval #2835)
+  Iter 2840: E = -1.11760429 Ha (func_eval #2840)
+📊 Progress: 2840 function evals (~2840 iterations), E = -1.11760429 Ha
+  Iter 2845: E = -1.11760429 Ha (func_eval #2845)
+  Iter 2850: E = -1.11760429 Ha (func_eval #2850)
+📊 Progress: 2850 function evals (~2850 iterations), E = -1.11760429 Ha
+  Iter 2855: E = -1.11760429 Ha (func_eval #2855)
+  Iter 2860: E = -1.11760429 Ha (func_eval #2860)
+📊 Progress: 2860 function evals (~2860 iterations), E = -1.11760429 Ha
+  Iter 2865: E = -1.11760429 Ha (func_eval #2865)
+  Iter 2870: E = -1.11760429 Ha (func_eval #2870)
+📊 Progress: 2870 function evals (~2870 iterations), E = -1.11760429 Ha
+  Iter 2875: E = -1.11760429 Ha (func_eval #2875)
+  Iter 2880: E = -1.11760429 Ha (func_eval #2880)
+📊 Progress: 2880 function evals (~2880 iterations), E = -1.11760429 Ha
+  Iter 2885: E = -1.11760429 Ha (func_eval #2885)
+  Iter 2890: E = -1.11760429 Ha (func_eval #2890)
+📊 Progress: 2890 function evals (~2890 iterations), E = -1.11760429 Ha
+  Iter 2895: E = -1.11760429 Ha (func_eval #2895)
+  Iter 2900: E = -1.11760429 Ha (func_eval #2900)
+📊 Progress: 2900 function evals (~2900 iterations), E = -1.11760429 Ha
+  Iter 2905: E = -1.11760430 Ha (func_eval #2905)
+  Iter 2910: E = -1.11760430 Ha (func_eval #2910)
+📊 Progress: 2910 function evals (~2910 iterations), E = -1.11760430 Ha
+  Iter 2915: E = -1.11760430 Ha (func_eval #2915)
+  Iter 2920: E = -1.11760430 Ha (func_eval #2920)
+📊 Progress: 2920 function evals (~2920 iterations), E = -1.11760430 Ha
+  Iter 2925: E = -1.11760430 Ha (func_eval #2925)
+  Iter 2930: E = -1.11760430 Ha (func_eval #2930)
+📊 Progress: 2930 function evals (~2930 iterations), E = -1.11760430 Ha
+  Iter 2935: E = -1.11760430 Ha (func_eval #2935)
+  Iter 2940: E = -1.11760430 Ha (func_eval #2940)
+📊 Progress: 2940 function evals (~2940 iterations), E = -1.11760430 Ha
+  Iter 2945: E = -1.11760430 Ha (func_eval #2945)
+  Iter 2950: E = -1.11760430 Ha (func_eval #2950)
+📊 Progress: 2950 function evals (~2950 iterations), E = -1.11760430 Ha
+  Iter 2955: E = -1.11760430 Ha (func_eval #2955)
+  Iter 2960: E = -1.11760430 Ha (func_eval #2960)
+📊 Progress: 2960 function evals (~2960 iterations), E = -1.11760430 Ha
+  Iter 2965: E = -1.11760430 Ha (func_eval #2965)
+  Iter 2970: E = -1.11760430 Ha (func_eval #2970)
+📊 Progress: 2970 function evals (~2970 iterations), E = -1.11760430 Ha
+  Iter 2975: E = -1.11760430 Ha (func_eval #2975)
+  Iter 2980: E = -1.11760430 Ha (func_eval #2980)
+📊 Progress: 2980 function evals (~2980 iterations), E = -1.11760430 Ha
+  Iter 2985: E = -1.11760430 Ha (func_eval #2985)
+  Iter 2990: E = -1.11760430 Ha (func_eval #2990)
+📊 Progress: 2990 function evals (~2990 iterations), E = -1.11760430 Ha
+  Iter 2995: E = -1.11760430 Ha (func_eval #2995)
+  Iter 3000: E = -1.11760430 Ha (func_eval #3000)
+📊 Progress: 3000 function evals (~3000 iterations), E = -1.11760430 Ha
+  Iter 3005: E = -1.11760430 Ha (func_eval #3005)
+  Iter 3010: E = -1.11760430 Ha (func_eval #3010)
+📊 Progress: 3010 function evals (~3010 iterations), E = -1.11760430 Ha
+  Iter 3015: E = -1.11760430 Ha (func_eval #3015)
+  Iter 3020: E = -1.11760430 Ha (func_eval #3020)
+📊 Progress: 3020 function evals (~3020 iterations), E = -1.11760430 Ha
+  Iter 3025: E = -1.11760430 Ha (func_eval #3025)
+  Iter 3030: E = -1.11760430 Ha (func_eval #3030)
+📊 Progress: 3030 function evals (~3030 iterations), E = -1.11760430 Ha
+  Iter 3035: E = -1.11760430 Ha (func_eval #3035)
+  Iter 3040: E = -1.11760430 Ha (func_eval #3040)
+📊 Progress: 3040 function evals (~3040 iterations), E = -1.11760430 Ha
+  Iter 3045: E = -1.11760430 Ha (func_eval #3045)
+  Iter 3050: E = -1.11760430 Ha (func_eval #3050)
+📊 Progress: 3050 function evals (~3050 iterations), E = -1.11760430 Ha
+  Iter 3055: E = -1.11760430 Ha (func_eval #3055)
+  Iter 3060: E = -1.11760430 Ha (func_eval #3060)
+📊 Progress: 3060 function evals (~3060 iterations), E = -1.11760430 Ha
+  Iter 3065: E = -1.11760430 Ha (func_eval #3065)
+  Iter 3070: E = -1.11760430 Ha (func_eval #3070)
+📊 Progress: 3070 function evals (~3070 iterations), E = -1.11760430 Ha
+  Iter 3075: E = -1.11760430 Ha (func_eval #3075)
+  Iter 3080: E = -1.11760430 Ha (func_eval #3080)
+📊 Progress: 3080 function evals (~3080 iterations), E = -1.11760430 Ha
+  Iter 3085: E = -1.11760430 Ha (func_eval #3085)
+  Iter 3090: E = -1.11760430 Ha (func_eval #3090)
+📊 Progress: 3090 function evals (~3090 iterations), E = -1.11760430 Ha
+  Iter 3095: E = -1.11760430 Ha (func_eval #3095)
+  Iter 3100: E = -1.11760430 Ha (func_eval #3100)
+📊 Progress: 3100 function evals (~3100 iterations), E = -1.11760430 Ha
+  Iter 3105: E = -1.11760430 Ha (func_eval #3105)
+  Iter 3110: E = -1.11760430 Ha (func_eval #3110)
+📊 Progress: 3110 function evals (~3110 iterations), E = -1.11760430 Ha
+  Iter 3115: E = -1.11760430 Ha (func_eval #3115)
+  Iter 3120: E = -1.11760430 Ha (func_eval #3120)
+📊 Progress: 3120 function evals (~3120 iterations), E = -1.11760430 Ha
+  Iter 3125: E = -1.11760430 Ha (func_eval #3125)
+  Iter 3130: E = -1.11373271 Ha (func_eval #3130)
+📊 Progress: 3130 function evals (~3130 iterations), E = -1.11373271 Ha
+  Iter 3135: E = -1.11373271 Ha (func_eval #3135)
+  Iter 3140: E = -1.11373271 Ha (func_eval #3140)
+📊 Progress: 3140 function evals (~3140 iterations), E = -1.11373271 Ha
+  Iter 3145: E = -1.11373271 Ha (func_eval #3145)
+  Iter 3150: E = -1.11373271 Ha (func_eval #3150)
+📊 Progress: 3150 function evals (~3150 iterations), E = -1.11373271 Ha
+  Iter 3155: E = -1.11678569 Ha (func_eval #3155)
+  Iter 3160: E = -1.11678569 Ha (func_eval #3160)
+📊 Progress: 3160 function evals (~3160 iterations), E = -1.11678569 Ha
+  Iter 3165: E = -1.11678569 Ha (func_eval #3165)
+  Iter 3170: E = -1.11678569 Ha (func_eval #3170)
+📊 Progress: 3170 function evals (~3170 iterations), E = -1.11678569 Ha
+  Iter 3175: E = -1.11678569 Ha (func_eval #3175)
+  Iter 3180: E = -1.11747462 Ha (func_eval #3180)
+📊 Progress: 3180 function evals (~3180 iterations), E = -1.11747462 Ha
+  Iter 3185: E = -1.11747462 Ha (func_eval #3185)
+  Iter 3190: E = -1.11747462 Ha (func_eval #3190)
+📊 Progress: 3190 function evals (~3190 iterations), E = -1.11747462 Ha
+  Iter 3195: E = -1.11747462 Ha (func_eval #3195)
+  Iter 3200: E = -1.11747462 Ha (func_eval #3200)
+📊 Progress: 3200 function evals (~3200 iterations), E = -1.11747462 Ha
+  Iter 3205: E = -1.11760939 Ha (func_eval #3205)
+  Iter 3210: E = -1.11760939 Ha (func_eval #3210)
+📊 Progress: 3210 function evals (~3210 iterations), E = -1.11760939 Ha
+  Iter 3215: E = -1.11760939 Ha (func_eval #3215)
+  Iter 3220: E = -1.11760939 Ha (func_eval #3220)
+📊 Progress: 3220 function evals (~3220 iterations), E = -1.11760939 Ha
+  Iter 3225: E = -1.11760939 Ha (func_eval #3225)
+  Iter 3230: E = -1.11762432 Ha (func_eval #3230)
+📊 Progress: 3230 function evals (~3230 iterations), E = -1.11762432 Ha
+  Iter 3235: E = -1.11762432 Ha (func_eval #3235)
+  Iter 3240: E = -1.11762432 Ha (func_eval #3240)
+📊 Progress: 3240 function evals (~3240 iterations), E = -1.11762432 Ha
+  Iter 3245: E = -1.11762432 Ha (func_eval #3245)
+  Iter 3250: E = -1.11762432 Ha (func_eval #3250)
+📊 Progress: 3250 function evals (~3250 iterations), E = -1.11762432 Ha
+  Iter 3255: E = -1.11762432 Ha (func_eval #3255)
+  Iter 3260: E = -1.11762432 Ha (func_eval #3260)
+📊 Progress: 3260 function evals (~3260 iterations), E = -1.11762432 Ha
+  Iter 3265: E = -1.11762432 Ha (func_eval #3265)
+  Iter 3270: E = -1.11762432 Ha (func_eval #3270)
+📊 Progress: 3270 function evals (~3270 iterations), E = -1.11762432 Ha
+  Iter 3275: E = -1.11762432 Ha (func_eval #3275)
+  Iter 3280: E = -1.11768459 Ha (func_eval #3280)
+📊 Progress: 3280 function evals (~3280 iterations), E = -1.11768459 Ha
+  Iter 3285: E = -1.11768459 Ha (func_eval #3285)
+  Iter 3290: E = -1.11768459 Ha (func_eval #3290)
+📊 Progress: 3290 function evals (~3290 iterations), E = -1.11768459 Ha
+  Iter 3295: E = -1.11768459 Ha (func_eval #3295)
+  Iter 3300: E = -1.11768459 Ha (func_eval #3300)
+📊 Progress: 3300 function evals (~3300 iterations), E = -1.11768459 Ha
+  Iter 3305: E = -1.11768459 Ha (func_eval #3305)
+  Iter 3310: E = -1.11768459 Ha (func_eval #3310)
+📊 Progress: 3310 function evals (~3310 iterations), E = -1.11768459 Ha
+  Iter 3315: E = -1.11768459 Ha (func_eval #3315)
+  Iter 3320: E = -1.11768459 Ha (func_eval #3320)
+📊 Progress: 3320 function evals (~3320 iterations), E = -1.11768459 Ha
+  Iter 3325: E = -1.11768459 Ha (func_eval #3325)
+  Iter 3330: E = -1.11768459 Ha (func_eval #3330)
+📊 Progress: 3330 function evals (~3330 iterations), E = -1.11768459 Ha
+  Iter 3335: E = -1.11768459 Ha (func_eval #3335)
+  Iter 3340: E = -1.11768459 Ha (func_eval #3340)
+📊 Progress: 3340 function evals (~3340 iterations), E = -1.11768459 Ha
+  Iter 3345: E = -1.11768459 Ha (func_eval #3345)
+  Iter 3350: E = -1.11768459 Ha (func_eval #3350)
+📊 Progress: 3350 function evals (~3350 iterations), E = -1.11768459 Ha
+  Iter 3355: E = -1.11768459 Ha (func_eval #3355)
+  Iter 3360: E = -1.11768459 Ha (func_eval #3360)
+📊 Progress: 3360 function evals (~3360 iterations), E = -1.11768459 Ha
+  Iter 3365: E = -1.11768459 Ha (func_eval #3365)
+  Iter 3370: E = -1.11768459 Ha (func_eval #3370)
+📊 Progress: 3370 function evals (~3370 iterations), E = -1.11768459 Ha
+  Iter 3375: E = -1.11768459 Ha (func_eval #3375)
+  Iter 3380: E = -1.11768459 Ha (func_eval #3380)
+📊 Progress: 3380 function evals (~3380 iterations), E = -1.11768459 Ha
+  Iter 3385: E = -1.11768459 Ha (func_eval #3385)
+  Iter 3390: E = -1.11768459 Ha (func_eval #3390)
+📊 Progress: 3390 function evals (~3390 iterations), E = -1.11768459 Ha
+  Iter 3395: E = -1.11768459 Ha (func_eval #3395)
+  Iter 3400: E = -1.11768459 Ha (func_eval #3400)
+📊 Progress: 3400 function evals (~3400 iterations), E = -1.11768459 Ha
+  Iter 3405: E = -1.11768461 Ha (func_eval #3405)
+  Iter 3410: E = -1.11768461 Ha (func_eval #3410)
+📊 Progress: 3410 function evals (~3410 iterations), E = -1.11768461 Ha
+  Iter 3415: E = -1.11768461 Ha (func_eval #3415)
+  Iter 3420: E = -1.11768461 Ha (func_eval #3420)
+📊 Progress: 3420 function evals (~3420 iterations), E = -1.11768461 Ha
+  Iter 3425: E = -1.11768461 Ha (func_eval #3425)
+  Iter 3430: E = -1.11768663 Ha (func_eval #3430)
+📊 Progress: 3430 function evals (~3430 iterations), E = -1.11768663 Ha
+  Iter 3435: E = -1.11768663 Ha (func_eval #3435)
+  Iter 3440: E = -1.11768663 Ha (func_eval #3440)
+📊 Progress: 3440 function evals (~3440 iterations), E = -1.11768663 Ha
+  Iter 3445: E = -1.11768663 Ha (func_eval #3445)
+  Iter 3450: E = -1.11768663 Ha (func_eval #3450)
+📊 Progress: 3450 function evals (~3450 iterations), E = -1.11768663 Ha
+  Iter 3455: E = -1.10115960 Ha (func_eval #3455)
+  Iter 3460: E = -1.10115959 Ha (func_eval #3460)
+📊 Progress: 3460 function evals (~3460 iterations), E = -1.10115959 Ha
+  Iter 3465: E = -1.10115960 Ha (func_eval #3465)
+  Iter 3470: E = -1.10115960 Ha (func_eval #3470)
+📊 Progress: 3470 function evals (~3470 iterations), E = -1.10115960 Ha
+  Iter 3475: E = -1.10115960 Ha (func_eval #3475)
+  Iter 3480: E = -1.11376457 Ha (func_eval #3480)
+📊 Progress: 3480 function evals (~3480 iterations), E = -1.11376457 Ha
+  Iter 3485: E = -1.11376457 Ha (func_eval #3485)
+  Iter 3490: E = -1.11376457 Ha (func_eval #3490)
+📊 Progress: 3490 function evals (~3490 iterations), E = -1.11376457 Ha
+  Iter 3495: E = -1.11376457 Ha (func_eval #3495)
+  Iter 3500: E = -1.11376457 Ha (func_eval #3500)
+📊 Progress: 3500 function evals (~3500 iterations), E = -1.11376457 Ha
+  Iter 3505: E = -1.11685279 Ha (func_eval #3505)
+  Iter 3510: E = -1.11685279 Ha (func_eval #3510)
+📊 Progress: 3510 function evals (~3510 iterations), E = -1.11685279 Ha
+  Iter 3515: E = -1.11685279 Ha (func_eval #3515)
+  Iter 3520: E = -1.11685279 Ha (func_eval #3520)
+📊 Progress: 3520 function evals (~3520 iterations), E = -1.11685279 Ha
+  Iter 3525: E = -1.11685279 Ha (func_eval #3525)
+  Iter 3530: E = -1.11755469 Ha (func_eval #3530)
+📊 Progress: 3530 function evals (~3530 iterations), E = -1.11755469 Ha
+  Iter 3535: E = -1.11755469 Ha (func_eval #3535)
+  Iter 3540: E = -1.11755469 Ha (func_eval #3540)
+📊 Progress: 3540 function evals (~3540 iterations), E = -1.11755469 Ha
+  Iter 3545: E = -1.11755469 Ha (func_eval #3545)
+  Iter 3550: E = -1.11755469 Ha (func_eval #3550)
+📊 Progress: 3550 function evals (~3550 iterations), E = -1.11755469 Ha
+  Iter 3555: E = -1.11769216 Ha (func_eval #3555)
+  Iter 3560: E = -1.11769216 Ha (func_eval #3560)
+📊 Progress: 3560 function evals (~3560 iterations), E = -1.11769216 Ha
+  Iter 3565: E = -1.11769216 Ha (func_eval #3565)
+  Iter 3570: E = -1.11769216 Ha (func_eval #3570)
+📊 Progress: 3570 function evals (~3570 iterations), E = -1.11769216 Ha
+  Iter 3575: E = -1.11769216 Ha (func_eval #3575)
+  Iter 3580: E = -1.11770730 Ha (func_eval #3580)
+📊 Progress: 3580 function evals (~3580 iterations), E = -1.11770730 Ha
+  Iter 3585: E = -1.11770730 Ha (func_eval #3585)
+  Iter 3590: E = -1.11770730 Ha (func_eval #3590)
+📊 Progress: 3590 function evals (~3590 iterations), E = -1.11770730 Ha
+  Iter 3595: E = -1.11770730 Ha (func_eval #3595)
+  Iter 3600: E = -1.11770730 Ha (func_eval #3600)
+📊 Progress: 3600 function evals (~3600 iterations), E = -1.11770730 Ha
+  Iter 3605: E = -1.11770730 Ha (func_eval #3605)
+  Iter 3610: E = -1.11770730 Ha (func_eval #3610)
+📊 Progress: 3610 function evals (~3610 iterations), E = -1.11770730 Ha
+  Iter 3615: E = -1.11770730 Ha (func_eval #3615)
+  Iter 3620: E = -1.11770730 Ha (func_eval #3620)
+📊 Progress: 3620 function evals (~3620 iterations), E = -1.11770730 Ha
+  Iter 3625: E = -1.11770730 Ha (func_eval #3625)
+  Iter 3630: E = -1.11770730 Ha (func_eval #3630)
+📊 Progress: 3630 function evals (~3630 iterations), E = -1.11770730 Ha
+  Iter 3635: E = -1.11770730 Ha (func_eval #3635)
+  Iter 3640: E = -1.11770730 Ha (func_eval #3640)
+📊 Progress: 3640 function evals (~3640 iterations), E = -1.11770730 Ha
+  Iter 3645: E = -1.11770730 Ha (func_eval #3645)
+  Iter 3650: E = -1.11770730 Ha (func_eval #3650)
+📊 Progress: 3650 function evals (~3650 iterations), E = -1.11770730 Ha
+  Iter 3655: E = -1.11770737 Ha (func_eval #3655)
+  Iter 3660: E = -1.11770737 Ha (func_eval #3660)
+📊 Progress: 3660 function evals (~3660 iterations), E = -1.11770737 Ha
+  Iter 3665: E = -1.11770737 Ha (func_eval #3665)
+  Iter 3670: E = -1.11770737 Ha (func_eval #3670)
+📊 Progress: 3670 function evals (~3670 iterations), E = -1.11770737 Ha
+  Iter 3675: E = -1.11770737 Ha (func_eval #3675)
+  Iter 3680: E = -1.11770774 Ha (func_eval #3680)
+📊 Progress: 3680 function evals (~3680 iterations), E = -1.11770774 Ha
+  Iter 3685: E = -1.11770774 Ha (func_eval #3685)
+  Iter 3690: E = -1.11770774 Ha (func_eval #3690)
+📊 Progress: 3690 function evals (~3690 iterations), E = -1.11770774 Ha
+  Iter 3695: E = -1.11770774 Ha (func_eval #3695)
+  Iter 3700: E = -1.11770774 Ha (func_eval #3700)
+📊 Progress: 3700 function evals (~3700 iterations), E = -1.11770774 Ha
+  Iter 3705: E = -1.11771695 Ha (func_eval #3705)
+  Iter 3710: E = -1.11771695 Ha (func_eval #3710)
+📊 Progress: 3710 function evals (~3710 iterations), E = -1.11771695 Ha
+  Iter 3715: E = -1.11771695 Ha (func_eval #3715)
+  Iter 3720: E = -1.11771695 Ha (func_eval #3720)
+📊 Progress: 3720 function evals (~3720 iterations), E = -1.11771695 Ha
+  Iter 3725: E = -1.11771695 Ha (func_eval #3725)
+  Iter 3730: E = -1.11779366 Ha (func_eval #3730)
+📊 Progress: 3730 function evals (~3730 iterations), E = -1.11779366 Ha
+  Iter 3735: E = -1.11779366 Ha (func_eval #3735)
+  Iter 3740: E = -1.11779366 Ha (func_eval #3740)
+📊 Progress: 3740 function evals (~3740 iterations), E = -1.11779366 Ha
+  Iter 3745: E = -1.11779366 Ha (func_eval #3745)
+  Iter 3750: E = -1.11779366 Ha (func_eval #3750)
+📊 Progress: 3750 function evals (~3750 iterations), E = -1.11779366 Ha
+  Iter 3755: E = -1.11802014 Ha (func_eval #3755)
+  Iter 3760: E = -1.11802014 Ha (func_eval #3760)
+📊 Progress: 3760 function evals (~3760 iterations), E = -1.11802014 Ha
+  Iter 3765: E = -1.11802014 Ha (func_eval #3765)
+  Iter 3770: E = -1.11802014 Ha (func_eval #3770)
+📊 Progress: 3770 function evals (~3770 iterations), E = -1.11802014 Ha
+  Iter 3775: E = -1.11802014 Ha (func_eval #3775)
+  Iter 3780: E = -1.11802014 Ha (func_eval #3780)
+📊 Progress: 3780 function evals (~3780 iterations), E = -1.11802014 Ha
+  Iter 3785: E = -1.11802014 Ha (func_eval #3785)
+  Iter 3790: E = -1.11802014 Ha (func_eval #3790)
+📊 Progress: 3790 function evals (~3790 iterations), E = -1.11802014 Ha
+  Iter 3795: E = -1.11802014 Ha (func_eval #3795)
+  Iter 3800: E = -1.11802014 Ha (func_eval #3800)
+📊 Progress: 3800 function evals (~3800 iterations), E = -1.11802014 Ha
+  Iter 3805: E = -1.11804200 Ha (func_eval #3805)
+  Iter 3810: E = -1.11804200 Ha (func_eval #3810)
+📊 Progress: 3810 function evals (~3810 iterations), E = -1.11804200 Ha
+  Iter 3815: E = -1.11804200 Ha (func_eval #3815)
+  Iter 3820: E = -1.11804200 Ha (func_eval #3820)
+📊 Progress: 3820 function evals (~3820 iterations), E = -1.11804200 Ha
+  Iter 3825: E = -1.11804200 Ha (func_eval #3825)
+  Iter 3830: E = -1.11804200 Ha (func_eval #3830)
+📊 Progress: 3830 function evals (~3830 iterations), E = -1.11804200 Ha
+  Iter 3835: E = -1.11804200 Ha (func_eval #3835)
+  Iter 3840: E = -1.11804200 Ha (func_eval #3840)
+📊 Progress: 3840 function evals (~3840 iterations), E = -1.11804200 Ha
+  Iter 3845: E = -1.11804200 Ha (func_eval #3845)
+  Iter 3850: E = -1.11804200 Ha (func_eval #3850)
+📊 Progress: 3850 function evals (~3850 iterations), E = -1.11804200 Ha
+  Iter 3855: E = -1.11804200 Ha (func_eval #3855)
+  Iter 3860: E = -1.11804200 Ha (func_eval #3860)
+📊 Progress: 3860 function evals (~3860 iterations), E = -1.11804200 Ha
+  Iter 3865: E = -1.11804200 Ha (func_eval #3865)
+  Iter 3870: E = -1.11804200 Ha (func_eval #3870)
+📊 Progress: 3870 function evals (~3870 iterations), E = -1.11804200 Ha
+  Iter 3875: E = -1.11804200 Ha (func_eval #3875)
+  Iter 3880: E = -1.11804200 Ha (func_eval #3880)
+📊 Progress: 3880 function evals (~3880 iterations), E = -1.11804200 Ha
+  Iter 3885: E = -1.11804200 Ha (func_eval #3885)
+  Iter 3890: E = -1.11804200 Ha (func_eval #3890)
+📊 Progress: 3890 function evals (~3890 iterations), E = -1.11804200 Ha
+  Iter 3895: E = -1.11804200 Ha (func_eval #3895)
+  Iter 3900: E = -1.11804200 Ha (func_eval #3900)
+📊 Progress: 3900 function evals (~3900 iterations), E = -1.11804200 Ha
+  Iter 3905: E = -1.11804223 Ha (func_eval #3905)
+  Iter 3910: E = -1.11804223 Ha (func_eval #3910)
+📊 Progress: 3910 function evals (~3910 iterations), E = -1.11804223 Ha
+  Iter 3915: E = -1.11804223 Ha (func_eval #3915)
+  Iter 3920: E = -1.11804223 Ha (func_eval #3920)
+📊 Progress: 3920 function evals (~3920 iterations), E = -1.11804223 Ha
+  Iter 3925: E = -1.11804223 Ha (func_eval #3925)
+  Iter 3930: E = -1.11804336 Ha (func_eval #3930)
+📊 Progress: 3930 function evals (~3930 iterations), E = -1.11804336 Ha
+  Iter 3935: E = -1.11804336 Ha (func_eval #3935)
+  Iter 3940: E = -1.11804336 Ha (func_eval #3940)
+📊 Progress: 3940 function evals (~3940 iterations), E = -1.11804336 Ha
+  Iter 3945: E = -1.11804336 Ha (func_eval #3945)
+  Iter 3950: E = -1.11804336 Ha (func_eval #3950)
+📊 Progress: 3950 function evals (~3950 iterations), E = -1.11804336 Ha
+  Iter 3955: E = -1.11807077 Ha (func_eval #3955)
+  Iter 3960: E = -1.11807077 Ha (func_eval #3960)
+📊 Progress: 3960 function evals (~3960 iterations), E = -1.11807077 Ha
+  Iter 3965: E = -1.11807077 Ha (func_eval #3965)
+  Iter 3970: E = -1.11807077 Ha (func_eval #3970)
+📊 Progress: 3970 function evals (~3970 iterations), E = -1.11807077 Ha
+  Iter 3975: E = -1.11807077 Ha (func_eval #3975)
+  Iter 3980: E = -1.10824616 Ha (func_eval #3980)
+📊 Progress: 3980 function evals (~3980 iterations), E = -1.10824616 Ha
+  Iter 3985: E = -1.10824616 Ha (func_eval #3985)
+  Iter 3990: E = -1.10824616 Ha (func_eval #3990)
+📊 Progress: 3990 function evals (~3990 iterations), E = -1.10824616 Ha
+  Iter 3995: E = -1.10824616 Ha (func_eval #3995)
+  Iter 4000: E = -1.10824616 Ha (func_eval #4000)
+📊 Progress: 4000 function evals (~4000 iterations), E = -1.10824616 Ha
+  Iter 4005: E = -1.11643945 Ha (func_eval #4005)
+  Iter 4010: E = -1.11643945 Ha (func_eval #4010)
+📊 Progress: 4010 function evals (~4010 iterations), E = -1.11643945 Ha
+  Iter 4015: E = -1.11643945 Ha (func_eval #4015)
+  Iter 4020: E = -1.11643945 Ha (func_eval #4020)
+📊 Progress: 4020 function evals (~4020 iterations), E = -1.11643945 Ha
+  Iter 4025: E = -1.11643945 Ha (func_eval #4025)
+  Iter 4030: E = -1.11807779 Ha (func_eval #4030)
+📊 Progress: 4030 function evals (~4030 iterations), E = -1.11807779 Ha
+  Iter 4035: E = -1.11807779 Ha (func_eval #4035)
+  Iter 4040: E = -1.11807779 Ha (func_eval #4040)
+📊 Progress: 4040 function evals (~4040 iterations), E = -1.11807779 Ha
+  Iter 4045: E = -1.11807779 Ha (func_eval #4045)
+  Iter 4050: E = -1.11807779 Ha (func_eval #4050)
+📊 Progress: 4050 function evals (~4050 iterations), E = -1.11807779 Ha
+  Iter 4055: E = -1.11828008 Ha (func_eval #4055)
+  Iter 4060: E = -1.11828008 Ha (func_eval #4060)
+📊 Progress: 4060 function evals (~4060 iterations), E = -1.11828008 Ha
+  Iter 4065: E = -1.11828008 Ha (func_eval #4065)
+  Iter 4070: E = -1.11828008 Ha (func_eval #4070)
+📊 Progress: 4070 function evals (~4070 iterations), E = -1.11828008 Ha
+  Iter 4075: E = -1.11828008 Ha (func_eval #4075)
+  Iter 4080: E = -1.11828008 Ha (func_eval #4080)
+📊 Progress: 4080 function evals (~4080 iterations), E = -1.11828008 Ha
+  Iter 4085: E = -1.11828008 Ha (func_eval #4085)
+  Iter 4090: E = -1.11828008 Ha (func_eval #4090)
+📊 Progress: 4090 function evals (~4090 iterations), E = -1.11828008 Ha
+  Iter 4095: E = -1.11828008 Ha (func_eval #4095)
+  Iter 4100: E = -1.11828008 Ha (func_eval #4100)
+📊 Progress: 4100 function evals (~4100 iterations), E = -1.11828008 Ha
+  Iter 4105: E = -1.11828008 Ha (func_eval #4105)
+  Iter 4110: E = -1.11828008 Ha (func_eval #4110)
+📊 Progress: 4110 function evals (~4110 iterations), E = -1.11828008 Ha
+  Iter 4115: E = -1.11828008 Ha (func_eval #4115)
+  Iter 4120: E = -1.11828008 Ha (func_eval #4120)
+📊 Progress: 4120 function evals (~4120 iterations), E = -1.11828008 Ha
+  Iter 4125: E = -1.11828008 Ha (func_eval #4125)
+  Iter 4130: E = -1.11828026 Ha (func_eval #4130)
+📊 Progress: 4130 function evals (~4130 iterations), E = -1.11828026 Ha
+  Iter 4135: E = -1.11828026 Ha (func_eval #4135)
+  Iter 4140: E = -1.11828026 Ha (func_eval #4140)
+📊 Progress: 4140 function evals (~4140 iterations), E = -1.11828026 Ha
+  Iter 4145: E = -1.11828026 Ha (func_eval #4145)
+  Iter 4150: E = -1.11828026 Ha (func_eval #4150)
+📊 Progress: 4150 function evals (~4150 iterations), E = -1.11828026 Ha
+  Iter 4155: E = -1.11828115 Ha (func_eval #4155)
+  Iter 4160: E = -1.11828115 Ha (func_eval #4160)
+📊 Progress: 4160 function evals (~4160 iterations), E = -1.11828115 Ha
+  Iter 4165: E = -1.11828115 Ha (func_eval #4165)
+  Iter 4170: E = -1.11828115 Ha (func_eval #4170)
+📊 Progress: 4170 function evals (~4170 iterations), E = -1.11828115 Ha
+  Iter 4175: E = -1.11828115 Ha (func_eval #4175)
+  Iter 4180: E = -1.11830131 Ha (func_eval #4180)
+📊 Progress: 4180 function evals (~4180 iterations), E = -1.11830131 Ha
+  Iter 4185: E = -1.11830131 Ha (func_eval #4185)
+  Iter 4190: E = -1.11830131 Ha (func_eval #4190)
+📊 Progress: 4190 function evals (~4190 iterations), E = -1.11830131 Ha
+  Iter 4195: E = -1.11830131 Ha (func_eval #4195)
+  Iter 4200: E = -1.11830131 Ha (func_eval #4200)
+📊 Progress: 4200 function evals (~4200 iterations), E = -1.11830131 Ha
+  Iter 4205: E = -1.09015065 Ha (func_eval #4205)
+  Iter 4210: E = -1.09015065 Ha (func_eval #4210)
+📊 Progress: 4210 function evals (~4210 iterations), E = -1.09015065 Ha
+  Iter 4215: E = -1.09015065 Ha (func_eval #4215)
+  Iter 4220: E = -1.09015065 Ha (func_eval #4220)
+📊 Progress: 4220 function evals (~4220 iterations), E = -1.09015065 Ha
+  Iter 4225: E = -1.09015065 Ha (func_eval #4225)
+  Iter 4230: E = -1.11168636 Ha (func_eval #4230)
+📊 Progress: 4230 function evals (~4230 iterations), E = -1.11168636 Ha
+  Iter 4235: E = -1.11168636 Ha (func_eval #4235)
+  Iter 4240: E = -1.11168636 Ha (func_eval #4240)
+📊 Progress: 4240 function evals (~4240 iterations), E = -1.11168636 Ha⚠️  Analysis disabled - enable_analysis=False, molecule=False
+
+  Iter 4245: E = -1.11168636 Ha (func_eval #4245)
+  Iter 4250: E = -1.11168636 Ha (func_eval #4250)
+📊 Progress: 4250 function evals (~4250 iterations), E = -1.11168636 Ha
+  Iter 4255: E = -1.11692041 Ha (func_eval #4255)
+  Iter 4260: E = -1.11692041 Ha (func_eval #4260)
+📊 Progress: 4260 function evals (~4260 iterations), E = -1.11692041 Ha
+  Iter 4265: E = -1.11692041 Ha (func_eval #4265)
+  Iter 4270: E = -1.11692041 Ha (func_eval #4270)
+📊 Progress: 4270 function evals (~4270 iterations), E = -1.11692041 Ha
+  Iter 4275: E = -1.11692041 Ha (func_eval #4275)
+  Iter 4280: E = -1.11809704 Ha (func_eval #4280)
+📊 Progress: 4280 function evals (~4280 iterations), E = -1.11809704 Ha
+  Iter 4285: E = -1.11809703 Ha (func_eval #4285)
+  Iter 4290: E = -1.11809704 Ha (func_eval #4290)
+📊 Progress: 4290 function evals (~4290 iterations), E = -1.11809704 Ha
+  Iter 4295: E = -1.11809704 Ha (func_eval #4295)
+  Iter 4300: E = -1.11809704 Ha (func_eval #4300)
+📊 Progress: 4300 function evals (~4300 iterations), E = -1.11809704 Ha
+  Iter 4305: E = -1.11832108 Ha (func_eval #4305)
+  Iter 4310: E = -1.11832108 Ha (func_eval #4310)
+📊 Progress: 4310 function evals (~4310 iterations), E = -1.11832108 Ha
+  Iter 4315: E = -1.11832108 Ha (func_eval #4315)
+  Iter 4320: E = -1.11832108 Ha (func_eval #4320)
+📊 Progress: 4320 function evals (~4320 iterations), E = -1.11832108 Ha
+  Iter 4325: E = -1.11832108 Ha (func_eval #4325)
+  Iter 4330: E = -1.11834170 Ha (func_eval #4330)
+📊 Progress: 4330 function evals (~4330 iterations), E = -1.11834170 Ha
+  Iter 4335: E = -1.11834170 Ha (func_eval #4335)
+  Iter 4340: E = -1.11834170 Ha (func_eval #4340)
+📊 Progress: 4340 function evals (~4340 iterations), E = -1.11834170 Ha
+  Iter 4345: E = -1.11834170 Ha (func_eval #4345)
+  Iter 4350: E = -1.11834170 Ha (func_eval #4350)
+📊 Progress: 4350 function evals (~4350 iterations), E = -1.11834170 Ha
+  Iter 4355: E = -1.11834170 Ha (func_eval #4355)
+  Iter 4360: E = -1.11834170 Ha (func_eval #4360)
+📊 Progress: 4360 function evals (~4360 iterations), E = -1.11834170 Ha
+  Iter 4365: E = -1.11834170 Ha (func_eval #4365)
+  Iter 4370: E = -1.11834170 Ha (func_eval #4370)
+📊 Progress: 4370 function evals (~4370 iterations), E = -1.11834170 Ha
+  Iter 4375: E = -1.11834170 Ha (func_eval #4375)
+  Iter 4380: E = -1.11834252 Ha (func_eval #4380)
+📊 Progress: 4380 function evals (~4380 iterations), E = -1.11834252 Ha
+  Iter 4385: E = -1.11834252 Ha (func_eval #4385)
+  Iter 4390: E = -1.11834252 Ha (func_eval #4390)
+📊 Progress: 4390 function evals (~4390 iterations), E = -1.11834252 Ha
+  Iter 4395: E = -1.11834252 Ha (func_eval #4395)
+  Iter 4400: E = -1.11834252 Ha (func_eval #4400)
+📊 Progress: 4400 function evals (~4400 iterations), E = -1.11834252 Ha
+converged SCF energy = -1.11729321718008
+Dipole moment(X, Y, Z, Debye): -0.00000,  0.00000,  0.00000
+
+✅ VQE Completed
+  VQE energy:      -1.11834252 Ha
+  HF energy:       -1.11729322 Ha
+  Correlation:     -0.00104930 Ha (-0.6584 kcal/mol)
+  Iterations:      19 (callback logged: 4400)
+  Func evals:      4400 (callback counted: 4400)
+  Converged:       True
+  Time:            7.11s
+
+================================================================================
+SUMMARY - ALL OPTIMIZERS
+================================================================================
+
+Optimizer       Requested  Actual     Func Evals   Correlation     Status    
+--------------------------------------------------------------------------------
+COBYLA          30         30         30           0.002486        ✅ PASS    
+Powell          25         6          1931         -0.018760       ✅ PASS    
+L-BFGS-B        20         15         550          -0.018755       ✅ PASS    
+SLSQP           15         15         401          -0.018730       ✅ PASS    
+Nelder-Mead     30         30         56           0.012543        ✅ PASS    
+CG              25         25         1075         -0.018746       ✅ PASS    
+BFGS            20         20         575          -0.018741       ✅ PASS    
+TNC             20         19         4400         -0.001049       ✅ PASS    
+
+================================================================================
+DETAILED ANALYSIS
+================================================================================
+
+📊 Success Rate: 8/8 (100.0%)
+
+✅ Working Optimizers (8):
+   COBYLA          - Limit respected: ✓, Optimization: ✓
+      Derivative-free, fast (RECOMMENDED)
+      Iterations: 30/30, Correlation: 0.00248568 Ha
+   Powell          - Limit respected: ✓, Optimization: ✓
+      Good for smooth landscapes
+      Iterations: 6/25, Correlation: -0.01876017 Ha
+   L-BFGS-B        - Limit respected: ✓, Optimization: ✓
+      For large parameter spaces
+      Iterations: 15/20, Correlation: -0.01875538 Ha
+   SLSQP           - Limit respected: ✓, Optimization: ✓
+      Sequential Least Squares (expensive)
+      Iterations: 15/15, Correlation: -0.01873035 Ha
+   Nelder-Mead     - Limit respected: ✓, Optimization: ✓
+      Simplex method
+      Iterations: 30/30, Correlation: 0.01254267 Ha
+   CG              - Limit respected: ✓, Optimization: ✓
+      Conjugate Gradient
+      Iterations: 25/25, Correlation: -0.01874567 Ha
+   BFGS            - Limit respected: ✓, Optimization: ✓
+      Standard BFGS
+      Iterations: 20/20, Correlation: -0.01874120 Ha
+   TNC             - Limit respected: ✓, Optimization: ✓
+      Truncated Newton
+      Iterations: 19/20, Correlation: -0.00104930 Ha
+
+🔍 HARDCODING CHECK:
+   ✅ No hardcoding detected - iterations properly controlled by user input
+
+⚡ Performance Comparison:
+   Best correlation:
+      1. Powell: -0.01876017 Ha in 3.10s
+      2. L-BFGS-B: -0.01875538 Ha in 1.01s
+      3. CG: -0.01874567 Ha in 1.71s
+   Fastest:
+      1. Nelder-Mead: 0.10s (correlation: 0.01254267 Ha)
+      2. SLSQP: 0.71s (correlation: -0.01873035 Ha)
+      3. L-BFGS-B: 1.01s (correlation: -0.01875538 Ha)
+
+================================================================================
+✅ EXCELLENT: Most optimizers working!

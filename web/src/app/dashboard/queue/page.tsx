@@ -157,24 +157,15 @@ export default function QueuePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard">
-              <button className="p-2 hover:bg-accent rounded-lg transition">
-                <ArrowLeft className="w-6 h-6" />
-              </button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-quando font-bold">
-                Experiment Queue
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Manage and execute experiments sequentially
-              </p>
-            </div>
+    <div className="h-full flex flex-col bg-background overflow-hidden">
+      {/* Header */}
+      <div className="px-8 pt-4 pb-3 border-b border-border flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-quando font-bold tracking-tight">Job Queue</h1>
+            <p className="text-muted-foreground font-quando text-xs mt-1">
+              Manage and execute experiments sequentially
+            </p>
           </div>
 
           <Link href="/dashboard">
@@ -184,144 +175,149 @@ export default function QueuePage() {
             </button>
           </Link>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-card border border-border rounded-lg p-6">
-            <p className="text-sm text-muted-foreground font-quando mb-1">
-              Total in Queue
-            </p>
-            <p className="text-3xl font-quando font-bold">{queue.length}</p>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-6">
-            <p className="text-sm text-muted-foreground font-quando mb-1">
-              Status
-            </p>
-            <p className="text-lg font-quando font-bold text-blue-600">
-              {queue.length > 0 ? "Ready" : "Empty"}
-            </p>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-6">
-            <p className="text-sm text-muted-foreground font-quando mb-1">
-              Estimated Time
-            </p>
-            <p className="text-lg font-quando font-bold">
-              ~{queue.length * 2} min
-            </p>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-6">
-            <p className="text-sm text-muted-foreground font-quando mb-1">
-              Mode
-            </p>
-            <p className="text-lg font-quando font-bold">Sequential</p>
-          </div>
-        </div>
-
-        {/* Execute Buttons */}
-        {queue.length > 0 && (
-          <div className="bg-card border border-border rounded-lg p-6 mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-quando font-semibold mb-2">
-                  Execute Campaign
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Run all {queue.length} experiments sequentially as one batch
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCampaignDialog(true)}
-                  className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition font-quando"
-                  disabled={isExecuting || isCreatingCampaign}
-                >
-                  Name & Execute
-                </button>
-                <button
-                  onClick={handleQuickExecute}
-                  className="px-6 py-3 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando flex items-center gap-2"
-                  disabled={isExecuting || isCreatingCampaign}
-                >
-                  {isExecuting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Starting...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-5 h-5" />
-                      Quick Execute
-                    </>
-                  )}
-                </button>
-              </div>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col p-6 overflow-hidden">
+        <div className="flex-1 overflow-y-auto space-y-6">
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="bg-card border border-border rounded-lg p-6">
+              <p className="text-sm text-muted-foreground font-quando mb-1">
+                Total in Queue
+              </p>
+              <p className="text-3xl font-quando font-bold">{queue.length}</p>
             </div>
-          </div>
-        )}
-
-        {/* Queue List */}
-        {queue.length === 0 ? (
-          <div className="bg-card border border-border rounded-lg p-12 flex flex-col items-center justify-center text-center">
-            <CheckCircle className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-quando font-semibold mb-2">
-              No experiments in queue
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              Start creating experiments to build your queue
-            </p>
-            <Link href="/dashboard">
-              <button className="px-6 py-3 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando">
-                Create Experiment
-              </button>
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-quando font-semibold">
-                Queued Experiments ({queue.length})
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Drag to reorder execution sequence
+            <div className="bg-card border border-border rounded-lg p-6">
+              <p className="text-sm text-muted-foreground font-quando mb-1">
+                Status
+              </p>
+              <p className="text-lg font-quando font-bold text-blue-600">
+                {queue.length > 0 ? "Ready" : "Empty"}
               </p>
             </div>
-
-            {queue.map((exp, index) => (
-              <div
-                key={exp.id}
-                draggable
-                onDragStart={() => handleDragStart(index)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDragEnd={handleDragEnd}
-                className={`bg-card border border-border rounded-lg p-4 flex items-center gap-4 hover:border-brand-orange transition cursor-move ${
-                  draggedIndex === index ? "opacity-50" : ""
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <GripVertical className="w-5 h-5 text-muted-foreground" />
-                  <div className="w-8 h-8 rounded-full bg-brand-orange/10 text-brand-orange flex items-center justify-center font-semibold">
-                    {index + 1}
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <h3 className="font-quando font-semibold">{exp.name || "Unnamed Experiment"}</h3>
-                  <div className="flex gap-4 text-sm text-muted-foreground mt-1">
-                    <span>Method: {exp.method}</span>
-                    <span>Backend: {exp.backend}</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => handleRemoveFromQueue(exp.id)}
-                  className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition text-red-600"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <p className="text-sm text-muted-foreground font-quando mb-1">
+                Estimated Time
+              </p>
+              <p className="text-lg font-quando font-bold">
+                ~{queue.length * 2} min
+              </p>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-6">
+              <p className="text-sm text-muted-foreground font-quando mb-1">
+                Mode
+              </p>
+              <p className="text-lg font-quando font-bold">Sequential</p>
+            </div>
           </div>
-        )}
+
+          {/* Execute Buttons */}
+          {queue.length > 0 && (
+            <div className="bg-card border border-border rounded-lg p-6 mb-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-quando font-semibold mb-2">
+                    Execute Campaign
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Run all {queue.length} experiments sequentially as one batch
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowCampaignDialog(true)}
+                    className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition font-quando"
+                    disabled={isExecuting || isCreatingCampaign}
+                  >
+                    Name & Execute
+                  </button>
+                  <button
+                    onClick={handleQuickExecute}
+                    className="px-6 py-3 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando flex items-center gap-2"
+                    disabled={isExecuting || isCreatingCampaign}
+                  >
+                    {isExecuting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Starting...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-5 h-5" />
+                        Quick Execute
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Queue List */}
+          {queue.length === 0 ? (
+            <div className="bg-card border border-border rounded-lg p-12 flex flex-col items-center justify-center text-center">
+              <CheckCircle className="w-16 h-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-quando font-semibold mb-2">
+                No experiments in queue
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                Start creating experiments to build your queue
+              </p>
+              <Link href="/dashboard">
+                <button className="px-6 py-3 bg-brand-orange text-white rounded-lg hover:bg-brand-orange-dark transition font-quando">
+                  Create Experiment
+                </button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-quando font-semibold">
+                  Queued Experiments ({queue.length})
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Drag to reorder execution sequence
+                </p>
+              </div>
+
+              {queue.map((exp, index) => (
+                <div
+                  key={exp.id}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`bg-card border border-border rounded-lg p-4 flex items-center gap-4 hover:border-brand-orange transition cursor-move ${
+                    draggedIndex === index ? "opacity-50" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <GripVertical className="w-5 h-5 text-muted-foreground" />
+                    <div className="w-8 h-8 rounded-full bg-brand-orange/10 text-brand-orange flex items-center justify-center font-semibold">
+                      {index + 1}
+                    </div>
+                  </div>
+
+                  <div className="flex-1">
+                    <h3 className="font-quando font-semibold">{exp.name || "Unnamed Experiment"}</h3>
+                    <div className="flex gap-4 text-sm text-muted-foreground mt-1">
+                      <span>Method: {exp.method}</span>
+                      <span>Backend: {exp.backend}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleRemoveFromQueue(exp.id)}
+                    className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition text-red-600"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Campaign Name Dialog */}

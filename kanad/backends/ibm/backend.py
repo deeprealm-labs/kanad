@@ -19,12 +19,17 @@ class IBMBackend:
     Supports:
     - Real quantum hardware (127+ qubits)
     - Cloud simulators
-    - Batch mode (for non-premium users)
-    - Qiskit Runtime primitives
+    - Batch mode (parallel independent jobs)
+    - Session mode (reserved hardware for iterative algorithms)
+    - Qiskit Runtime primitives (SamplerV2, EstimatorV2)
 
     Usage:
+        # Batch mode (for independent jobs)
         backend = IBMBackend(backend_name='ibm_brisbane')
         results = backend.run_batch(circuits, observables)
+
+        # Session mode (for Hi-VQE and iterative algorithms)
+        results = backend.run_session(circuits, observables, max_time='1h')
     """
 
     def __init__(
@@ -120,6 +125,145 @@ class IBMBackend:
         logger.info(f"  Qubits: {self.backend.num_qubits}")
         logger.info(f"  Quantum: {not self.backend.simulator}")
 
+    def run_session(
+        self,
+        circuits: Union[List, 'QuantumCircuit'],
+        observables: Optional[List] = None,
+        shots: int = 1024,
+        optimization_level: int = 1,
+        resilience_level: int = 1,
+        max_time: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Run circuits in session mode (reserved hardware access).
+
+        Session mode is ideal for Hi-VQE and other iterative algorithms that
+        require sequential job execution with priority queue access.
+
+        Args:
+            circuits: Quantum circuit(s) to run
+            observables: Observable(s) for Estimator (optional)
+            shots: Number of measurement shots
+            optimization_level: Transpilation optimization (0-3)
+            resilience_level: Error mitigation level (0-2)
+            max_time: Maximum session time (e.g., '1h', '30m', '2h')
+                     If None, uses default session timeout
+
+        Returns:
+            Results dictionary with job ID and session context
+        """
+        from qiskit_ibm_runtime import Session, SamplerV2 as Sampler, EstimatorV2 as Estimator
+        from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+
+        # Ensure circuits is a list
+        if not isinstance(circuits, list):
+            circuits = [circuits]
+
+        logger.info(f"Running session on {self.backend.name}")
+        logger.info(f"  Circuits: {len(circuits)}")
+        logger.info(f"  Shots: {shots}")
+        logger.info(f"  Max time: {max_time or 'default'}")
+
+        # Transpile circuits for target hardware
+        logger.info(f"  Transpiling circuits (optimization_level={optimization_level})...")
+        pm = generate_preset_pass_manager(
+            backend=self.backend,
+            optimization_level=optimization_level
+        )
+        transpiled_circuits = pm.run(circuits)
+        logger.info(f"  Transpilation complete")
+
+        # Expand observables to match transpiled circuit size if needed
+        if observables is not None:
+            transpiled_observables = []
+            for i, (circuit, observable) in enumerate(zip(transpiled_circuits, observables)):
+                original_qubits = circuits[i].num_qubits
+                transpiled_qubits = circuit.num_qubits
+
+                if transpiled_qubits > original_qubits:
+                    # Pad observable with identity operators
+                    padding = "I" * (transpiled_qubits - original_qubits)
+                    padded_terms = []
+                    for pauli_str, coeff in observable.to_list():
+                        padded_pauli = pauli_str + padding
+                        padded_terms.append((padded_pauli, coeff))
+
+                    from qiskit.quantum_info import SparsePauliOp
+                    padded_observable = SparsePauliOp.from_list(padded_terms)
+                    transpiled_observables.append(padded_observable)
+                else:
+                    transpiled_observables.append(observable)
+
+            observables = transpiled_observables
+
+        try:
+            # Build session parameters
+            session_params = {'backend': self.backend}
+            if max_time:
+                session_params['max_time'] = max_time
+
+            with Session(**session_params) as session:
+                if observables is not None:
+                    # Use Estimator for energy expectation values
+                    estimator = Estimator(session=session)
+
+                    # Set options (V2 primitives)
+                    estimator.options.default_shots = shots
+
+                    # Apply error mitigation (resilience_level sets baseline)
+                    estimator.options.resilience_level = resilience_level
+
+                    # Enhanced error mitigation options for Qiskit Runtime
+                    if resilience_level >= 1:
+                        estimator.options.resilience.measure_mitigation = True
+                        logger.info(f"  Error mitigation enabled (level {resilience_level})")
+
+                    if resilience_level >= 2:
+                        estimator.options.resilience.zne_mitigation = True
+                        estimator.options.resilience.zne.noise_factors = [1.0, 1.5, 2.0]
+                        estimator.options.resilience.zne.extrapolator = 'exponential'
+                        logger.info(f"  ZNE enabled: exponential extrapolation")
+
+                    logger.info("Using Estimator primitive (session mode)")
+
+                    # Build pub (circuit, observable) tuples with transpiled circuits
+                    pubs = [(transpiled_circuits[i], observables[i]) for i in range(len(transpiled_circuits))]
+
+                    job = estimator.run(pubs)
+
+                    # Return job and session info
+                    return {
+                        'job_id': job.job_id(),
+                        'status': str(job.status()),
+                        'backend': self.backend.name,
+                        'session_id': session.session_id,
+                        'mode': 'session'
+                    }
+
+                else:
+                    # Use Sampler for measurement counts
+                    sampler = Sampler(session=session)
+
+                    # Set options
+                    sampler.options.default_shots = shots
+
+                    logger.info("Using Sampler primitive (session mode)")
+
+                    job = sampler.run(transpiled_circuits)
+
+                    # Return job and session info
+                    return {
+                        'job_id': job.job_id(),
+                        'status': str(job.status()),
+                        'backend': self.backend.name,
+                        'session_id': session.session_id,
+                        'mode': 'session'
+                    }
+
+        except Exception as e:
+            logger.error(f"IBM session execution failed: {e}")
+            raise
+
     def run_batch(
         self,
         circuits: Union[List, 'QuantumCircuit'],
@@ -192,10 +336,22 @@ class IBMBackend:
 
                     # Set options (V2 primitives)
                     estimator.options.default_shots = shots
-                    # Note: optimization_level moved to transpilation
-                    # resilience_level available as resilience option
 
-                    logger.info("Using Estimator primitive")
+                    # Apply error mitigation (resilience_level sets baseline)
+                    estimator.options.resilience_level = resilience_level
+
+                    # Enhanced error mitigation options for Qiskit Runtime
+                    if resilience_level >= 1:
+                        estimator.options.resilience.measure_mitigation = True
+                        logger.info(f"  Error mitigation enabled (level {resilience_level})")
+
+                    if resilience_level >= 2:
+                        estimator.options.resilience.zne_mitigation = True
+                        estimator.options.resilience.zne.noise_factors = [1.0, 1.5, 2.0]
+                        estimator.options.resilience.zne.extrapolator = 'exponential'
+                        logger.info(f"  ZNE enabled: exponential extrapolation")
+
+                    logger.info("Using Estimator primitive (batch mode)")
 
                     # Build pub (circuit, observable) tuples with transpiled circuits
                     pubs = [(transpiled_circuits[i], observables[i]) for i in range(len(transpiled_circuits))]
@@ -206,7 +362,8 @@ class IBMBackend:
                     return {
                         'job_id': job.job_id(),
                         'status': str(job.status()),
-                        'backend': self.backend.name
+                        'backend': self.backend.name,
+                        'mode': 'batch'
                     }
 
                 else:
@@ -224,7 +381,8 @@ class IBMBackend:
                     return {
                         'job_id': job.job_id(),
                         'status': str(job.status()),
-                        'backend': self.backend.name
+                        'backend': self.backend.name,
+                        'mode': 'batch'
                     }
 
         except Exception as e:

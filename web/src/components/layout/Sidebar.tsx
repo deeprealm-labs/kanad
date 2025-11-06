@@ -5,6 +5,7 @@ import { useState } from "react";
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
 
   return (
     <>
@@ -18,24 +19,31 @@ export default function Sidebar() {
         </svg>
       </button>
 
+      {/* Hover Area for Desktop Sidebar (left edge trigger) */}
+      <div
+        className="hidden md:block fixed left-0 top-0 bottom-0 w-8 z-50"
+        onMouseEnter={() => setSidebarVisible(true)}
+      />
+
       {/* Sidebar */}
       <aside
         className={`
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
-          md:translate-x-0
-          fixed md:relative
+          fixed
           z-40
           w-72
           h-screen
           bg-black dark:bg-black
-       31 -            text-white dark:text-white
+          text-white dark:text-white
           flex
           flex-col
           transition-transform
           duration-300
-          border-r border-border
-          rounded-lg
+          ease-in-out
+          border-r border-gray-800
+          shadow-2xl
+          ${isOpen || sidebarVisible ? "translate-x-0" : "-translate-x-full"}
         `}
+        onMouseLeave={() => setSidebarVisible(false)}
       >
         {/* Navigation */}
         <nav className="flex-1 p-4 pt-6">
@@ -80,9 +88,9 @@ export default function Sidebar() {
           </div>
         </nav>
 
-        {/* Kanad Logo at Bottom - Much Bigger, Covers Sidebar Width */}
-        <div className="p-4 border-t border-gray-800">
-          <h1 className="font-bietro text-7xl text-brand-orange leading-none ">
+        {/* Kanad Logo at Bottom - Centered and Prominent */}
+        <div className="p-6 border-t border-gray-800 flex items-center justify-center">
+          <h1 className="font-bietro text-7xl text-brand-orange leading-none text-center">
             kanad
           </h1>
         </div>

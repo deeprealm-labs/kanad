@@ -1,11 +1,16 @@
 """
 Unitary Coupled Cluster (UCC) ansatz.
 
-Gold standard ansatz for quantum chemistry VQE.
+⚠️ DEPRECATED: This ansatz is deprecated and will be removed in v2.0.
+Use CovalentGovernanceAnsatz, IonicGovernanceAnsatz, or HardwareEfficientAnsatz instead.
+
+Reason: UCC family shows poor performance (0 mHa correlation) compared to governance
+ansätze which achieve 49x better results on ionic molecules.
 """
 
 from typing import List, Tuple, Optional
 import numpy as np
+import warnings
 from kanad.ansatze.base_ansatz import BaseAnsatz, QuantumCircuit, Parameter
 
 
@@ -39,6 +44,13 @@ class UCCAnsatz(BaseAnsatz):
         """
         Initialize UCC ansatz.
 
+        ⚠️ DEPRECATED: UCCAnsatz is deprecated and will be removed in v2.0.
+
+        Recommended alternatives:
+        - For ionic molecules: CovalentGovernanceAnsatz (49x better performance)
+        - For covalent molecules: HardwareEfficientAnsatz (80% success rate)
+        - For mixed character: AdaptiveGovernanceAnsatz
+
         Args:
             n_qubits: Number of qubits
             n_electrons: Number of electrons
@@ -46,6 +58,14 @@ class UCCAnsatz(BaseAnsatz):
             include_singles: Include single excitations
             include_doubles: Include double excitations
         """
+        warnings.warn(
+            "UCCAnsatz is deprecated and will be removed in v2.0. "
+            "Use CovalentGovernanceAnsatz (49x better on ionic molecules), "
+            "IonicGovernanceAnsatz, or HardwareEfficientAnsatz instead. "
+            "UCC family shows 0 mHa correlation in our implementation.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         super().__init__(n_qubits, n_electrons)
         self.include_singles = include_singles
         self.include_doubles = include_doubles

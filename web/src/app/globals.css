@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../styles/design-tokens.css";
+/* NOTE: professional-theme.css is scoped and imported only where needed */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -149,6 +151,7 @@
     font-family: 'Quando', serif;
   }
 
+  /* Professional brand utilities */
   .text-brand-orange {
     color: #cf5a06;
   }

@@ -12,6 +12,7 @@
     "3dmol": "^2.5.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.545.0",
     "next": "15.5.4",
     "next-themes": "^0.4.6",

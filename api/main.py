@@ -39,6 +39,7 @@ from api.routes import (
     auth,  # Authentication routes
     admin,  # Admin dashboard routes
     users,  # User profile and account management
+    applications,  # Application domain platforms
 )
 from api.core.config import get_settings
 from api.core.database import init_db, cleanup_stuck_experiments
@@ -129,6 +130,7 @@ app.include_router(library.router, prefix="/api/library", tags=["Library"])
 app.include_router(cloud.router, prefix="/api/cloud", tags=["Cloud"])
 app.include_router(configuration.router, prefix="/api/configuration", tags=["Configuration"])
 app.include_router(circuits.router, prefix="/api/circuits", tags=["Circuits"])
+app.include_router(applications.router, prefix="/api/applications", tags=["Applications"])
 
 
 @app.exception_handler(HTTPException)

@@ -52,6 +52,25 @@ class TwoLocalAnsatz(BaseAnsatz):
         self.entanglement = entanglement
         self.entanglement_gate = entanglement_gate
 
+    @property
+    def n_parameters(self) -> int:
+        """
+        Calculate total number of parameters in the circuit.
+
+        Returns:
+            Number of variational parameters
+        """
+        # Parameters per rotation layer
+        if self.rotation_gates == 'full':
+            params_per_layer = self.n_qubits * 3  # RZ-RY-RZ per qubit
+        else:
+            params_per_layer = self.n_qubits  # Single rotation per qubit
+
+        # Total layers: n_layers + 1 final rotation layer
+        total_params = params_per_layer * (self.n_layers + 1)
+
+        return total_params
+
     def build_circuit(self, initial_state: Optional[List[int]] = None) -> QuantumCircuit:
         """
         Build TwoLocal circuit.

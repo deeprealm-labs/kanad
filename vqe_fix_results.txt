@@ -1,0 +1,155 @@
+Could not compute HF reference: 'SparsePauliOp' object has no attribute 'solve_scf'
+Using SLOW dense matrix Hamiltonian - consider using sparse method
+Traceback (most recent call last):
+  File "/home/mk/deeprealm/kanad/tests/test_vqe_fix.py", line 93, in run_vqe_test
+    result = solver.solve(callback=callback)
+  File "/home/mk/deeprealm/kanad/kanad/utils/vqe_solver.py", line 1183, in solve
+    result = minimize(
+        self._objective_function,
+    ...<3 lines>...
+        tol=self.conv_threshold
+    )
+  File "/home/mk/deeprealm/kanad/env/lib/python3.13/site-packages/scipy/optimize/_minimize.py", line 790, in minimize
+    res = _minimize_cobyla(fun, x0, args, constraints, callback=callback,
+                           bounds=bounds, **options)
+  File "/home/mk/deeprealm/kanad/env/lib/python3.13/site-packages/scipy/optimize/_cobyla_py.py", line 246, in _minimize_cobyla
+    sf = _prepare_scalar_function(fun, x0, args=args, jac=_jac)
+  File "/home/mk/deeprealm/kanad/env/lib/python3.13/site-packages/scipy/optimize/_optimize.py", line 310, in _prepare_scalar_function
+    sf = ScalarFunction(fun, x0, args, grad, hess,
+                        finite_diff_rel_step, bounds, epsilon=epsilon,
+                        workers=workers)
+  File "/home/mk/deeprealm/kanad/env/lib/python3.13/site-packages/scipy/optimize/_differentiable_functions.py", line 274, in __init__
+    self._update_fun()
+    ~~~~~~~~~~~~~~~~^^
+  File "/home/mk/deeprealm/kanad/env/lib/python3.13/site-packages/scipy/optimize/_differentiable_functions.py", line 353, in _update_fun
+    fx = self._wrapped_fun(self.x)
+  File "/home/mk/deeprealm/kanad/env/lib/python3.13/site-packages/scipy/_lib/_util.py", line 590, in __call__
+    fx = self.f(np.copy(x), *self.args)
+  File "/home/mk/deeprealm/kanad/kanad/utils/vqe_solver.py", line 1077, in _objective_function
+    energy = self._compute_energy(parameters)
+  File "/home/mk/deeprealm/kanad/kanad/utils/vqe_solver.py", line 436, in _compute_energy
+    return self._compute_energy_statevector(parameters)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/home/mk/deeprealm/kanad/kanad/utils/vqe_solver.py", line 558, in _compute_energy_statevector
+    full_n_qubits = 2 * self.hamiltonian.n_orbitals
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SparsePauliOp' object has no attribute 'n_orbitals'
+Could not compute HF reference: 'SparsePauliOp' object has no attribute 'solve_scf'
+Using SLOW dense matrix Hamiltonian - consider using sparse method
+Traceback (most recent call last):
+  File "/home/mk/deeprealm/kanad/tests/test_vqe_fix.py", line 93, in run_vqe_test
+    result = solver.solve(callback=callback)
+  File "/home/mk/deeprealm/kanad/kanad/utils/vqe_solver.py", line 1183, in solve
+    result = minimize(
+        self._objective_function,
+    ...<3 lines>...
+        tol=self.conv_threshold
+    )
+  File "/home/mk/deeprealm/kanad/env/lib/python3.13/site-packages/scipy/optimize/_minimize.py", line 775, in minimize
+    res = _minimize_powell(fun, x0, args, callback, bounds, **options)
+  File "/home/mk/deeprealm/kanad/env/lib/python3.13/site-packages/scipy/optimize/_optimize.py", line 3556, in _minimize_powell
+    fval = func(x)
+  File "/home/mk/deeprealm/kanad/env/lib/python3.13/site-packages/scipy/optimize/_optimize.py", line 560, in function_wrapper
+    fx = function(np.copy(x), *(wrapper_args + args))
+  File "/home/mk/deeprealm/kanad/kanad/utils/vqe_solver.py", line 1077, in _objective_function
+    energy = self._compute_energy(parameters)
+  File "/home/mk/deeprealm/kanad/kanad/utils/vqe_solver.py", line 436, in _compute_energy
+    return self._compute_energy_statevector(parameters)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/home/mk/deeprealm/kanad/kanad/utils/vqe_solver.py", line 558, in _compute_energy_statevector
+    full_n_qubits = 2 * self.hamiltonian.n_orbitals
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SparsePauliOp' object has no attribute 'n_orbitals'
+
+================================================================================
+VQE OPTIMIZATION FIX - DIAGNOSTIC SUITE
+================================================================================
+
+================================================================================
+TEST: CovalentGovernance + COBYLA
+================================================================================
+Molecule: H2 (0.74 Å)
+HF energy: -1.11675931 Ha
+Nuclear repulsion: 0.71510434 Ha
+➕ Adding nuclear repulsion constant: 0.71510434 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.09706627+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.71510434 Ha
+   Total identity coefficient: -0.09706627+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+Hamiltonian: 15 Pauli terms
+Ansatz: 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE optimization...
+🔧 Optimizer: COBYLA with 50 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+
+❌ VQE failed: 'SparsePauliOp' object has no attribute 'n_orbitals'
+
+================================================================================
+TEST: CovalentGovernance + Powell
+================================================================================
+Molecule: H2 (0.74 Å)
+HF energy: -1.11675931 Ha
+Nuclear repulsion: 0.71510434 Ha
+➕ Adding nuclear repulsion constant: 0.71510434 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.09706627+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.71510434 Ha
+   Total identity coefficient: -0.09706627+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+Hamiltonian: 15 Pauli terms
+Ansatz: 24 parameters
+🔧 Initializing backend: statevector
+📍 Using statevector simulation
+
+🚀 Starting VQE optimization...
+🔧 Optimizer: Powell with 50 iterations
+🔍 Statevector: 16 components
+🔍 Bound circuit: 4 qubits, depth 11
+
+❌ VQE failed: 'SparsePauliOp' object has no attribute 'n_orbitals'
+
+================================================================================
+TEST: TwoLocal + COBYLA
+================================================================================
+Molecule: H2 (0.74 Å)
+HF energy: -1.11675931 Ha
+Nuclear repulsion: 0.71510434 Ha
+➕ Adding nuclear repulsion constant: 0.71510434 Ha
+   Fermion Hamiltonian now has 1 terms
+🔄 Applying Jordan-Wigner transformation...
+   Qubit Hamiltonian has 15 terms
+✅ Built Hamiltonian with 15 Pauli terms
+   Identity term: IIII = -0.09706627+0.00000000j
+
+🔍 NUCLEAR REPULSION CHECK:
+   Input nuclear repulsion: 0.71510434 Ha
+   Total identity coefficient: -0.09706627+0.00000000j Ha
+   Note: Identity includes nuclear repulsion + electronic contributions
+
+Hamiltonian: 15 Pauli terms
+Traceback (most recent call last):
+  File "/home/mk/deeprealm/kanad/tests/test_vqe_fix.py", line 174, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/home/mk/deeprealm/kanad/tests/test_vqe_fix.py", line 142, in main
+    r3 = run_vqe_test("TwoLocal", "COBYLA", max_iter=50)
+  File "/home/mk/deeprealm/kanad/tests/test_vqe_fix.py", line 69, in run_vqe_test
+    ansatz = TwoLocalAnsatz(n_qubits=n_qubits, reps=2)
+TypeError: TwoLocalAnsatz.__init__() got an unexpected keyword argument 'reps'

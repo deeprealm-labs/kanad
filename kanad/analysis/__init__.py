@@ -8,6 +8,7 @@ Provides utilities for:
 - Molecular properties (dipole, polarizability)
 - Bond length scanning (PES curves)
 - ADME properties for drug discovery
+- Configuration space exploration
 """
 
 from kanad.analysis.energy_analysis import (
@@ -23,6 +24,7 @@ from kanad.analysis.spectroscopy import UVVisCalculator, ExcitedStateSolver, Vib
 from kanad.analysis.dos_calculator import DOSCalculator
 from kanad.analysis.uncertainty import UncertaintyAnalyzer
 from kanad.analysis.adme_calculator import ADMECalculator, MolecularDescriptors, ADMEProperties
+from kanad.analysis.configuration_explorer import ConfigurationExplorer, ConfigurationSnapshot, ReactionPath
 
 __all__ = [
     'EnergyAnalyzer',
@@ -40,4 +42,7 @@ __all__ = [
     'ADMECalculator',
     'MolecularDescriptors',
     'ADMEProperties',
+    'ConfigurationExplorer',
+    'ConfigurationSnapshot',
+    'ReactionPath',
 ]

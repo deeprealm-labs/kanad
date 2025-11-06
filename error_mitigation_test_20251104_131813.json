@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-11-04T13:18:13.252960",
+  "molecule": "H2",
+  "bond_length": 0.74,
+  "backend": "ibm_torino",
+  "baseline": {
+    "job_id": "d44qvaooftds73c7o7qg",
+    "runtime_seconds": 18.181993,
+    "ground_energy": -0.9901222077370275,
+    "error_mHa": 147.16162226297257,
+    "diagonal_energies": [
+      -0.9669168017839462,
+      -0.41286678293797785,
+      -0.35072099213162133,
+      -0.2409981488393055,
+      0.42494597121033995
+    ]
+  },
+  "mitigated": {
+    "runtime_seconds": 0.001543,
+    "ground_energy": -1.1371916369722426,
+    "error_mHa": 0.09219302775753668,
+    "diagonal_energies": [
+      
