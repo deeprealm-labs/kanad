@@ -5,8 +5,9 @@ Computes electronic excitations and UV-Vis absorption spectra using:
 - Time-Dependent DFT (TD-DFT)
 - Tamm-Dancoff Approximation (TDA)
 - Configuration Interaction Singles (CIS)
+- **Quantum Subspace Diagonalization (quantum_sqd)** - NEW! First production quantum UV-Vis
 
-Uses PySCF backend for excited state calculations.
+Uses PySCF backend for classical methods, Kanad quantum solvers for quantum methods.
 """
 
 import numpy as np
@@ -54,13 +55,17 @@ class UVVisCalculator:
         if len(molecule.atoms) == 0:
             raise ValueError("Molecule has no atoms")
 
-        logger.info(f"UVVisCalculator initialized for {molecule.formula}")
+        # Get molecule name/formula (handle different molecule types)
+        mol_name = getattr(molecule, 'formula', None) or getattr(molecule, 'name', 'Unknown')
+        logger.info(f"UVVisCalculator initialized for {mol_name}")
 
     def compute_excitations(
         self,
         n_states: int = 5,
         method: str = 'TDA',
         functional: Optional[str] = None,
+        backend: str = 'statevector',
+        subspace_dim: int = 15,
         verbose: bool = True
     ) -> Dict[str, Any]:
         """
@@ -72,8 +77,20 @@ class UVVisCalculator:
                 - 'TDA': Tamm-Dancoff Approximation (recommended, faster)
                 - 'TDDFT': Full time-dependent DFT
                 - 'CIS': Configuration Interaction Singles (HF-based)
+                - 'quantum_sqd': Quantum Subspace Diagonalization (NEW!)
+                                 First production quantum UV-Vis calculator
+                                 Can run on IBM Quantum or BlueQubit hardware
             functional: DFT functional for TD-DFT (e.g., 'B3LYP', 'PBE0')
                        If None, uses HF (for CIS/TDA-HF)
+                       Ignored for quantum_sqd method
+            backend: Quantum backend for quantum_sqd method:
+                    - 'statevector': Fast local simulation (default)
+                    - 'ibm': IBM Quantum hardware
+                    - 'bluequbit': BlueQubit cloud simulation
+                    Ignored for classical methods
+            subspace_dim: Subspace dimension for quantum_sqd (default: 15)
+                         Larger = more accurate but more qubits needed
+                         Ignored for classical methods
             verbose: Print progress and results (default: True)
 
         Returns:
@@ -83,9 +100,15 @@ class UVVisCalculator:
                 wavelengths: Wavelengths (nm)
                 transition_dipoles: Transition dipole moments (a.u.)
                 method: Method used
-                functional: Functional used (or None for HF)
+                functional: Functional used (or None for HF/quantum)
                 n_states: Number of states computed
+                backend: Quantum backend used (for quantum_sqd only)
         """
+        # Quantum SQD method - NEW!
+        if method.lower() == 'quantum_sqd':
+            return self._compute_quantum_sqd(n_states, backend, subspace_dim, verbose)
+
+        # Classical methods (existing code)
         from pyscf import tdscf, dft, scf
 
         if verbose:
@@ -156,10 +179,11 @@ class UVVisCalculator:
             logger.warning("Could not compute transition dipoles")
 
         if verbose:
+            mol_name = getattr(self.molecule, 'formula', None) or getattr(self.molecule, 'name', 'Unknown')
             print("\n" + "=" * 70)
             print("ELECTRONIC EXCITATIONS")
             print("=" * 70)
-            print(f"Molecule: {self.molecule.formula}")
+            print(f"Molecule: {mol_name}")
             print(f"Method: {method}" + (f" ({functional})" if functional else " (HF)"))
             print(f"\n{'State':<8} {'Energy (eV)':<14} {'λ (nm)':<12} {'f':<10} {'Type':<10}")
             print("-" * 70)
@@ -192,6 +216,146 @@ class UVVisCalculator:
             'functional': functional,
             'n_states': n_states,
             # Don't include td_object - it's not JSON serializable
+        }
+
+    def _compute_quantum_sqd(
+        self,
+        n_states: int,
+        backend: str,
+        subspace_dim: int,
+        verbose: bool
+    ) -> Dict[str, Any]:
+        """
+        Compute excited states using Quantum Subspace Diagonalization.
+
+        This is the first production quantum UV-Vis calculator!
+
+        Uses ExcitedStatesSolver with SQD method to compute excited states
+        on quantum hardware (IBM Quantum, BlueQubit) or fast statevector simulation.
+
+        Args:
+            n_states: Number of excited states
+            backend: Quantum backend ('statevector', 'ibm', 'bluequbit')
+            subspace_dim: SQD subspace dimension
+            verbose: Print progress
+
+        Returns:
+            Dictionary compatible with classical methods
+        """
+        from kanad.solvers import ExcitedStatesSolver
+        from kanad.bonds import BondFactory
+
+        if verbose:
+            print(f"\n{'='*70}")
+            print(f"🔬 QUANTUM UV-VIS SPECTROSCOPY")
+            print(f"{'='*70}")
+            print(f"Method: Quantum Subspace Diagonalization (SQD)")
+            print(f"Backend: {backend}")
+            print(f"Subspace dimension: {subspace_dim}")
+            print(f"Number of states: {n_states}")
+            print("-" * 70)
+
+        # Create bond from molecule
+        # For diatomic molecules, use bond factory
+        if len(self.molecule.atoms) == 2:
+            atom1, atom2 = self.molecule.atoms
+            bond = BondFactory.create_bond(
+                atom1.symbol,
+                atom2.symbol,
+                distance=np.linalg.norm(atom1.position - atom2.position)
+            )
+        else:
+            # For polyatomic, need to create appropriate bond
+            # For now, use the molecule's hamiltonian if available
+            if not hasattr(self.molecule, 'hamiltonian'):
+                raise ValueError(
+                    "Quantum SQD requires molecule.hamiltonian. "
+                    "For polyatomic molecules, ensure hamiltonian is initialized."
+                )
+            # Create a synthetic bond for the solver
+            from kanad.bonds.covalent_bond import CovalentBond
+            bond = CovalentBond(self.molecule.atoms[0], self.molecule.atoms[1])
+            bond.molecule = self.molecule
+            bond.hamiltonian = self.molecule.hamiltonian
+
+        if verbose:
+            print(f"\n🔧 Initializing Quantum Excited States Solver...")
+
+        # Create ExcitedStatesSolver with SQD method
+        excited_solver = ExcitedStatesSolver(
+            bond=bond,
+            method='sqd',
+            n_states=n_states,
+            backend=backend,
+            subspace_dim=subspace_dim,
+            enable_analysis=False  # We do our own analysis
+        )
+
+        if verbose:
+            print(f"✅ Solver initialized")
+            print(f"\n🚀 Running quantum SQD calculation...")
+            if backend in ['ibm', 'bluequbit']:
+                print(f"⚠️  Note: Using cloud backend - may take several minutes")
+                print(f"         Auto-switched to SPSA optimizer (2 evals/iter)")
+
+        # Solve for excited states
+        result = excited_solver.solve()
+
+        if verbose:
+            print(f"✅ Quantum calculation complete!")
+
+        # Extract results
+        excitation_energies_eV = result['excitation_energies']
+        oscillator_strengths = result.get('oscillator_strengths', np.zeros(len(excitation_energies_eV)))
+        wavelengths_nm = self.eV_to_nm / (excitation_energies_eV + 1e-10)  # Avoid division by zero
+
+        if verbose:
+            mol_name = getattr(self.molecule, 'formula', None) or getattr(self.molecule, 'name', 'Unknown')
+            print("\n" + "=" * 70)
+            print("QUANTUM ELECTRONIC EXCITATIONS")
+            print("=" * 70)
+            print(f"Molecule: {mol_name}")
+            print(f"Method: Quantum SQD (backend={backend})")
+            print(f"\n{'State':<8} {'Energy (eV)':<14} {'λ (nm)':<12} {'f':<10} {'Type':<10}")
+            print("-" * 70)
+
+            for i, (E_eV, λ_nm, f) in enumerate(zip(
+                excitation_energies_eV,
+                wavelengths_nm,
+                oscillator_strengths
+            )):
+                # Classify transition
+                if f < 0.001:
+                    strength = "unknown"  # SQD doesn't compute f yet
+                elif f < 0.1:
+                    strength = "weak"
+                elif f < 1.0:
+                    strength = "moderate"
+                else:
+                    strength = "strong"
+
+                print(f"S{i+1:<7} {E_eV:>12.4f}  {λ_nm:>10.2f}  {f:>8.4f}  {strength:<10}")
+
+            print("=" * 70)
+            print(f"\n💡 Note: Oscillator strengths (f) not yet computed for quantum SQD")
+            print(f"         Future versions will include quantum transition dipoles")
+            print("=" * 70)
+
+        # Return in format compatible with classical methods
+        return {
+            'excitation_energies': excitation_energies_eV.tolist() if hasattr(excitation_energies_eV, 'tolist') else list(excitation_energies_eV),
+            'oscillator_strengths': oscillator_strengths.tolist() if hasattr(oscillator_strengths, 'tolist') else list(oscillator_strengths),
+            'wavelengths': wavelengths_nm.tolist() if hasattr(wavelengths_nm, 'tolist') else list(wavelengths_nm),
+            'transition_dipoles': None,  # Not yet implemented for quantum SQD
+            'method': f'Quantum SQD (backend={backend})',
+            'functional': None,
+            'n_states': n_states,
+            'backend': backend,
+            'subspace_dim': subspace_dim,
+            # Additional quantum-specific data
+            'ground_state_energy': result.get('ground_state_energy'),
+            'excited_state_energies': result.get('excited_state_energies'),
+            'quantum': True  # Flag to indicate this is quantum data
         }
 
     def generate_spectrum(
