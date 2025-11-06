@@ -28,7 +28,9 @@ class MolecularHamiltonian(ABC):
         self,
         n_orbitals: int,
         n_electrons: int,
-        nuclear_repulsion: float = 0.0
+        nuclear_repulsion: float = 0.0,
+        frozen_orbitals: Optional[List[int]] = None,
+        active_orbitals: Optional[List[int]] = None
     ):
         """
         Initialize molecular Hamiltonian.
@@ -37,10 +39,16 @@ class MolecularHamiltonian(ABC):
             n_orbitals: Number of spatial orbitals
             n_electrons: Number of electrons
             nuclear_repulsion: Nuclear repulsion energy (constant)
+            frozen_orbitals: List of orbital indices to freeze (Hi-VQE active space)
+            active_orbitals: List of orbital indices in active space (Hi-VQE)
         """
         self.n_orbitals = n_orbitals
         self.n_electrons = n_electrons
         self.nuclear_repulsion = nuclear_repulsion
+
+        # Hi-VQE active space support
+        self.frozen_orbitals = frozen_orbitals if frozen_orbitals is not None else []
+        self.active_orbitals = active_orbitals
 
         # Integral matrices (filled by subclasses)
         self.h_core: Optional[np.ndarray] = None  # (n_orbitals, n_orbitals)

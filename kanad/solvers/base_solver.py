@@ -99,6 +99,62 @@ class BaseSolver(ABC):
 
         logger.debug("Optimization tools initialized")
 
+    def _init_backend(self, backend: str, **kwargs):
+        """
+        Initialize quantum backend (shared across all solvers).
+
+        Args:
+            backend: Backend type ('statevector', 'ibm', 'bluequbit')
+            **kwargs: Backend-specific parameters
+        """
+        logger.info(f"Initializing backend: {backend}")
+        print(f"🔧 Initializing backend: {backend}")
+
+        if backend == 'statevector':
+            # Classical statevector simulation (exact, fast)
+            self._use_statevector = True
+            self._pauli_hamiltonian = None
+            self._hamiltonian_matrix = None
+            logger.info("Using statevector simulation (exact)")
+            print(f"📍 Using statevector simulation")
+
+        elif backend == 'bluequbit':
+            # BlueQubit cloud backend
+            try:
+                print(f"🌐 Initializing BlueQubit backend with kwargs: {list(kwargs.keys())}")
+                from kanad.backends.bluequbit import BlueQubitBackend
+                self._bluequbit_backend = BlueQubitBackend(**kwargs)
+                self._use_statevector = False
+                device = kwargs.get('device', 'gpu')
+                logger.info(f"BlueQubit backend initialized: device={device}")
+                print(f"✅ Connected to BlueQubit cloud: device={device}")
+                print(f"🔗 Track your jobs at: https://app.bluequbit.io/jobs")
+            except Exception as e:
+                logger.error(f"BlueQubit initialization failed: {e}")
+                print(f"❌ BlueQubit initialization failed: {e}")
+                raise
+
+        elif backend == 'ibm':
+            # IBM Quantum backend
+            try:
+                print(f"🌐 Initializing IBM backend with kwargs: {list(kwargs.keys())}")
+                from kanad.backends.ibm import IBMBackend
+                self._ibm_backend = IBMBackend(**kwargs)
+                self._use_statevector = False
+                backend_name = kwargs.get('backend_name', 'ibm_torino')
+                logger.info(f"IBM Quantum backend initialized: {backend_name}")
+                print(f"✅ Connected to IBM Quantum: {backend_name}")
+                print(f"🔗 Track your jobs at: https://quantum.ibm.com/jobs")
+            except Exception as e:
+                logger.error(f"IBM backend initialization failed: {e}")
+                print(f"❌ IBM backend initialization failed: {e}")
+                raise
+
+        else:
+            logger.warning(f"Unknown backend {backend}, using statevector")
+            print(f"⚠️ Unknown backend {backend}, falling back to statevector")
+            self._use_statevector = True
+
     @abstractmethod
     def solve(self, **kwargs) -> Dict[str, Any]:
         """
@@ -243,6 +299,10 @@ class BaseSolver(ABC):
                 # Use 1e-5 Ha (10 μHa) tolerance for VQE numerical precision
                 # Previous 1e-6 was too strict and caused false positives
                 below_hf = self.results['energy'] <= hf_energy + 1e-5
+
+                # Check if this is a VQE solver (stochastic optimization)
+                is_vqe = hasattr(self, 'optimizer_method')
+
                 validation['checks'].append({
                     'name': 'energy_below_hf',
                     'passed': below_hf,
@@ -250,7 +310,12 @@ class BaseSolver(ABC):
                 })
                 if not below_hf:
                     validation['passed'] = False
-                    logger.warning(f"Correlated method energy ({self.results['energy']:.6f}) above HF ({hf_energy:.6f})!")
+                    if is_vqe:
+                        # For VQE, this is expected sometimes due to stochastic optimization
+                        logger.info(f"VQE did not beat HF energy ({self.results['energy']:.6f} vs {hf_energy:.6f}) - likely stuck at local minimum. Consider multi-start VQE.")
+                    else:
+                        # For other methods, this is unexpected
+                        logger.warning(f"Correlated method energy ({self.results['energy']:.6f}) above HF ({hf_energy:.6f})!")
 
         # Check 3: Convergence
         if 'converged' in self.results:

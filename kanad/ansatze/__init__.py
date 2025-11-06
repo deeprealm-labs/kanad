@@ -19,6 +19,11 @@ from kanad.ansatze.governance_aware_ansatz import (
     CovalentGovernanceAnsatz,
     AdaptiveGovernanceAnsatz
 )
+from kanad.ansatze.governance_optimized import (
+    SmartInitializer,
+    AdaptiveGovernanceOptimized,
+    HybridGovernanceUCCSD
+)
 
 __all__ = [
     'BaseAnsatz',
@@ -34,4 +39,7 @@ __all__ = [
     'IonicGovernanceAnsatz',
     'CovalentGovernanceAnsatz',
     'AdaptiveGovernanceAnsatz',
+    'SmartInitializer',
+    'AdaptiveGovernanceOptimized',
+    'HybridGovernanceUCCSD',
 ]

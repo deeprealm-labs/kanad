@@ -104,37 +104,8 @@ class SQDSolver(BaseSolver):
         logger.info(f"SQD Solver initialized: subspace_dim={subspace_dim}, depth={circuit_depth}")
 
     def _init_backend(self, **kwargs):
-        """Initialize quantum backend."""
-        if self.backend == 'statevector':
-            self._use_statevector = True
-            logger.info("Using statevector simulation")
-        elif self.backend == 'bluequbit':
-            try:
-                from kanad.backends.bluequbit import BlueQubitBackend
-                self._bluequbit_backend = BlueQubitBackend(**kwargs)
-                self._use_statevector = False
-                device = kwargs.get('device', 'gpu')
-                logger.info(f"BlueQubit backend initialized: device={device}")
-                print(f"✅ Connected to BlueQubit cloud: device={device}")
-                print(f"🔗 Track your jobs at: https://app.bluequbit.io/jobs")
-            except Exception as e:
-                logger.error(f"BlueQubit backend initialization failed: {e}")
-                raise
-        elif self.backend == 'ibm':
-            try:
-                from kanad.backends.ibm import IBMBackend
-                self._ibm_backend = IBMBackend(**kwargs)
-                self._use_statevector = False
-                backend_name = kwargs.get('backend_name', 'ibm_torino')
-                logger.info(f"IBM Quantum backend initialized: {backend_name}")
-                print(f"✅ Connected to IBM Quantum: {backend_name}")
-                print(f"🔗 Track your jobs at: https://quantum.ibm.com/jobs")
-            except Exception as e:
-                logger.error(f"IBM backend initialization failed: {e}")
-                raise
-        else:
-            logger.warning(f"Unknown backend {self.backend}, using statevector")
-            self._use_statevector = True
+        """Initialize quantum backend (uses base class implementation)."""
+        super()._init_backend(self.backend, **kwargs)
 
     def _generate_subspace_basis(self) -> np.ndarray:
         """

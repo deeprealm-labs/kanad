@@ -403,7 +403,7 @@ class ExcitedStatesSolver(BaseSolver):
         logger.info("Running VQE excited states calculation...")
 
         import types
-        from kanad.utils.vqe_solver import VQESolver  # VQE is in utils
+        from kanad.solvers.vqe_solver import VQESolver
         from qiskit.quantum_info import Statevector
 
         # Get quantum backend settings from kwargs (use stored values, NO hardcoded defaults!)

@@ -38,7 +38,7 @@ from kanad.ansatze.governance_aware_ansatz import (
 )
 
 # Solvers
-from kanad.utils.vqe_solver import VQESolver
+from kanad.solvers.vqe_solver import VQESolver
 from kanad.solvers.sqd_solver import SQDSolver
 try:
     from kanad.solvers.excited_states_solver import ExcitedStatesSolver

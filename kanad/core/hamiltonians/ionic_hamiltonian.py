@@ -41,7 +41,9 @@ class IonicHamiltonian(MolecularHamiltonian):
         molecule: 'Molecule',
         representation: 'SecondQuantizationRepresentation',
         use_governance: bool = True,
-        basis_name: str = 'sto-3g'
+        basis_name: str = 'sto-3g',
+        frozen_orbitals: Optional[List[int]] = None,  # Hi-VQE: frozen core orbitals
+        active_orbitals: Optional[List[int]] = None   # Hi-VQE: active space orbitals
     ):
         """
         Initialize ionic Hamiltonian with governance protocol.
@@ -51,6 +53,8 @@ class IonicHamiltonian(MolecularHamiltonian):
             representation: Second quantization representation
             use_governance: Enable governance protocol validation (default: True)
             basis_name: Basis set name (default: 'sto-3g')
+            frozen_orbitals: List of orbital indices to freeze (active space reduction)
+            active_orbitals: List of orbital indices in active space
         """
         # Validate basis set (will raise ValueError if not available)
         from kanad.core.integrals.basis_registry import BasisSetRegistry
@@ -60,6 +64,7 @@ class IonicHamiltonian(MolecularHamiltonian):
         self.representation = representation
         self.atoms = molecule.atoms
         self.use_governance = use_governance
+        self.frozen_core_energy = 0.0
 
         # Initialize governance protocol
         if use_governance:
@@ -71,10 +76,24 @@ class IonicHamiltonian(MolecularHamiltonian):
         # Compute nuclear repulsion
         nuclear_rep = self._compute_nuclear_repulsion()
 
+        # Determine effective number of orbitals and electrons
+        n_total_orbitals = len(self.atoms)  # One orbital per atom (simplified)
+        if active_orbitals is not None:
+            n_effective_orbitals = len(active_orbitals)
+            n_frozen_electrons = 2 * len(frozen_orbitals)
+            n_effective_electrons = molecule.n_electrons - n_frozen_electrons
+            logger.info(f"✓ Active space: {n_total_orbitals} → {n_effective_orbitals} orbitals, "
+                       f"{molecule.n_electrons} → {n_effective_electrons} electrons")
+        else:
+            n_effective_orbitals = n_total_orbitals
+            n_effective_electrons = molecule.n_electrons
+
         super().__init__(
-            n_orbitals=len(self.atoms),  # One orbital per atom (simplified)
-            n_electrons=molecule.n_electrons,
-            nuclear_repulsion=nuclear_rep
+            n_orbitals=n_effective_orbitals,
+            n_electrons=n_effective_electrons,
+            nuclear_repulsion=nuclear_rep,
+            frozen_orbitals=frozen_orbitals,
+            active_orbitals=active_orbitals
         )
 
         # Build Hamiltonian with governance validation
@@ -784,11 +803,14 @@ class IonicHamiltonian(MolecularHamiltonian):
         logger.info(f"Building sparse ionic Hamiltonian (tight-binding model)...")
         logger.info(f"  {self.n_orbitals} sites → {n_qubits} qubits")
 
+        # Include frozen core energy in constant term (for Hi-VQE active space)
+        total_constant_energy = self.nuclear_repulsion + self.frozen_core_energy
+
         # Build Pauli operators directly from tight-binding integrals
         sparse_pauli_op = build_molecular_hamiltonian_pauli(
             h_core=self.h_core,
             eri=self.eri,
-            nuclear_repulsion=self.nuclear_repulsion,
+            nuclear_repulsion=total_constant_energy,
             n_orbitals=self.n_orbitals,
             mapper=mapper
         )

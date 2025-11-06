@@ -38,8 +38,9 @@ Usage Example:
 
 # New Solvers (Bonds Module Integration)
 from kanad.solvers.base_solver import BaseSolver
-from kanad.utils.vqe_solver import VQESolver  # VQE is in utils, not solvers
+from kanad.solvers.vqe_solver import VQESolver
 from kanad.solvers.sqd_solver import SQDSolver
+from kanad.solvers.krylov_sqd_solver import KrylovSQDSolver
 from kanad.solvers.excited_states_solver import ExcitedStatesSolver
 
 # Legacy Solvers (for backward compatibility)
@@ -53,6 +54,7 @@ __all__ = [
     # New Solvers
     'VQESolver',
     'SQDSolver',
+    'KrylovSQDSolver',
     'ExcitedStatesSolver',
 
     # Legacy (uncomment when fixed)

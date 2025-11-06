@@ -50,7 +50,9 @@ class MetallicHamiltonian(MolecularHamiltonian):
         periodic: bool = True,
         temperature: Optional[float] = None,
         use_governance: bool = True,
-        basis_name: str = 'sto-3g'
+        basis_name: str = 'sto-3g',
+        frozen_orbitals: Optional[List[int]] = None,  # Hi-VQE: frozen core orbitals
+        active_orbitals: Optional[List[int]] = None   # Hi-VQE: active space orbitals
     ):
         """
         Initialize metallic Hamiltonian.
@@ -65,10 +67,18 @@ class MetallicHamiltonian(MolecularHamiltonian):
             temperature: Temperature in Kelvin (for thermal effects)
             use_governance: Enable governance protocol (default: True)
             basis_name: Basis set name (default: 'sto-3g')
+            frozen_orbitals: List of orbital indices to freeze (active space reduction)
+            active_orbitals: List of orbital indices in active space
         """
         # Validate basis set (will raise ValueError if not available)
         from kanad.core.integrals.basis_registry import BasisSetRegistry
         self.basis_name = BasisSetRegistry.validate_basis(basis_name)
+
+        self.frozen_core_energy = 0.0
+
+        # Active space support (MetallicHamiltonian doesn't call super().__init__)
+        self.frozen_orbitals = frozen_orbitals if frozen_orbitals is not None else []
+        self.active_orbitals = active_orbitals
 
         # Store parameters before calling super().__init__
         self.lattice_type = lattice_type
@@ -90,11 +100,21 @@ class MetallicHamiltonian(MolecularHamiltonian):
         self.n_sites = len(molecule.atoms)
 
         # For metallic systems, n_orbitals = n_sites (one orbital per site in tight-binding)
-        self.n_orbitals = self.n_sites
+        # With active space, use effective number
+        n_total_sites = self.n_sites
+        if self.active_orbitals is not None:
+            self.n_orbitals = len(self.active_orbitals)
+        else:
+            self.n_orbitals = n_total_sites
 
         # Each atom contributes its valence electrons
         # For alkali metals (Li, Na, K): 1 valence electron per atom
-        self.n_electrons = sum(atom.n_valence for atom in molecule.atoms)
+        n_total_electrons = sum(atom.n_valence for atom in molecule.atoms)
+        if self.active_orbitals is not None:
+            n_frozen_electrons = 2 * len(self.frozen_orbitals)
+            self.n_electrons = n_total_electrons - n_frozen_electrons
+        else:
+            self.n_electrons = n_total_electrons
 
         # Nuclear repulsion (atoms are far apart in metals, usually negligible)
         self.nuclear_repulsion = self._compute_nuclear_repulsion()
@@ -442,11 +462,14 @@ class MetallicHamiltonian(MolecularHamiltonian):
         """
         from kanad.core.hamiltonians.fast_pauli_builder import build_molecular_hamiltonian_pauli
 
+        # Include frozen core energy in constant term (for Hi-VQE active space)
+        total_constant_energy = self.nuclear_repulsion + self.frozen_core_energy
+
         # Build Pauli operators directly from single-particle + Hubbard U terms
         sparse_pauli_op = build_molecular_hamiltonian_pauli(
             h_core=self.h_core,
             eri=self.eri,
-            nuclear_repulsion=self.nuclear_repulsion,
+            nuclear_repulsion=total_constant_energy,
             n_orbitals=self.n_orbitals,
             mapper=mapper
         )

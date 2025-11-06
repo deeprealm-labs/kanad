@@ -41,7 +41,9 @@ class CovalentHamiltonian(MolecularHamiltonian):
         representation: 'LCAORepresentation',
         basis_name: str = 'sto-3g',
         use_governance: bool = True,
-        use_pyscf_integrals: bool = True  # Use PySCF for accurate integrals
+        use_pyscf_integrals: bool = True,  # Use PySCF for accurate integrals
+        frozen_orbitals: Optional[List[int]] = None,  # Hi-VQE: frozen core orbitals
+        active_orbitals: Optional[List[int]] = None   # Hi-VQE: active space orbitals
     ):
         """
         Initialize covalent Hamiltonian with governance protocol.
@@ -52,6 +54,8 @@ class CovalentHamiltonian(MolecularHamiltonian):
             basis_name: Basis set name
             use_governance: Enable governance protocol validation (default: True)
             use_pyscf_integrals: Use PySCF for accurate integral computation (default: True)
+            frozen_orbitals: List of orbital indices to freeze (active space reduction)
+            active_orbitals: List of orbital indices in active space
         """
         # Validate basis set (will raise ValueError if not available)
         from kanad.core.integrals.basis_registry import BasisSetRegistry
@@ -77,10 +81,28 @@ class CovalentHamiltonian(MolecularHamiltonian):
         # Compute nuclear repulsion
         nuclear_rep = self._compute_nuclear_repulsion()
 
+        # Compute frozen core energy contribution
+        self.frozen_core_energy = 0.0
+
+        # Determine effective number of orbitals and electrons
+        n_total_orbitals = self.basis.n_basis_functions
+        if active_orbitals is not None:
+            n_effective_orbitals = len(active_orbitals)
+            # Count electrons in frozen core
+            n_frozen_electrons = 2 * len(frozen_orbitals)  # Each frozen orbital has 2 electrons
+            n_effective_electrons = molecule.n_electrons - n_frozen_electrons
+            logger.info(f"✓ Active space: {n_total_orbitals} → {n_effective_orbitals} orbitals, "
+                       f"{molecule.n_electrons} → {n_effective_electrons} electrons")
+        else:
+            n_effective_orbitals = n_total_orbitals
+            n_effective_electrons = molecule.n_electrons
+
         super().__init__(
-            n_orbitals=self.basis.n_basis_functions,
-            n_electrons=molecule.n_electrons,
-            nuclear_repulsion=nuclear_rep
+            n_orbitals=n_effective_orbitals,
+            n_electrons=n_effective_electrons,
+            nuclear_repulsion=nuclear_rep,
+            frozen_orbitals=frozen_orbitals,
+            active_orbitals=active_orbitals
         )
 
         # Build Hamiltonian (with governance if enabled)
@@ -125,6 +147,8 @@ class CovalentHamiltonian(MolecularHamiltonian):
         - Kinetic energy integrals
         - Nuclear attraction integrals
         - Electron repulsion integrals
+
+        Supports active space reduction for Hi-VQE.
         """
         if self.use_pyscf_integrals:
             try:
@@ -149,12 +173,20 @@ class CovalentHamiltonian(MolecularHamiltonian):
                 # Store PySCF mol object for property calculations
                 self.mol = mol_pyscf
 
-                # Compute integrals using PySCF
-                self.S = mol_pyscf.intor('int1e_ovlp')
-                T = mol_pyscf.intor('int1e_kin')
-                V = mol_pyscf.intor('int1e_nuc')
-                self.h_core = T + V
-                self.eri = mol_pyscf.intor('int2e')
+                # Compute integrals using PySCF (full space first)
+                S_full = mol_pyscf.intor('int1e_ovlp')
+                T_full = mol_pyscf.intor('int1e_kin')
+                V_full = mol_pyscf.intor('int1e_nuc')
+                h_core_full = T_full + V_full
+                eri_full = mol_pyscf.intor('int2e')
+
+                # Active space reduction if specified
+                if self.active_orbitals is not None:
+                    self._apply_active_space(S_full, h_core_full, eri_full)
+                else:
+                    self.S = S_full
+                    self.h_core = h_core_full
+                    self.eri = eri_full
 
                 logger.info("✓ Using PySCF integrals (high accuracy)")
 
@@ -184,6 +216,60 @@ class CovalentHamiltonian(MolecularHamiltonian):
         self.S = OverlapIntegrals.build_overlap_matrix(self.basis.basis_functions)
 
         logger.info("Using native Kanad integrals")
+
+    def _apply_active_space(self, S_full: np.ndarray, h_core_full: np.ndarray, eri_full: np.ndarray):
+        """
+        Apply active space reduction to integrals.
+
+        This is the core of Hi-VQE qubit reduction:
+        1. Freeze core orbitals (doubly occupied, low energy)
+        2. Keep only active orbital integrals
+        3. Compute frozen core energy contribution
+
+        Args:
+            S_full: Full overlap matrix
+            h_core_full: Full core Hamiltonian
+            eri_full: Full electron repulsion integrals
+        """
+        logger.info("🔥 Applying active space reduction (Hi-VQE)")
+
+        # Extract active space integrals
+        active = self.active_orbitals
+        self.S = S_full[np.ix_(active, active)]
+        self.h_core = h_core_full[np.ix_(active, active)]
+        self.eri = eri_full[np.ix_(active, active, active, active)]
+
+        # Compute frozen core contribution to energy
+        # E_frozen = 2 * Σ_i h_ii + Σ_ij (2*(ii|jj) - (ij|ji))
+        # where i,j are frozen orbitals
+        frozen = self.frozen_orbitals
+        if len(frozen) > 0:
+            frozen_energy = 0.0
+
+            # One-electron contribution: 2 * Σ_i h_ii (doubly occupied)
+            for i in frozen:
+                frozen_energy += 2.0 * h_core_full[i, i]
+
+            # Two-electron contribution: Σ_ij (2*(ii|jj) - (ij|ji))
+            for i in frozen:
+                for j in frozen:
+                    frozen_energy += 2.0 * eri_full[i, i, j, j] - eri_full[i, j, j, i]
+
+            self.frozen_core_energy = frozen_energy
+
+            # Modify h_core for active space to include frozen-active interaction
+            # h'_pq = h_pq + Σ_i (2*(pq|ii) - (pi|iq))
+            for p_idx, p in enumerate(active):
+                for q_idx, q in enumerate(active):
+                    frozen_active_term = 0.0
+                    for i in frozen:
+                        frozen_active_term += 2.0 * eri_full[p, q, i, i] - eri_full[p, i, i, q]
+                    self.h_core[p_idx, q_idx] += frozen_active_term
+
+            logger.info(f"   ✅ Frozen core energy: {frozen_energy:.6f} Ha")
+            logger.info(f"   ✅ Frozen-active interaction added to h_core")
+
+        logger.info(f"   ✅ Active space integrals: {len(active)}×{len(active)} orbitals")
 
     def _build_hamiltonian_with_governance(self):
         """
@@ -890,12 +976,15 @@ class CovalentHamiltonian(MolecularHamiltonian):
 
         logger.debug(f"Transformed integrals: AO → MO basis")
 
+        # Include frozen core energy in constant term (for Hi-VQE active space)
+        total_constant_energy = self.nuclear_repulsion + self.frozen_core_energy
+
         # Build Pauli operators directly from MO integrals
         # This is orders of magnitude faster than dense matrix approach!
         sparse_pauli_op = build_molecular_hamiltonian_pauli(
             h_core=h_mo,
             eri=eri_mo,
-            nuclear_repulsion=self.nuclear_repulsion,
+            nuclear_repulsion=total_constant_energy,
             n_orbitals=self.n_orbitals,
             mapper=mapper
         )

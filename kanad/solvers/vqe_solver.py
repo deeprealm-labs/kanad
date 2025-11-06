@@ -17,11 +17,12 @@ from scipy.optimize import minimize
 from kanad.solvers.base_solver import BaseSolver
 from kanad.core.mappers.jordan_wigner_mapper import JordanWignerMapper
 from kanad.core.mappers.bravyi_kitaev_mapper import BravyiKitaevMapper
+from kanad.utils.hivqe_solver_mixin import HiVQESolverMixin
 
 logger = logging.getLogger(__name__)
 
 
-class VQESolver(BaseSolver):
+class VQESolver(HiVQESolverMixin, BaseSolver):
     """
     Variational Quantum Eigensolver for ground state energy.
 
@@ -65,6 +66,11 @@ class VQESolver(BaseSolver):
         experiment_id: Optional[str] = None,  # For WebSocket broadcasting and cancellation
         job_id: Optional[str] = None,  # For cancellation checking
         callback: Optional[Callable] = None,  # Progress callback
+        # Hi-VQE parameters
+        mode: str = 'standard',  # 'standard' or 'hivqe'
+        hivqe_max_iterations: int = 10,  # Hi-VQE subspace expansion iterations
+        hivqe_subspace_threshold: float = 0.05,  # Amplitude threshold for important configs
+        use_active_space: bool = False,  # Enable governance-aware active space reduction
         **kwargs
     ):
         """
@@ -156,6 +162,20 @@ class VQESolver(BaseSolver):
         # This is a correlated method
         self._is_correlated = True
 
+        # Hi-VQE parameters
+        self.mode = mode.lower()  # 'standard' or 'hivqe'
+        self.hivqe_max_iterations = hivqe_max_iterations
+        self.hivqe_subspace_threshold = hivqe_subspace_threshold
+        self.use_active_space = use_active_space
+
+        if self.mode not in ['standard', 'hivqe']:
+            raise ValueError(f"Invalid mode '{mode}'. Must be 'standard' or 'hivqe'")
+
+        if self.mode == 'hivqe':
+            logger.info(f"🔥 Hi-VQE mode enabled: {hivqe_max_iterations} iterations, threshold={hivqe_subspace_threshold}")
+            if self.use_active_space:
+                logger.info(f"   ✅ Active space reduction enabled")
+
         # Initialize based on API mode
         if self._api_mode == 'bond':
             # Initialize ansatz and mapper from bond
@@ -183,7 +203,9 @@ class VQESolver(BaseSolver):
         # Optimization tracking
         self.energy_history = []
         self.parameter_history = []
-        self.iteration_count = 0
+        self.iteration_count = 0  # Function evaluation counter
+        self.optimizer_iteration = 0  # Real optimizer iteration counter
+        self._last_energy = None  # Track energy changes to detect optimizer iterations
 
         # Performance optimization: Cache sparse Pauli operator
         # CRITICAL: Cache must be invalidated if mapper changes!
@@ -290,7 +312,7 @@ class VQESolver(BaseSolver):
             )
             logger.info(f"Hardware-efficient ansatz: 3 layers, linear entanglement, {self._mapper_type_param} mapper")
 
-        elif ansatz_type.lower() == 'governance':
+        elif ansatz_type.lower() in ['governance', 'adaptive_governance']:
             # Use governance-aware ansatz based on bond type or Hamiltonian protocol
             bond_type = None
             if self.bond is not None:
@@ -306,22 +328,38 @@ class VQESolver(BaseSolver):
                     bond_type = 'metallic'
 
             if bond_type == 'covalent':
-                from kanad.ansatze.governance_aware_ansatz import CovalentGovernanceAnsatz
-
                 # Get hybridization from governance metadata if available
                 metadata = getattr(self.hamiltonian, '_governance_metadata', {})
                 hybridization = metadata.get('hybridization', 'sp3')
                 protocol = metadata.get('governance_protocol', self.hamiltonian.governance_protocol)
 
-                self.ansatz = CovalentGovernanceAnsatz(
-                    n_qubits=n_qubits,
-                    n_electrons=n_electrons,
-                    n_layers=2,
-                    hybridization=hybridization,
-                    protocol=protocol,
-                    mapper=self._mapper_type_param
-                )
-                logger.info(f"Covalent governance ansatz (hybridization: {hybridization}, {self._mapper_type_param} mapper)")
+                # Choose between regular and adaptive governance
+                if ansatz_type.lower() == 'adaptive_governance':
+                    from kanad.ansatze import AdaptiveGovernanceOptimized
+
+                    self.ansatz = AdaptiveGovernanceOptimized(
+                        n_qubits=n_qubits,
+                        n_electrons=n_electrons,
+                        initial_layers=2,
+                        max_layers=3,
+                        hybridization=hybridization,
+                        protocol=protocol,
+                        mapper=self._mapper_type_param,
+                        use_mp2_init=True  # Auto-enable MP2 init
+                    )
+                    logger.info(f"✨ Adaptive Governance ansatz (MP2 init enabled, {self._mapper_type_param} mapper)")
+                else:
+                    from kanad.ansatze.governance_aware_ansatz import CovalentGovernanceAnsatz
+
+                    self.ansatz = CovalentGovernanceAnsatz(
+                        n_qubits=n_qubits,
+                        n_electrons=n_electrons,
+                        n_layers=2,
+                        hybridization=hybridization,
+                        protocol=protocol,
+                        mapper=self._mapper_type_param
+                    )
+                    logger.info(f"Covalent governance ansatz (hybridization: {hybridization}, {self._mapper_type_param} mapper)")
             else:
                 # Fallback to UCC
                 self.ansatz = UCCAnsatz(n_qubits=n_qubits, n_electrons=n_electrons)
@@ -370,54 +408,8 @@ class VQESolver(BaseSolver):
                 self._depth_before_opt = None
 
     def _init_backend(self, **kwargs):
-        """Initialize quantum backend."""
-        logger.info(f"Initializing backend: {self.backend}")
-        print(f"🔧 Initializing backend: {self.backend}")
-
-        if self.backend == 'statevector':
-            # Classical statevector simulation (exact, fast)
-            self._use_statevector = True
-            self._pauli_hamiltonian = None
-            self._hamiltonian_matrix = None
-            logger.info("Using statevector simulation (exact)")
-            print(f"📍 Using statevector simulation")
-
-        elif self.backend == 'bluequbit':
-            # BlueQubit cloud backend
-            try:
-                print(f"🌐 Initializing BlueQubit backend with kwargs: {list(kwargs.keys())}")
-                from kanad.backends.bluequbit import BlueQubitBackend
-                self._bluequbit_backend = BlueQubitBackend(**kwargs)
-                self._use_statevector = False
-                device = kwargs.get('device', 'gpu')
-                logger.info(f"BlueQubit backend initialized: device={device}")
-                print(f"✅ Connected to BlueQubit cloud: device={device}")
-                print(f"🔗 Track your jobs at: https://app.bluequbit.io/jobs")
-            except Exception as e:
-                logger.error(f"BlueQubit initialization failed: {e}")
-                print(f"❌ BlueQubit initialization failed: {e}")
-                raise
-
-        elif self.backend == 'ibm':
-            # IBM Quantum backend
-            try:
-                print(f"🌐 Initializing IBM backend with kwargs: {list(kwargs.keys())}")
-                from kanad.backends.ibm import IBMBackend
-                self._ibm_backend = IBMBackend(**kwargs)
-                self._use_statevector = False
-                backend_name = kwargs.get('backend_name', 'ibm_torino')
-                logger.info(f"IBM Quantum backend initialized: {backend_name}")
-                print(f"✅ Connected to IBM Quantum: {backend_name}")
-                print(f"🔗 Track your jobs at: https://quantum.ibm.com/jobs")
-            except Exception as e:
-                logger.error(f"IBM backend initialization failed: {e}")
-                print(f"❌ IBM backend initialization failed: {e}")
-                raise
-
-        else:
-            logger.warning(f"Unknown backend {self.backend}, using statevector")
-            print(f"⚠️ Unknown backend {self.backend}, falling back to statevector")
-            self._use_statevector = True
+        """Initialize quantum backend (uses base class implementation)."""
+        super()._init_backend(self.backend, **kwargs)
 
     def _compute_energy(self, parameters: np.ndarray) -> float:
         """
@@ -467,6 +459,12 @@ class VQESolver(BaseSolver):
         # Get statevector from circuit
         statevector = Statevector.from_instruction(bound_circuit)
 
+        # DEBUG: Check statevector first time
+        if not hasattr(self, '_statevector_checked'):
+            print(f"🔍 Statevector: {len(statevector.data)} components")
+            print(f"🔍 Bound circuit: {bound_circuit.num_qubits} qubits, depth {bound_circuit.depth()}")
+            self._statevector_checked = True
+
         # Get n_qubits from ansatz
         n_qubits = self.ansatz.n_qubits if hasattr(self.ansatz, 'n_qubits') else 2 * self.hamiltonian.n_orbitals
 
@@ -485,26 +483,50 @@ class VQESolver(BaseSolver):
         cache_invalid = (self._sparse_pauli_op is None or
                         self._cached_mapper != mapper_arg)
 
-        if hasattr(self.hamiltonian, 'to_sparse_hamiltonian') and cache_invalid:
+        # Check if Hamiltonian is already a SparsePauliOp
+        from qiskit.quantum_info import SparsePauliOp
+        if isinstance(self.hamiltonian, SparsePauliOp):
+            # Already sparse - just use it directly
+            if self._sparse_pauli_op is None:
+                self._sparse_pauli_op = self.hamiltonian
+                self._cached_mapper = mapper_arg
+                self._use_sparse = True
+                print(f"📊 Using provided SparsePauliOp: {len(self._sparse_pauli_op)} Pauli terms")
+        elif hasattr(self.hamiltonian, 'to_sparse_hamiltonian') and cache_invalid:
             # Build sparse Pauli operator (FAST, memory-efficient)
             logger.info(f"Building sparse Pauli Hamiltonian with {mapper_arg} mapper")
+            print(f"🔧 Building sparse Pauli Hamiltonian with {mapper_arg} mapper")
 
             # Build Hamiltonian with correct mapper
             self._sparse_pauli_op = self.hamiltonian.to_sparse_hamiltonian(mapper=mapper_arg)
             self._cached_mapper = mapper_arg  # Update cache tracker
             self._use_sparse = True
 
+            print(f"📊 Sparse Hamiltonian built: {len(self._sparse_pauli_op)} Pauli terms")
+
+            # DEBUG: Check identity coefficient
+            identity_coeff = 0.0
+            for i, pauli_str in enumerate(self._sparse_pauli_op.paulis):
+                if all(c == 'I' for c in str(pauli_str)):
+                    identity_coeff += self._sparse_pauli_op.coeffs[i]
+            print(f"🔍 VQE Hamiltonian identity coefficient: {identity_coeff:.8f} Ha")
+            print(f"🔍 Nuclear repulsion from molecule: {self.hamiltonian.nuclear_repulsion:.8f} Ha")
+
             # Check qubit count consistency
             if self._sparse_pauli_op.num_qubits != n_qubits:
+                print(f"⚠️  QUBIT MISMATCH: Hamiltonian={self._sparse_pauli_op.num_qubits}, Ansatz={n_qubits}")
                 logger.warning(f"Qubit count mismatch: Hamiltonian={self._sparse_pauli_op.num_qubits}, Ansatz={n_qubits}")
                 # Pad/truncate if needed
                 if self._sparse_pauli_op.num_qubits > n_qubits:
                     self._needs_padding = True
                     self._ansatz_qubits = n_qubits
                     self._full_qubits = self._sparse_pauli_op.num_qubits
+                    print(f"⚠️  PADDING ENABLED: Will pad {n_qubits}-qubit statevector to {self._full_qubits} qubits")
+                    print(f"⚠️  THIS IS LIKELY THE BUG!")
                 else:
                     self._needs_padding = False
             else:
+                print(f"✅ Qubit counts match: {n_qubits} qubits")
                 self._needs_padding = False
 
         # Compute energy using sparse or dense method
@@ -520,6 +542,13 @@ class VQESolver(BaseSolver):
             else:
                 # Direct expectation value computation (FAST!)
                 energy = statevector.expectation_value(self._sparse_pauli_op).real
+
+                # DEBUG: Print first few energy evaluations
+                if not hasattr(self, '_debug_counter'):
+                    self._debug_counter = 0
+                if self._debug_counter < 3:
+                    print(f"🔍 Energy evaluation {self._debug_counter + 1}: {energy:.8f} Ha")
+                    self._debug_counter += 1
         else:
             # FALLBACK: Dense matrix path (only for small test systems)
             logger.warning("Using SLOW dense matrix Hamiltonian - consider using sparse method")
@@ -527,7 +556,27 @@ class VQESolver(BaseSolver):
             # Get Hamiltonian matrix if not cached
             if self._hamiltonian_matrix is None:
                 # MEMORY SAFETY CHECK
-                full_n_qubits = 2 * self.hamiltonian.n_orbitals
+                # Handle different Hamiltonian types
+                from qiskit.quantum_info import SparsePauliOp
+                if isinstance(self.hamiltonian, SparsePauliOp):
+                    # SparsePauliOp passed directly (from tests)
+                    # Get n_qubits from ansatz or Hamiltonian
+                    if hasattr(self, 'circuit') and self.circuit:
+                        full_n_qubits = self.circuit.num_qubits
+                    elif hasattr(self.ansatz, 'n_qubits'):
+                        full_n_qubits = self.ansatz.n_qubits
+                    else:
+                        # Get from Hamiltonian
+                        full_n_qubits = self.hamiltonian.num_qubits
+                elif hasattr(self.hamiltonian, 'n_orbitals'):
+                    # MolecularHamiltonian
+                    full_n_qubits = 2 * self.hamiltonian.n_orbitals
+                else:
+                    raise TypeError(
+                        f"Unsupported Hamiltonian type: {type(self.hamiltonian)}. "
+                        f"Expected MolecularHamiltonian or SparsePauliOp"
+                    )
+
                 required_memory_gb = (2 ** full_n_qubits) ** 2 * 16 / 1e9
 
                 if required_memory_gb > 16:  # 16 GB limit
@@ -540,22 +589,29 @@ class VQESolver(BaseSolver):
 
                 logger.info(f"Building dense Hamiltonian matrix ({required_memory_gb:.2f} GB)")
 
-                # Check if to_matrix supports n_qubits parameter
-                import inspect
-                to_matrix_sig = inspect.signature(self.hamiltonian.to_matrix)
-                has_n_qubits_param = 'n_qubits' in to_matrix_sig.parameters
-
-                if has_n_qubits_param:
-                    self._hamiltonian_matrix = self.hamiltonian.to_matrix(n_qubits=full_n_qubits, use_mo_basis=True)
-                    self._needs_padding = (n_qubits < full_n_qubits)
-                    self._ansatz_qubits = n_qubits
-                    self._full_qubits = full_n_qubits
-                else:
-                    # Simple test Hamiltonian
-                    H_core = self.hamiltonian.to_matrix()
-                    dim = 2 ** n_qubits
-                    self._hamiltonian_matrix = np.kron(H_core, np.eye(dim // H_core.shape[0]))
+                # Handle different Hamiltonian types for matrix conversion
+                from qiskit.quantum_info import SparsePauliOp
+                if isinstance(self.hamiltonian, SparsePauliOp):
+                    # SparsePauliOp can be converted to matrix directly
+                    self._hamiltonian_matrix = self.hamiltonian.to_matrix()
                     self._needs_padding = False
+                else:
+                    # Check if to_matrix supports n_qubits parameter
+                    import inspect
+                    to_matrix_sig = inspect.signature(self.hamiltonian.to_matrix)
+                    has_n_qubits_param = 'n_qubits' in to_matrix_sig.parameters
+
+                    if has_n_qubits_param:
+                        self._hamiltonian_matrix = self.hamiltonian.to_matrix(n_qubits=full_n_qubits, use_mo_basis=True)
+                        self._needs_padding = (n_qubits < full_n_qubits)
+                        self._ansatz_qubits = n_qubits
+                        self._full_qubits = full_n_qubits
+                    else:
+                        # Simple test Hamiltonian
+                        H_core = self.hamiltonian.to_matrix()
+                        dim = 2 ** n_qubits
+                        self._hamiltonian_matrix = np.kron(H_core, np.eye(dim // H_core.shape[0]))
+                        self._needs_padding = False
 
             # Pad statevector if needed
             psi = statevector.data
@@ -1053,10 +1109,31 @@ class VQESolver(BaseSolver):
         self.parameter_history.append(parameters.copy())
         self.iteration_count += 1
 
+        # Detect optimizer iterations: energy changes significantly or it's the first eval
+        # This heuristic detects when optimizer completes an iteration and starts a new one
+        energy_changed = (self._last_energy is None or
+                         abs(energy - self._last_energy) > 1e-12)
+
+        if energy_changed and self.iteration_count > 1:
+            self.optimizer_iteration += 1
+            self._last_energy = energy
+        elif self.iteration_count == 1:
+            self.optimizer_iteration = 1
+            self._last_energy = energy
+
         # Call user callback if provided (used for progress broadcasting from API layer)
+        # Pass: (optimizer_iteration, energy, parameters, function_eval_count)
         if hasattr(self, '_callback') and self._callback is not None:
             try:
-                self._callback(self.iteration_count, energy, parameters)
+                # Check if callback accepts 4 arguments (new signature)
+                import inspect
+                sig = inspect.signature(self._callback)
+                if len(sig.parameters) >= 4:
+                    # New signature: (iteration, energy, parameters, function_evals)
+                    self._callback(self.optimizer_iteration, energy, parameters, self.iteration_count)
+                else:
+                    # Old signature: (iteration, energy, parameters) - pass optimizer iteration
+                    self._callback(self.optimizer_iteration, energy, parameters)
             except Exception as e:
                 # Check if this is a cancellation exception - if so, re-raise it to stop optimizer
                 if 'ExperimentCancelledException' in type(e).__name__ or 'cancelled' in str(e).lower():
@@ -1080,9 +1157,76 @@ class VQESolver(BaseSolver):
 
         return energy
 
+    def _spsa_minimize(self, initial_parameters: np.ndarray) -> tuple:
+        """
+        SPSA (Simultaneous Perturbation Stochastic Approximation) optimizer.
+
+        Key advantage: Only 2 function evaluations per iteration regardless of parameter count!
+        Perfect for cloud quantum backends where function evaluations are expensive.
+
+        Args:
+            initial_parameters: Initial parameter values
+
+        Returns:
+            (optimized_parameters, final_energy)
+        """
+        params = initial_parameters.copy()
+        best_energy = float('inf')
+        best_params = params.copy()
+
+        # SPSA hyperparameters (standard values from Spall 1998)
+        a = 0.16  # Step size coefficient
+        c = 0.1   # Perturbation size coefficient
+        A = 0.1 * self.max_iterations  # Stability constant
+        alpha = 0.602  # Step size decay
+        gamma = 0.101  # Perturbation decay
+
+        prev_energy = None
+
+        for k in range(self.max_iterations):
+            # Compute decay schedules
+            a_k = a / (k + 1 + A)**alpha
+            c_k = c / (k + 1)**gamma
+
+            # Random perturbation direction (Bernoulli ±1)
+            delta = 2 * np.random.randint(0, 2, size=len(params)) - 1
+
+            # Evaluate at perturbed points (only 2 evaluations!)
+            params_plus = params + c_k * delta
+            params_minus = params - c_k * delta
+
+            energy_plus = self._objective_function(params_plus)
+            energy_minus = self._objective_function(params_minus)
+
+            # Gradient approximation
+            gradient = (energy_plus - energy_minus) / (2 * c_k) * delta
+
+            # Update parameters
+            params = params - a_k * gradient
+
+            # Track best result
+            current_energy = min(energy_plus, energy_minus)
+            if current_energy < best_energy:
+                best_energy = current_energy
+                best_params = params_plus if energy_plus < energy_minus else params_minus
+
+            # Check convergence
+            if prev_energy is not None:
+                energy_change = abs(current_energy - prev_energy)
+                if energy_change < self.conv_threshold:
+                    print(f"✅ SPSA converged at iteration {k+1}")
+                    break
+
+            prev_energy = current_energy
+
+            if (k + 1) % 5 == 0:
+                print(f"  SPSA iter {k+1}/{self.max_iterations}: E = {best_energy:.8f} Ha")
+
+        return best_params, best_energy
+
     def solve(self, initial_parameters: Optional[np.ndarray] = None, callback: Optional[callable] = None) -> Dict[str, Any]:
         """
-        Solve for ground state energy using VQE.
+        Solve for ground state energy using VQE or Hi-VQE.
 
         Args:
             initial_parameters: Initial parameter guess (random if None)
@@ -1091,7 +1235,7 @@ class VQESolver(BaseSolver):
         Returns:
             Dictionary with comprehensive results:
                 - energy: Ground state energy (Hartree)
-                - parameters: Optimized parameters
+                - parameters: Optimized parameters (None for Hi-VQE)
                 - converged: Convergence status
                 - iterations: Number of iterations
                 - hf_energy: Hartree-Fock reference energy
@@ -1099,12 +1243,23 @@ class VQESolver(BaseSolver):
                 - energy_history: Energy at each iteration
                 - analysis: Detailed analysis (if enabled)
                 - optimization_stats: Circuit optimization stats (if enabled)
+                - mode: 'standard' or 'hivqe'
+                - hivqe_stats: Hi-VQE specific stats (if mode='hivqe')
         """
         # Store callback (only if explicitly provided, don't overwrite __init__ callback)
         if callback is not None:
             self._callback = callback
-        logger.info("Starting VQE optimization...")
 
+        # Route to appropriate solver based on mode
+        if self.mode == 'hivqe':
+            logger.info("🔥 Starting Hi-VQE optimization...")
+            return self._solve_hivqe()
+        else:
+            logger.info("Starting standard VQE optimization...")
+            return self._solve_standard_vqe(initial_parameters)
+
+    def _solve_standard_vqe(self, initial_parameters: Optional[np.ndarray] = None) -> Dict[str, Any]:
+        """Standard VQE solve with variational optimization."""
         # Get HF reference energy
         hf_energy = self.get_reference_energy()
         if hf_energy is not None:
@@ -1112,15 +1267,29 @@ class VQESolver(BaseSolver):
 
         # Initial parameters
         if initial_parameters is None:
-            # Start near zero (HF-like state)
-            initial_parameters = np.random.randn(self.n_parameters) * 0.01
+            # Check if ansatz supports smart initialization (Adaptive Governance)
+            if hasattr(self.ansatz, 'get_smart_initial_params'):
+                try:
+                    logger.info(f"🎯 Using smart MP2-based initialization...")
+                    initial_parameters = self.ansatz.get_smart_initial_params(hamiltonian=self.hamiltonian)
+                    logger.info(f"✅ MP2 initialization successful (range: [{np.min(initial_parameters):.4f}, {np.max(initial_parameters):.4f}])")
+                except Exception as e:
+                    logger.warning(f"MP2 initialization failed: {e}, falling back to random")
+                    initial_parameters = np.random.uniform(-0.1, 0.1, size=self.n_parameters)
+            else:
+                # Use uniform random initialization - provides good exploration
+                # Range [-0.1, 0.1] is standard VQE practice
+                initial_parameters = np.random.uniform(-0.1, 0.1, size=self.n_parameters)
+                logger.info(f"Generated random initial parameters in range [-0.1, 0.1]")
 
         logger.info(f"Optimizing {self.n_parameters} parameters using {self.optimizer_method}")
 
         # Reset tracking
         self.energy_history = []
         self.parameter_history = []
-        self.iteration_count = 0
+        self.iteration_count = 0  # Function evaluations
+        self.optimizer_iteration = 0  # Real optimizer iterations
+        self._last_energy = None  # For iteration detection
 
         # Warn if using cloud backend with gradient-based optimizer
         if self.backend in ['ibm', 'bluequbit'] and self.optimizer_method in ['SLSQP', 'L-BFGS-B']:
@@ -1137,83 +1306,48 @@ class VQESolver(BaseSolver):
             logger.warning(warning_msg)
             print(warning_msg)
 
-        # Classical optimization
-        # Prepare optimizer options
-        opt_options = {'maxiter': self.max_iterations}
+        # Classical optimization - Simple user-controlled approach
+        # User sets max_iterations, optimizer uses natural convergence behavior
+        # This is more predictable than trying to control function evaluations
 
-        # Set maxfun (max function evaluations) for ALL optimizers
-        # This is critical - scipy defaults are HUGE (SLSQP=15000, POWELL=unlimited!)
-        # User sets max_iterations, we calculate reasonable maxfun based on optimizer
+        opt_options = {
+            'maxiter': self.max_iterations,
+            'disp': False  # Suppress optimizer output
+        }
 
-        # Normalize optimizer name to handle case variations
-        optimizer_upper = self.optimizer_method.upper()
+        logger.info(f"Optimizer: {self.optimizer_method}, max_iterations: {self.max_iterations}")
+        print(f"🔧 Optimizer: {self.optimizer_method} with {self.max_iterations} iterations")
 
-        # Derivative-free optimizers (low cost per iteration)
-        if optimizer_upper == 'COBYLA':
-            # COBYLA: ~1-3 function evals per iteration
-            # Uses 'maxfun' option
-            min_maxfun = self.n_parameters + 2
-            maxfun = max(self.max_iterations * 3, min_maxfun)
-            opt_options['maxfun'] = maxfun
-            logger.info(f"COBYLA: maxiter={self.max_iterations}, maxfun={maxfun} (~3x)")
+        # Use SPSA for cloud backends or if explicitly requested
+        if self.optimizer_method == 'SPSA':
+            print(f"📊 Using SPSA: 2 function evaluations per iteration (efficient for cloud)")
+            final_params, final_energy = self._spsa_minimize(initial_parameters)
 
-        elif optimizer_upper == 'POWELL':
-            # Powell's method: ~2-5 function evals per iteration (uses line searches)
-            # Uses 'maxfev' option (NOT maxfun!)
-            maxfev = self.max_iterations * 5
-            opt_options['maxfev'] = maxfev
-            logger.info(f"Powell: maxiter={self.max_iterations}, maxfev={maxfev} (~5x)")
+            # Create scipy-like result object for consistency
+            class SPSAResult:
+                def __init__(self, x, fun, nit, success=True, message="SPSA converged"):
+                    self.x = x
+                    self.fun = fun
+                    self.nit = nit
+                    self.success = success
+                    self.message = message
 
-        elif optimizer_upper == 'NELDER-MEAD':
-            # Nelder-Mead: simplex method, ~5-10 evals per iteration
-            # Uses 'maxfev' option
-            maxfev = self.max_iterations * 10
-            opt_options['maxfev'] = maxfev
-            logger.info(f"Nelder-Mead: maxiter={self.max_iterations}, maxfev={maxfev} (~10x)")
-
-        # Gradient-based optimizers (HIGH cost per iteration - need finite differences)
-        elif optimizer_upper == 'SLSQP':
-            # SLSQP: ~(2*n_params) to 100 function evals per iteration
-            # Uses 'maxiter' only - no separate function eval limit in scipy
-            # Estimate: 2*n_params for gradient + some for line search
-            logger.info(f"⚠️ SLSQP: maxiter={self.max_iterations}, ~{self.n_parameters * 2} function evals per iter - HIGH COST!")
-
-        elif optimizer_upper == 'L-BFGS-B':
-            # L-BFGS-B: ~(2*n_params) to 100 function evals per iteration
-            # Uses 'maxfun' option
-            maxfun = self.max_iterations * (self.n_parameters * 2 + 10)
-            opt_options['maxfun'] = maxfun
-            logger.info(f"⚠️ L-BFGS-B: maxiter={self.max_iterations}, maxfun={maxfun} (~{self.n_parameters * 2}x per iter) - HIGH COST!")
-
-        elif optimizer_upper == 'BFGS':
-            # BFGS: ~(2*n_params) function evals per iteration
-            # Uses 'maxiter' only - no maxfun option
-            logger.info(f"⚠️ BFGS: maxiter={self.max_iterations}, ~{self.n_parameters * 2} function evals per iter - HIGH COST!")
-
-        elif optimizer_upper == 'CG':
-            # Conjugate Gradient: ~(2*n_params) function evals per iteration
-            # Uses 'maxiter' only - no maxfun option
-            logger.info(f"⚠️ CG: maxiter={self.max_iterations}, ~{self.n_parameters * 2} function evals per iter - HIGH COST!")
-
-        elif optimizer_upper == 'TNC':
-            # TNC (Truncated Newton): ~(2*n_params) to 50 function evals per iteration
-            # TNC uses 'maxfun' but doesn't accept 'maxiter' - remove it
-            del opt_options['maxiter']
-            maxfun = self.max_iterations * (self.n_parameters * 2 + 10)
-            opt_options['maxfun'] = maxfun
-            logger.info(f"⚠️ TNC: maxfun={maxfun} (~{self.n_parameters * 2}x per iter) - HIGH COST!")
-
+            result = SPSAResult(
+                x=final_params,
+                fun=final_energy,
+                nit=self.optimizer_iteration,
+                success=True,
+                message=f"SPSA completed {self.optimizer_iteration} iterations"
+            )
         else:
-            # Other optimizers: try setting maxfun as fallback
-            logger.warning(f"⚠️ Optimizer '{self.optimizer_method}' may not respect iteration limits")
-
-        result = minimize(
-            self._objective_function,
-            initial_parameters,
-            method=self.optimizer_method,
-            options=opt_options,
-            tol=self.conv_threshold
-        )
+            # Standard scipy optimizers
+            result = minimize(
+                self._objective_function,
+                initial_parameters,
+                method=self.optimizer_method,
+                options=opt_options,
+                tol=self.conv_threshold
+            )
 
         # Store results
         self.results = {
@@ -1224,7 +1358,8 @@ class VQESolver(BaseSolver):
             'function_evaluations': self.iteration_count,  # Track function evaluations separately
             'energy_history': np.array(self.energy_history),
             'parameter_history': np.array(self.parameter_history),
-            'optimizer_message': result.message
+            'optimizer_message': result.message,
+            'mode': 'standard'  # Indicate this was standard VQE
         }
 
         # Add HF reference and correlation energy
@@ -1293,20 +1428,20 @@ class VQESolver(BaseSolver):
 
             # Try to get orbital energies
             try:
-                logger.info(f"🔍 Checking hamiltonian for orbital energies: hasattr(mf)={hasattr(self.hamiltonian, 'mf')}")
+                logger.debug(f"🔍 Checking hamiltonian for orbital energies: hasattr(mf)={hasattr(self.hamiltonian, 'mf')}")
                 if hasattr(self.hamiltonian, 'mf'):
-                    logger.info(f"🔍 Hamiltonian has mf attribute, checking mo_energy: hasattr(mo_energy)={hasattr(self.hamiltonian.mf, 'mo_energy')}")
+                    logger.debug(f"🔍 Hamiltonian has mf attribute, checking mo_energy: hasattr(mo_energy)={hasattr(self.hamiltonian.mf, 'mo_energy')}")
                     if hasattr(self.hamiltonian.mf, 'mo_energy'):
                         orb_energies = self.hamiltonian.mf.mo_energy
-                        logger.info(f"🔍 Found orbital energies: shape={orb_energies.shape}, dtype={orb_energies.dtype}")
+                        logger.debug(f"🔍 Found orbital energies: shape={orb_energies.shape}, dtype={orb_energies.dtype}")
                         self.results['orbital_energies'] = orb_energies.tolist()
                         logger.info(f"✅ Stored orbital energies for DOS analysis")
                     else:
-                        logger.warning(f"⚠️  Hamiltonian.mf does not have mo_energy attribute")
+                        logger.debug(f"Hamiltonian.mf does not have mo_energy attribute")
                 else:
-                    logger.warning(f"⚠️  Hamiltonian does not have mf attribute (type: {type(self.hamiltonian).__name__})")
+                    logger.debug(f"Hamiltonian does not have mf attribute (type: {type(self.hamiltonian).__name__}) - orbital energies not available")
             except Exception as e:
-                logger.warning(f"Could not extract orbital energies: {e}")
+                logger.debug(f"Could not extract orbital energies: {e}")
 
             # Try to get dipole moment
             try:
@@ -1345,6 +1480,59 @@ class VQESolver(BaseSolver):
         logger.info(f"VQE optimization complete: {result.success}, {self.iteration_count} iterations")
 
         return self.results
+
+    def solve_with_restarts(self, n_restarts=3, callback=None):
+        """
+        Run VQE multiple times with different random initializations.
+        Returns the best result among all attempts.
+
+        This significantly improves reliability for stochastic optimization.
+
+        Args:
+            n_restarts: Number of VQE attempts (default: 3)
+            callback: Optional callback function for progress tracking
+
+        Returns:
+            dict: Best VQE result with lowest energy
+        """
+        logger.info(f"🔄 Starting multi-start VQE with {n_restarts} restarts")
+
+        best_energy = float('inf')
+        best_result = None
+        all_energies = []
+
+        for attempt in range(1, n_restarts + 1):
+            logger.info(f"🎯 VQE attempt {attempt}/{n_restarts}")
+
+            # Run VQE with new random initialization
+            result = self.solve(callback=callback)
+
+            energy = result['energy']
+            all_energies.append(energy)
+
+            # Track best result
+            if energy < best_energy:
+                best_energy = energy
+                best_result = result
+                logger.info(f"   ✅ New best: {best_energy:.8f} Ha")
+            else:
+                logger.info(f"   Energy: {energy:.8f} Ha (not better than {best_energy:.8f})")
+
+        # Add multi-start metadata
+        best_result['multi_start'] = {
+            'n_restarts': n_restarts,
+            'all_energies': all_energies,
+            'best_attempt': all_energies.index(best_energy) + 1,
+            'energy_std': float(np.std(all_energies)),
+            'energy_range': float(max(all_energies) - min(all_energies))
+        }
+
+        logger.info(f"🏆 Multi-start VQE complete:")
+        logger.info(f"   Best energy: {best_energy:.8f} Ha (attempt {all_energies.index(best_energy) + 1})")
+        logger.info(f"   Energy range: {max(all_energies) - min(all_energies):.8f} Ha")
+        logger.info(f"   Energy std: {np.std(all_energies):.8f} Ha")
+
+        return best_result
 
     def print_summary(self):
         """Print comprehensive VQE results summary."""
