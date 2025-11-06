@@ -1282,6 +1282,35 @@ class VQESolver(HiVQESolverMixin, BaseSolver):
                 initial_parameters = np.random.uniform(-0.1, 0.1, size=self.n_parameters)
                 logger.info(f"Generated random initial parameters in range [-0.1, 0.1]")
 
+        # Auto-select SPSA for cloud backends (huge cost savings)
+        original_optimizer = self.optimizer_method
+        if self.backend in ['ibm', 'bluequbit'] and self.optimizer_method not in ['SPSA', 'COBYLA', 'POWELL']:
+            switch_msg = (
+                f"☁️  CLOUD BACKEND OPTIMIZATION ☁️\n"
+                f"   Backend: {self.backend}\n"
+                f"   Original optimizer: {self.optimizer_method} (gradient-based)\n"
+                f"   Auto-switching to: SPSA\n"
+                f"   \n"
+                f"   📉 Efficiency gain:\n"
+                f"      {self.optimizer_method}: ~40 function evaluations/iteration\n"
+                f"      SPSA: 2 function evaluations/iteration\n"
+                f"      Expected speedup: 20x fewer quantum jobs\n"
+                f"   \n"
+                f"   💡 SPSA (Simultaneous Perturbation Stochastic Approximation) is\n"
+                f"      specifically designed for noisy quantum hardware and cloud execution.\n"
+                f"      It uses finite differences with random perturbations instead of gradients."
+            )
+            logger.warning(switch_msg)
+            print(switch_msg)
+            self.optimizer_method = 'SPSA'
+
+            # Adjust max_iterations for SPSA (it typically needs fewer iterations)
+            if self.max_iterations > 100:
+                old_max_iter = self.max_iterations
+                self.max_iterations = min(100, self.max_iterations)
+                logger.info(f"📊 Adjusted max_iterations: {old_max_iter} → {self.max_iterations} (SPSA converges faster)")
+                print(f"📊 Adjusted max_iterations: {old_max_iter} → {self.max_iterations}")
+
         logger.info(f"Optimizing {self.n_parameters} parameters using {self.optimizer_method}")
 
         # Reset tracking
@@ -1290,21 +1319,6 @@ class VQESolver(HiVQESolverMixin, BaseSolver):
         self.iteration_count = 0  # Function evaluations
         self.optimizer_iteration = 0  # Real optimizer iterations
         self._last_energy = None  # For iteration detection
-
-        # Warn if using cloud backend with gradient-based optimizer
-        if self.backend in ['ibm', 'bluequbit'] and self.optimizer_method in ['SLSQP', 'L-BFGS-B']:
-            estimated_jobs = self.max_iterations * 40
-            warning_msg = (
-                f"⚠️  OPTIMIZER WARNING ⚠️\n"
-                f"   Optimizer: {self.optimizer_method} (gradient-based)\n"
-                f"   Max iterations: {self.max_iterations}\n"
-                f"   Estimated quantum jobs: ~{estimated_jobs} function evaluations\n"
-                f"   \n"
-                f"   SLSQP uses ~40 function evaluations per iteration.\n"
-                f"   Consider using COBYLA or POWELL for fewer job submissions (~1-3x iterations)."
-            )
-            logger.warning(warning_msg)
-            print(warning_msg)
 
         # Classical optimization - Simple user-controlled approach
         # User sets max_iterations, optimizer uses natural convergence behavior
