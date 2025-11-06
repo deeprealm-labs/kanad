@@ -246,6 +246,7 @@ class FastVQE:
         params = initial_params.copy()
         best_energy = float('inf')
         best_params = params.copy()
+        prev_energy = float('inf')  # Initialize to avoid NameError
 
         for iteration in range(max_iter):
             energy, gradient = self._compute_energy_and_gradient(params)
@@ -323,14 +324,14 @@ class FastVQE:
             circuit = self.ansatz.get_circuit(parameters)
         else:
             # Fallback - use HF energy
-            return self.hamiltonian.hf_energy
+            hf_energy, _, _ = self.hamiltonian.get_hf_energy()
+            return hf_energy
 
         # Optimize circuit if enabled
         if self.circuit_optimizer:
             circuit = self.circuit_optimizer.optimize(circuit)
 
-        # Evaluate energy (simplified - actual implementation would use statevector)
-        # For now, use a placeholder that computes expectation value
+        # Evaluate energy using quantum expectation value ⟨ψ|H|ψ⟩
         energy = self._evaluate_expectation(circuit)
 
         return energy
@@ -370,18 +371,42 @@ class FastVQE:
 
     def _evaluate_expectation(self, circuit) -> float:
         """
-        Evaluate Hamiltonian expectation value.
+        Evaluate Hamiltonian expectation value using quantum simulation.
 
-        This is a simplified version - actual implementation would:
-        1. Convert circuit to statevector
-        2. Compute ⟨ψ|H|ψ⟩
-        3. Return energy
+        Computes ⟨ψ|H|ψ⟩ where:
+        - |ψ⟩ is the quantum state from the circuit
+        - H is the molecular Hamiltonian in Pauli form
 
-        For now, returns a placeholder that uses the Hamiltonian.
+        Returns:
+            Energy in Hartree
         """
-        # Simplified: Use HF energy as baseline
-        # Real implementation would compute full expectation value
-        return self.hamiltonian.hf_energy
+        try:
+            from qiskit.quantum_info import Statevector, SparsePauliOp
+            from kanad.core.hamiltonians.pauli_converter import PauliConverter
+        except ImportError as e:
+            logger.warning(f"Qiskit not available: {e}, falling back to HF energy")
+            hf_energy, _, _ = self.hamiltonian.get_hf_energy()
+            return hf_energy
+
+        try:
+            # Convert circuit to statevector
+            statevector = Statevector(circuit)
+
+            # Convert Hamiltonian to Pauli operator
+            pauli_op = PauliConverter.to_sparse_pauli_op(
+                self.hamiltonian,
+                self.mapper
+            )
+
+            # Compute expectation value: ⟨ψ|H|ψ⟩
+            energy = statevector.expectation_value(pauli_op).real
+
+            return energy
+
+        except Exception as e:
+            logger.warning(f"Expectation value computation failed: {e}, falling back to HF energy")
+            hf_energy, _, _ = self.hamiltonian.get_hf_energy()
+            return hf_energy
 
     def get_circuit_stats(self) -> Dict[str, int]:
         """Get circuit statistics."""

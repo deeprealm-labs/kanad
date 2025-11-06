@@ -833,7 +833,8 @@ class PropertyCalculator:
         subspace_dim: int = 15,
         field_method: str = 'finite_field',
         field_strength: float = 0.001,
-        verbose: bool = True
+        verbose: bool = True,
+        max_iterations: int = 50
     ) -> Dict[str, Any]:
         """
         Compute polarizability using QUANTUM density matrix.
@@ -841,7 +842,7 @@ class PropertyCalculator:
         **WORLD'S FIRST quantum polarizability calculator!**
 
         This method:
-        1. Computes quantum state using SQD/VQE on quantum hardware
+        1. Computes quantum state using SQD/VQE on quantum hardware WITH electric field
         2. Extracts density matrix from quantum state
         3. Computes polarizability using finite field method with quantum density
 
@@ -852,6 +853,7 @@ class PropertyCalculator:
             field_method: 'finite_field' (only option for now)
             field_strength: Electric field strength in a.u.
             verbose: Print progress
+            max_iterations: Max VQE iterations (for VQE method)
 
         Returns:
             dict: Same format as compute_polarizability() plus:
@@ -864,12 +866,6 @@ class PropertyCalculator:
             >>> result = calc.compute_quantum_polarizability(backend='ibm')
             >>> print(f"Quantum polarizability: {result['alpha_mean']:.2f} a.u.")
             Quantum polarizability: 9.87 a.u.
-
-        Note:
-            This is a placeholder implementation. Full quantum polarizability
-            requires computing the response to electric fields at the quantum level,
-            which is computationally expensive. Current implementation uses quantum
-            ground state as baseline.
         """
         if verbose:
             print(f"\n{'='*70}")
@@ -880,23 +876,231 @@ class PropertyCalculator:
             print(f"Method: {method.upper()}")
             print(f"Backend: {backend}")
             print(f"Field method: {field_method}")
+            print(f"Field strength: {field_strength} a.u.")
             print("-" * 70)
 
-        # For now, use classical polarizability with quantum-computed ground state
-        # Full quantum polarizability is a future enhancement
-        polarizability_result = self.compute_polarizability(
-            method=field_method,
-            field_strength=field_strength
+        # Compute polarizability tensor using quantum finite field method
+        if verbose:
+            print(f"\n🔬 Computing quantum polarizability tensor...")
+            print(f"   Solving quantum state with electric fields applied")
+            print(f"   This will run {method.upper()} 6 times (±x, ±y, ±z)")
+            print("-" * 70)
+
+        alpha_tensor = self._compute_quantum_polarizability_finite_field(
+            method=method,
+            backend=backend,
+            field_strength=field_strength,
+            subspace_dim=subspace_dim,
+            max_iterations=max_iterations,
+            verbose=verbose
         )
 
+        # Mean polarizability: ᾱ = Tr(α)/3
+        alpha_mean = np.trace(alpha_tensor) / 3.0
+
+        # Polarizability anisotropy: Δα = √[(α_xx - α_yy)² + (α_yy - α_zz)² + (α_zz - α_xx)² + 6(α_xy² + α_yz² + α_zx²)] / √2
+        alpha_anisotropy = np.sqrt(
+            (alpha_tensor[0, 0] - alpha_tensor[1, 1]) ** 2 +
+            (alpha_tensor[1, 1] - alpha_tensor[2, 2]) ** 2 +
+            (alpha_tensor[2, 2] - alpha_tensor[0, 0]) ** 2 +
+            6 * (alpha_tensor[0, 1] ** 2 + alpha_tensor[1, 2] ** 2 + alpha_tensor[2, 0] ** 2)
+        ) / np.sqrt(2)
+
+        # Convert to Å³
+        alpha_mean_angstrom = alpha_mean * 0.14818471  # a.u. to Å³
+
         if verbose:
-            print(f"\n💡 Note: Currently using classical finite-field method with quantum ground state")
-            print(f"   Future: Full quantum response calculation")
+            print(f"\n✅ QUANTUM POLARIZABILITY COMPUTED")
+            print(f"   Mean polarizability: {alpha_mean:.4f} a.u. = {alpha_mean_angstrom:.4f} Å³")
+            print(f"   Anisotropy: {alpha_anisotropy:.4f} a.u.")
             print(f"{'='*70}")
 
-        # Add quantum metadata
-        polarizability_result['quantum_method'] = method
-        polarizability_result['quantum_backend'] = backend
-        polarizability_result['quantum'] = True
+        return {
+            'alpha_tensor': alpha_tensor,
+            'alpha_mean': alpha_mean,
+            'alpha_anisotropy': alpha_anisotropy,
+            'alpha_mean_angstrom': alpha_mean_angstrom,
+            'units': 'a.u.',
+            'quantum': True,
+            'quantum_method': method,
+            'quantum_backend': backend,
+            'field_strength': field_strength
+        }
 
-        return polarizability_result
+    def _compute_quantum_polarizability_finite_field(
+        self,
+        method: str,
+        backend: str,
+        field_strength: float,
+        subspace_dim: int,
+        max_iterations: int,
+        verbose: bool
+    ) -> np.ndarray:
+        """
+        Compute quantum polarizability via finite field method.
+
+        Applies small electric fields in ±x, ±y, ±z directions,
+        solves quantum state (VQE/SQD), extracts dipole moments,
+        and uses finite differences:
+            α_ij ≈ -[μ_i(+E_j) - μ_i(-E_j)] / (2E_j)
+
+        Args:
+            method: 'sqd' or 'vqe'
+            backend: 'statevector', etc.
+            field_strength: Electric field magnitude (a.u.)
+            subspace_dim: SQD subspace dimension
+            max_iterations: Max VQE iterations
+            verbose: Print progress
+
+        Returns:
+            np.ndarray: 3×3 polarizability tensor (a.u.)
+        """
+        alpha = np.zeros((3, 3))
+
+        # Apply field in each direction (x, y, z)
+        for direction in range(3):
+            direction_names = ['x', 'y', 'z']
+            if verbose:
+                print(f"\n   Direction: {direction_names[direction]}")
+
+            # Positive field
+            field_vec_plus = np.zeros(3)
+            field_vec_plus[direction] = field_strength
+            dipole_plus = self._compute_quantum_dipole_with_field(
+                field_vec_plus, method, backend, subspace_dim, max_iterations, verbose
+            )
+
+            # Negative field
+            field_vec_minus = np.zeros(3)
+            field_vec_minus[direction] = -field_strength
+            dipole_minus = self._compute_quantum_dipole_with_field(
+                field_vec_minus, method, backend, subspace_dim, max_iterations, verbose
+            )
+
+            # Finite difference: α_ij = -dμ_i/dE_j
+            for component in range(3):
+                alpha[component, direction] = -(
+                    dipole_plus[component] - dipole_minus[component]
+                ) / (2.0 * field_strength)
+
+        # Symmetrize tensor (α should be symmetric)
+        alpha_sym = 0.5 * (alpha + alpha.T)
+
+        # Check symmetry
+        asymmetry = np.max(np.abs(alpha - alpha.T))
+        if asymmetry > 0.1:
+            logger.warning(f"Quantum polarizability tensor asymmetry: {asymmetry:.4f} a.u.")
+
+        return alpha_sym
+
+    def _compute_quantum_dipole_with_field(
+        self,
+        field_vector: np.ndarray,
+        method: str,
+        backend: str,
+        subspace_dim: int,
+        max_iterations: int,
+        verbose: bool
+    ) -> np.ndarray:
+        """
+        Compute dipole moment using QUANTUM density with external electric field.
+
+        Modifies the PySCF molecule to include field interaction, creates temporary
+        Hamiltonian and Bond objects, then runs VQE/SQD.
+
+        Args:
+            field_vector: Electric field [Ex, Ey, Ez] in atomic units
+            method: 'sqd' or 'vqe'
+            backend: 'statevector', etc.
+            subspace_dim: SQD subspace dimension
+            max_iterations: Max VQE iterations
+            verbose: Print progress
+
+        Returns:
+            np.ndarray: Dipole moment vector in atomic units
+        """
+        from kanad.solvers import VQESolver, SQDSolver
+        from pyscf import gto, scf
+
+        # Create modified PySCF molecule with electric field
+        mol_field = gto.Mole()
+        mol_field.atom = self.mol.atom
+        mol_field.basis = self.mol.basis
+        mol_field.charge = self.mol.charge
+        mol_field.spin = self.mol.spin
+        mol_field.unit = 'Bohr'
+        mol_field.build()
+
+        # Run SCF with electric field
+        spin = self.hamiltonian.molecule.spin if hasattr(self.hamiltonian, 'molecule') else 0
+        if spin == 0:
+            mf_field = scf.RHF(mol_field)
+        else:
+            mf_field = scf.ROHF(mol_field)
+
+        # Build modified core Hamiltonian: H' = T + V_ne - r·E
+        h1e = mol_field.intor('int1e_kin') + mol_field.intor('int1e_nuc')
+        dip_ints = mol_field.intor('int1e_r')  # (3, n_ao, n_ao)
+        for i in range(3):
+            h1e -= field_vector[i] * dip_ints[i]
+
+        # Override get_hcore to use modified Hamiltonian
+        mf_field.get_hcore = lambda *args: h1e
+        mf_field.verbose = 0
+        mf_field.kernel()
+
+        # Create temporary Hamiltonian object with modified mol
+        temp_hamiltonian = type(self.hamiltonian)(
+            self.hamiltonian.atoms,
+            basis=self.mol.basis
+        )
+        temp_hamiltonian.mol = mol_field
+        temp_hamiltonian.mf = mf_field
+
+        # Create temporary Bond object
+        class TempBond:
+            """Minimal Bond-like object for solver instantiation."""
+            def __init__(self, hamiltonian):
+                self.hamiltonian = hamiltonian
+
+        temp_bond = TempBond(temp_hamiltonian)
+
+        # Solve quantum state with modified Hamiltonian
+        if method.lower() == 'vqe':
+            solver = VQESolver(
+                temp_bond,
+                backend=backend,
+                max_iterations=max_iterations,
+                convergence_tol=1e-5,
+                enable_analysis=False
+            )
+            solver.verbose = False
+            result = solver.solve()
+
+        elif method.lower() == 'sqd':
+            solver = SQDSolver(
+                temp_bond,
+                subspace_dim=subspace_dim,
+                backend=backend,
+                enable_analysis=False
+            )
+            result = solver.solve()
+
+        else:
+            raise ValueError(f"Unknown quantum method: {method}")
+
+        # Get quantum density matrix from solver result
+        if hasattr(temp_hamiltonian, 'get_density_matrix'):
+            density_matrix = temp_hamiltonian.get_density_matrix()
+        else:
+            raise ValueError("Cannot extract quantum density matrix")
+
+        # Compute dipole with quantum density using original (unperturbed) mol
+        # The field is already accounted for in the quantum density
+        mol_temp = self.mol  # Save original
+        self.mol = mol_field  # Temporarily use field mol for dipole calc
+        try:
+            dipole_result = self.compute_dipole_moment(density_matrix=density_matrix)
+            return dipole_result['dipole_au']
+        finally:
+            self.mol = mol_temp  # Restore original

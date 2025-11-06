@@ -476,7 +476,7 @@ class TrajectoryWriter:
         if filename.suffix == '.h5' or filename.suffix == '.hdf5':
             traj = self._read_hdf5(filename)
         elif filename.suffix == '.xyz':
-            raise NotImplementedError("XYZ reading not yet implemented (write-only for visualization)")
+            traj = self._read_xyz(filename)
         else:
             raise ValueError(f"Unknown file extension: {filename.suffix}")
 
@@ -512,6 +512,128 @@ class TrajectoryWriter:
                     time=float(f['time'][i])
                 )
                 trajectory.frames.append(frame)
+
+        return trajectory
+
+    def _read_xyz(self, filename: Path) -> Trajectory:
+        """
+        Read from XYZ format.
+
+        Note: XYZ format only contains positions. Velocities and forces
+        will be set to zero. Energy and temperature are parsed from comment
+        line if available, otherwise set to zero.
+
+        XYZ Format:
+        -----------
+        Line 1: N_atoms
+        Line 2: Comment (may contain time, energy, temperature)
+        Lines 3+: element x y z (in Angstrom)
+        """
+        trajectory = Trajectory()
+
+        # Convert Angstrom to Bohr
+        ANGSTROM_TO_BOHR = 1.0 / 0.529177
+
+        with open(filename, 'r') as f:
+            lines = f.readlines()
+
+        i = 0
+        frame_number = 0
+
+        while i < len(lines):
+            # Parse frame
+            if i >= len(lines):
+                break
+
+            # Line 1: number of atoms
+            try:
+                n_atoms = int(lines[i].strip())
+            except (ValueError, IndexError):
+                logger.warning(f"Invalid atom count at line {i+1}, stopping")
+                break
+
+            # Set n_atoms on first frame
+            if trajectory.n_atoms is None:
+                trajectory.n_atoms = n_atoms
+                trajectory.atom_symbols = []
+            elif n_atoms != trajectory.n_atoms:
+                raise ValueError(f"Frame {frame_number}: inconsistent n_atoms ({n_atoms} vs {trajectory.n_atoms})")
+
+            # Line 2: comment (may contain time, energy, temperature)
+            i += 1
+            if i >= len(lines):
+                logger.warning(f"Incomplete frame at line {i+1}, stopping")
+                break
+
+            comment = lines[i].strip()
+
+            # Parse comment for time, energy, temperature
+            # Format: "time=X fs E=Y Ha T=Z K" (from _write_xyz)
+            time = 0.0
+            total_energy = 0.0
+            temperature = 0.0
+
+            # Try to extract values from comment
+            import re
+            time_match = re.search(r'time=([0-9.+-]+)', comment)
+            energy_match = re.search(r'E=([0-9.+-]+)', comment)
+            temp_match = re.search(r'T=([0-9.+-]+)', comment)
+
+            if time_match:
+                time = float(time_match.group(1))
+            if energy_match:
+                total_energy = float(energy_match.group(1))
+            if temp_match:
+                temperature = float(temp_match.group(1))
+
+            # Lines 3+: atom lines
+            i += 1
+            positions = np.zeros((n_atoms, 3))
+
+            for atom_idx in range(n_atoms):
+                if i >= len(lines):
+                    raise ValueError(f"Frame {frame_number}: incomplete atom data at line {i+1}")
+
+                parts = lines[i].strip().split()
+                if len(parts) < 4:
+                    raise ValueError(f"Frame {frame_number}, atom {atom_idx}: invalid format at line {i+1}")
+
+                symbol = parts[0]
+                x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
+
+                # Store symbol on first frame
+                if frame_number == 0:
+                    trajectory.atom_symbols.append(symbol)
+
+                # Convert Angstrom to Bohr
+                positions[atom_idx] = np.array([x, y, z]) * ANGSTROM_TO_BOHR
+
+                i += 1
+
+            # Create frame
+            # Note: XYZ doesn't have velocities or forces, so set to zero
+            velocities = np.zeros((n_atoms, 3))
+            forces = np.zeros((n_atoms, 3))
+
+            # XYZ doesn't separate kinetic/potential energy, assume all is potential
+            kinetic_energy = 0.0
+            potential_energy = total_energy
+
+            frame = TrajectoryFrame(
+                positions=positions,
+                velocities=velocities,
+                forces=forces,
+                kinetic_energy=kinetic_energy,
+                potential_energy=potential_energy,
+                total_energy=total_energy,
+                temperature=temperature,
+                time=time
+            )
+
+            trajectory.frames.append(frame)
+            frame_number += 1
+
+        logger.debug(f"Read {frame_number} frames from XYZ file")
 
         return trajectory
 

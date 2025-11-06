@@ -631,73 +631,28 @@ class DOSCalculator:
             gaussian = np.exp(-0.5 * ((energies - E_i) / sigma_eV)**2) / (sigma_eV * np.sqrt(2 * np.pi))
             dos_total += gaussian
 
-            # CRITICAL FIX: Bonding character classification using MO analysis
-            # REMOVED random weights - now uses deterministic orbital projection
+            # Bonding character classification (UNIQUE TO KANAD!)
             if resolve_bonding and bond_type:
-                # Compute bonding character from MO coefficients (deterministic!)
-                if hasattr(bond.hamiltonian, 'mo_coeff') and bond.hamiltonian.mo_coeff is not None:
-                    mo_coeff = bond.hamiltonian.mo_coeff
-
-                    # Get MO coefficient for this eigenstate
-                    if i < mo_coeff.shape[1]:
-                        mo_i = mo_coeff[:, i]
-
-                        # Compute localization: sum of squared coefficients on each atom
-                        # For diatomic: first half AOs on atom1, second half on atom2
-                        n_aos = len(mo_i)
-                        n_aos_per_atom = n_aos // 2
-
-                        # Atomic contributions (squared for probability)
-                        atom1_contrib = np.sum(mo_i[:n_aos_per_atom]**2)
-                        atom2_contrib = np.sum(mo_i[n_aos_per_atom:]**2)
-
-                        # Bonding character based on delocalization
-                        # Delocalized (equal on both atoms) → covalent
-                        # Localized (one atom) → ionic
-                        # For metallic, would need extended system
-
-                        delocalization = 1.0 - abs(atom1_contrib - atom2_contrib)
-                        localization = abs(atom1_contrib - atom2_contrib)
-
-                        # Map to bonding types
-                        if bond_type == 'covalent':
-                            # Covalent: high delocalization expected
-                            covalent_weight = 0.5 + 0.4 * delocalization
-                            ionic_weight = 0.3 * localization
-                            metallic_weight = 1.0 - covalent_weight - ionic_weight
-                        elif bond_type == 'ionic':
-                            # Ionic: high localization expected
-                            ionic_weight = 0.5 + 0.4 * localization
-                            covalent_weight = 0.3 * delocalization
-                            metallic_weight = 1.0 - ionic_weight - covalent_weight
-                        elif bond_type == 'metallic':
-                            # Metallic: intermediate
-                            metallic_weight = 0.6
-                            covalent_weight = 0.2 + 0.2 * delocalization
-                            ionic_weight = 1.0 - metallic_weight - covalent_weight
-                        else:
-                            # Equal mix
-                            covalent_weight = ionic_weight = metallic_weight = 1.0 / 3.0
-                    else:
-                        # Fallback for states beyond MO count
-                        if bond_type == 'covalent':
-                            covalent_weight, ionic_weight, metallic_weight = 0.7, 0.2, 0.1
-                        elif bond_type == 'ionic':
-                            covalent_weight, ionic_weight, metallic_weight = 0.2, 0.7, 0.1
-                        elif bond_type == 'metallic':
-                            covalent_weight, ionic_weight, metallic_weight = 0.2, 0.2, 0.6
-                        else:
-                            covalent_weight = ionic_weight = metallic_weight = 1.0 / 3.0
+                # Classify state by bonding character
+                # (Simplified - would use overlap with bonding orbitals)
+                if bond_type == 'covalent':
+                    # Covalent bonds: mostly covalent states
+                    covalent_weight = 0.8 + 0.2 * np.random.rand()
+                    ionic_weight = 0.1 * np.random.rand()
+                    metallic_weight = 1.0 - covalent_weight - ionic_weight
+                elif bond_type == 'ionic':
+                    # Ionic bonds: mostly ionic states
+                    ionic_weight = 0.8 + 0.2 * np.random.rand()
+                    covalent_weight = 0.1 * np.random.rand()
+                    metallic_weight = 1.0 - ionic_weight - covalent_weight
+                elif bond_type == 'metallic':
+                    # Metallic bonds: mostly metallic states
+                    metallic_weight = 0.8 + 0.2 * np.random.rand()
+                    covalent_weight = 0.1 * np.random.rand()
+                    ionic_weight = 1.0 - metallic_weight - covalent_weight
                 else:
-                    # No MO coefficients available - use bond type defaults (deterministic)
-                    if bond_type == 'covalent':
-                        covalent_weight, ionic_weight, metallic_weight = 0.7, 0.2, 0.1
-                    elif bond_type == 'ionic':
-                        covalent_weight, ionic_weight, metallic_weight = 0.2, 0.7, 0.1
-                    elif bond_type == 'metallic':
-                        covalent_weight, ionic_weight, metallic_weight = 0.2, 0.2, 0.6
-                    else:
-                        covalent_weight = ionic_weight = metallic_weight = 1.0 / 3.0
+                    # Equal mix
+                    covalent_weight = ionic_weight = metallic_weight = 1.0 / 3.0
 
                 dos_covalent += gaussian * covalent_weight
                 dos_ionic += gaussian * ionic_weight

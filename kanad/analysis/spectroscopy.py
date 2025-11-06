@@ -1017,23 +1017,24 @@ class VibronicCalculator:
             print(f"✅ Excited states computed!")
             print(f"   Excitation energies (eV): {excitation_energies[:3]}")
 
-        # Step 3: Compute excited state frequencies
-        # NOTE: For now, approximate excited frequencies as similar to ground
-        # TODO: Implement excited state Hessian calculation
+        # Step 3: Compute excited state frequencies and displacement
         if verbose:
-            print(f"\n📊 Step 3/4: Estimating excited state frequencies...")
-            print(f"⚠️  Note: Using approximate excited state frequencies")
-            print(f"         Future versions will compute exact excited state Hessian")
+            print(f"\n📊 Step 3/4: Estimating excited state frequencies and displacement...")
+            print(f"⚠️  Note: Using physics-based approximation")
+            print(f"         Full excited state Hessian would require geometry optimization")
 
-        # Approximate: excited frequencies similar to ground, with small shifts
-        excited_frequencies = ground_frequencies * 0.95  # Typically lower in excited state
-
-        # Approximate displacement (geometry change)
-        # For simple systems, use bond length change
-        displacement = np.random.uniform(0.1, 0.5, len(ground_frequencies))  # Approximate
+        # Compute excited state frequencies and displacement
+        excited_frequencies, displacement = self._estimate_excited_state_vibrational_params(
+            ground_frequencies=ground_frequencies,
+            excitation_energy=excitation_energies[0] if len(excitation_energies) > 0 else 3.0,
+            molecule=self.molecule,
+            verbose=verbose
+        )
 
         if verbose:
-            print(f"✅ Excited state frequencies estimated")
+            print(f"✅ Excited state parameters estimated")
+            print(f"   Frequency scaling: {np.mean(excited_frequencies / ground_frequencies):.3f}")
+            print(f"   Displacement range: {np.min(displacement):.3f} - {np.max(displacement):.3f}")
 
         # Step 4: Generate vibronic spectrum
         if verbose:
@@ -1073,6 +1074,7 @@ class VibronicCalculator:
         spectrum['excitation_energies'] = excitation_energies
         spectrum['ground_frequencies'] = ground_frequencies
         spectrum['excited_frequencies'] = excited_frequencies
+        spectrum['displacement'] = displacement  # Add displacement for reproducibility tests
         spectrum['method'] = f'Quantum Vibronic (SQD)'
         spectrum['backend'] = backend
         spectrum['subspace_dim'] = subspace_dim
@@ -1081,3 +1083,116 @@ class VibronicCalculator:
         spectrum['excited_state_energies'] = excited_result.get('excited_state_energies')
 
         return spectrum
+
+    def _estimate_excited_state_vibrational_params(
+        self,
+        ground_frequencies: np.ndarray,
+        excitation_energy: float,
+        molecule: 'Molecule',
+        verbose: bool = False
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Estimate excited state vibrational parameters using physics-based approximations.
+
+        This method provides deterministic, physics-based estimates when a full excited state
+        Hessian calculation is not performed. Uses correlation between excitation energy
+        and vibrational parameter changes.
+
+        Args:
+            ground_frequencies: Ground state vibrational frequencies (eV)
+            excitation_energy: Electronic excitation energy (eV)
+            molecule: Molecule object
+            verbose: Print diagnostic information
+
+        Returns:
+            Tuple of (excited_frequencies, displacement):
+            - excited_frequencies: Excited state vibrational frequencies (eV)
+            - displacement: Dimensionless normal mode displacements
+
+        Physics-based approximations:
+            1. Frequency scaling: Excited state frequencies typically 90-95% of ground state
+               - π* ← π transitions: ~0.92 (bond weakening)
+               - n* ← n transitions: ~0.95 (smaller change)
+               - σ* ← σ transitions: ~0.88 (larger weakening)
+
+            2. Displacement: Correlates with excitation energy and frequency
+               - Larger excitation energy → larger geometry change → larger displacement
+               - Lower frequency modes → more affected by electronic transition
+               - Formula: Δ_i = α * √(ΔE / ω_i) where α ~ 0.3-0.5
+
+        Note:
+            For quantitative accuracy, a full excited state Hessian calculation
+            would be needed (geometry optimization + frequency calculation in excited state).
+            This approximation is suitable for qualitative vibronic structure.
+        """
+        if verbose:
+            print(f"\n   Using physics-based approximation for excited state parameters")
+            print(f"   Excitation energy: {excitation_energy:.3f} eV")
+            print(f"   Ground state modes: {len(ground_frequencies)}")
+
+        # Determine transition type based on excitation energy
+        # Higher excitation energy typically means more antibonding character
+        if excitation_energy > 6.0:
+            # High energy: likely σ* ← σ (strong bond weakening)
+            frequency_scaling = 0.88
+            displacement_factor = 0.50
+            transition_type = "σ* ← σ (estimated)"
+        elif excitation_energy > 4.0:
+            # Medium-high energy: likely π* ← π (moderate bond weakening)
+            frequency_scaling = 0.92
+            displacement_factor = 0.40
+            transition_type = "π* ← π (estimated)"
+        else:
+            # Lower energy: likely n* ← n or low-lying π* ← π (smaller change)
+            frequency_scaling = 0.95
+            displacement_factor = 0.30
+            transition_type = "n* ← n (estimated)"
+
+        if verbose:
+            print(f"   Estimated transition type: {transition_type}")
+            print(f"   Frequency scaling factor: {frequency_scaling:.3f}")
+            print(f"   Displacement factor: {displacement_factor:.3f}")
+
+        # Compute excited state frequencies
+        excited_frequencies = ground_frequencies * frequency_scaling
+
+        # Compute displacement using physics-based formula
+        # Displacement correlates with √(ΔE / ω) - higher energy and lower frequency
+        # modes are displaced more
+        displacement = np.zeros(len(ground_frequencies))
+
+        for i, freq in enumerate(ground_frequencies):
+            # Avoid division by very small frequencies
+            if freq < 0.01:  # < ~80 cm⁻¹
+                freq_safe = 0.01
+            else:
+                freq_safe = freq
+
+            # Displacement formula: Δ_i = displacement_factor * √(ΔE / ω_i)
+            # Normalized to give reasonable Franck-Condon factors
+            displacement[i] = displacement_factor * np.sqrt(excitation_energy / freq_safe)
+
+        # Normalize displacement to prevent extremely large values
+        # Typical maximum displacement is ~1.0-1.5 for strong transitions
+        max_displacement = 1.5
+        if np.max(displacement) > max_displacement:
+            displacement = displacement * (max_displacement / np.max(displacement))
+
+        # Additional physics: lower frequency modes are typically displaced more
+        # Apply a gentle enhancement for lowest frequency modes
+        freq_order = np.argsort(ground_frequencies)
+        n_modes = len(ground_frequencies)
+        for i, mode_idx in enumerate(freq_order[:min(3, n_modes)]):
+            # Enhance lowest 3 modes by 10-30%
+            enhancement = 1.0 + 0.3 * (1.0 - i / 3.0)
+            displacement[mode_idx] *= enhancement
+
+        # Ensure displacement is never negative or too small
+        displacement = np.clip(displacement, 0.05, 2.0)
+
+        if verbose:
+            print(f"   Excited state frequency range: {np.min(excited_frequencies):.4f} - {np.max(excited_frequencies):.4f} eV")
+            print(f"   Displacement range: {np.min(displacement):.3f} - {np.max(displacement):.3f}")
+            print(f"   Average displacement: {np.mean(displacement):.3f}")
+
+        return excited_frequencies, displacement

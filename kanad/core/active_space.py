@@ -43,14 +43,68 @@ class ActiveSpaceSelector:
             self.protocol = self._detect_protocol()
 
     def _detect_protocol(self):
-        """Auto-detect appropriate governance protocol based on molecule."""
+        """
+        Auto-detect appropriate governance protocol based on molecule.
+
+        Uses electronegativity differences to classify bonding:
+        - ΔEN > 1.7: Ionic
+        - ΔEN < 0.4 and contains metals: Metallic
+        - Otherwise: Covalent
+        """
         # Import here to avoid circular dependency
         from kanad.governance.protocols.covalent_protocol import CovalentGovernanceProtocol
+        from kanad.governance.protocols.ionic_protocol import IonicGovernanceProtocol
+        from kanad.governance.protocols.metallic_protocol import MetallicGovernanceProtocol
 
-        # For now, default to covalent (most common)
-        # TODO: Implement bond type detection based on electronegativity difference
-        logger.info("Auto-detecting bond type: defaulting to covalent")
-        return CovalentGovernanceProtocol()
+        # Pauling electronegativities
+        ELECTRONEGATIVITY = {
+            'H': 2.20, 'He': 0.0,
+            'Li': 0.98, 'Be': 1.57, 'B': 2.04, 'C': 2.55, 'N': 3.04, 'O': 3.44, 'F': 3.98,
+            'Na': 0.93, 'Mg': 1.31, 'Al': 1.61, 'Si': 1.90, 'P': 2.19, 'S': 2.58, 'Cl': 3.16,
+            'K': 0.82, 'Ca': 1.00, 'Fe': 1.83, 'Cu': 1.90, 'Zn': 1.65,
+            'Ag': 1.93, 'Au': 2.54
+        }
+
+        METALS = {'Li', 'Na', 'K', 'Mg', 'Ca', 'Al', 'Fe', 'Cu', 'Zn', 'Ag', 'Au'}
+
+        # Calculate average electronegativity difference
+        en_differences = []
+        has_metal = False
+
+        for atom in self.molecule.atoms:
+            if atom.symbol in METALS:
+                has_metal = True
+
+        # Calculate EN differences between bonded atoms (use molecular structure if available)
+        # For simplicity, calculate for all atom pairs (approximation)
+        for i, atom1 in enumerate(self.molecule.atoms):
+            for atom2 in self.molecule.atoms[i+1:]:
+                en1 = ELECTRONEGATIVITY.get(atom1.symbol, 2.0)  # Default to C if unknown
+                en2 = ELECTRONEGATIVITY.get(atom2.symbol, 2.0)
+                en_diff = abs(en1 - en2)
+                en_differences.append(en_diff)
+
+        if not en_differences:
+            # Single atom - use covalent
+            logger.info("Auto-detecting bond type: single atom, using covalent")
+            return CovalentGovernanceProtocol()
+
+        max_en_diff = max(en_differences)
+        avg_en_diff = sum(en_differences) / len(en_differences)
+
+        # Classification rules
+        if max_en_diff > 1.7:
+            # Ionic bonding
+            logger.info(f"Auto-detecting bond type: max ΔEN = {max_en_diff:.2f} > 1.7 → ionic")
+            return IonicGovernanceProtocol()
+        elif avg_en_diff < 0.4 and has_metal:
+            # Metallic bonding
+            logger.info(f"Auto-detecting bond type: avg ΔEN = {avg_en_diff:.2f} < 0.4, has metal → metallic")
+            return MetallicGovernanceProtocol()
+        else:
+            # Covalent bonding (default)
+            logger.info(f"Auto-detecting bond type: ΔEN = {avg_en_diff:.2f} → covalent")
+            return CovalentGovernanceProtocol()
 
     def get_active_space(self) -> Tuple[List[int], List[int]]:
         """

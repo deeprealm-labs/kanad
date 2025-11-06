@@ -139,7 +139,8 @@ class MDSimulator:
             timestep: Integration timestep in fs
             integrator: Integrator type ('velocity_verlet', 'leapfrog', 'rk4')
             thermostat: Thermostat type ('berendsen', 'nose_hoover', 'langevin', None for NVE)
-            force_method: Force computation method ('hf', 'mp2', 'vqe', 'sqd')
+            force_method: Force computation method ('hf', 'mp2', 'hivqe', 'vqe', 'sqd')
+                         Note: 'hivqe' is recommended for quantum MD (more efficient than 'vqe')
             use_governance: Use governance protocols (for VQE/SQD)
             backend: Quantum backend ('statevector', 'aer', 'ibm')
             initial_velocities: Initial velocities (None = Maxwell-Boltzmann)
@@ -148,6 +149,9 @@ class MDSimulator:
         """
         self.bond_or_molecule = bond_or_molecule
         self.temperature = temperature
+
+        # Initialize solver cache for quantum forces (CRITICAL for performance!)
+        self.solver_cache = {}
         self.timestep = timestep
         self.force_method = force_method.lower()
         self.use_governance = use_governance
@@ -243,16 +247,18 @@ class MDSimulator:
 
             logger.info(f"Using {self.force_method.upper()} forces via PySCF gradients")
 
-        elif self.force_method in ['vqe', 'sqd']:
-            # Quantum forces - will be implemented in quantum_md.py
+        elif self.force_method in ['hivqe', 'vqe', 'sqd']:
+            # Quantum forces with solver caching for performance
             logger.info(f"Using quantum {self.force_method.upper()} forces")
             logger.info(f"  Backend: {self.backend}")
             logger.info(f"  Governance: {self.use_governance}")
+            logger.info(f"  Solver caching: ENABLED (critical for performance!)")
 
             # Store parameters for quantum force computation
             self.quantum_params = {
                 'backend': self.backend,
                 'use_governance': self.use_governance,
+                'solver_cache': self.solver_cache,  # Pass cache for reuse!
                 **kwargs
             }
 
@@ -284,8 +290,8 @@ class MDSimulator:
 
             return forces, potential_energy
 
-        elif self.force_method in ['vqe', 'sqd']:
-            # Quantum forces - call quantum MD module
+        elif self.force_method in ['hivqe', 'vqe', 'sqd']:
+            # Quantum forces - call quantum MD module with caching!
             from kanad.dynamics.quantum_md import compute_quantum_forces
 
             forces, potential_energy = compute_quantum_forces(

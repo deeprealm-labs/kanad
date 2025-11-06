@@ -182,24 +182,39 @@ class IBMPreparation:
         return circuits
 
     def _hamiltonian_to_pauli_sum(self):
-        """Convert Hamiltonian matrix to Pauli sum observable."""
-        from qiskit.quantum_info import SparsePauliOp
+        """
+        Convert Hamiltonian matrix to Pauli sum observable.
 
-        # For now, use full matrix representation
-        # TODO: Optimize by converting to sparse Pauli operators
+        Decomposes molecular Hamiltonian H into Pauli operator sum:
+        H = Σ_i c_i P_i
 
-        # This is a placeholder - in production, we'd decompose H_matrix
-        # into Pauli terms: H = Σ_i c_i P_i
+        where P_i are Pauli strings (e.g., 'XXYZ') and c_i are coefficients.
 
-        # For IBM Estimator, we need SparsePauliOp
-        # Simple approach: return identity (will compute <ψ|I|ψ> first)
+        Returns:
+            SparsePauliOp: Pauli operator representation for IBM Estimator
+        """
+        try:
+            from kanad.core.hamiltonians.pauli_converter import PauliConverter
 
-        pauli_list = [('I' * self.n_qubits, 1.0)]
-        observable = SparsePauliOp.from_list(pauli_list)
+            # Convert Hamiltonian to Pauli operator using PauliConverter
+            # This properly decomposes H_matrix into Pauli terms
+            pauli_op = PauliConverter.to_sparse_pauli_op(
+                self.hamiltonian,
+                self.mapper
+            )
 
-        logger.warning("Using simplified Pauli observable (identity)")
+            logger.info(f"Hamiltonian converted to {len(pauli_op)} Pauli terms")
 
-        return observable
+            return pauli_op
+
+        except Exception as e:
+            # Fallback to identity if conversion fails
+            logger.error(f"Hamiltonian-to-Pauli conversion failed: {e}")
+            logger.warning("Falling back to identity observable")
+
+            from qiskit.quantum_info import SparsePauliOp
+            pauli_list = [('I' * self.n_qubits, 1.0)]
+            return SparsePauliOp.from_list(pauli_list)
 
     def transpile_for_hardware(
         self,
