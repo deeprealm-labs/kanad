@@ -368,6 +368,47 @@ class VQESolver(HiVQESolverMixin, BaseSolver):
         else:
             raise ValueError(f"Unknown ansatz type: {ansatz_type}")
 
+        # CRITICAL FIX: Filter ansatz excitations using governance protocol validation
+        # This ensures VQE uses same excitations as SQD (consistency!)
+        if hasattr(self.hamiltonian, 'governance_protocol') and self.hamiltonian.governance_protocol:
+            protocol = self.hamiltonian.governance_protocol
+
+            # Only filter if ansatz has excitations attribute (UCC, not hardware-efficient)
+            if hasattr(self.ansatz, 'excitations') and hasattr(self.ansatz, 'get_excitation_list'):
+                from kanad.core.configuration import Configuration
+
+                original_excitations = self.ansatz.get_excitation_list()
+                n_original = len(original_excitations)
+
+                # HF reference bitstring
+                hf_bitstring = '1' * n_electrons + '0' * (n_qubits - n_electrons)
+
+                valid_excitations = []
+                for exc in original_excitations:
+                    # Convert excitation to configuration
+                    occ, virt = exc
+
+                    # Build bitstring by applying excitation to HF reference
+                    bitlist = list(hf_bitstring)
+                    for i in occ:
+                        bitlist[i] = '0'  # Remove electron
+                    for a in virt:
+                        bitlist[a] = '1'  # Add electron
+
+                    excited_bitstring = ''.join(bitlist)
+
+                    # Check if valid according to governance
+                    if protocol.is_valid_configuration(excited_bitstring):
+                        valid_excitations.append(exc)
+
+                # Update ansatz excitations
+                self.ansatz.excitations = valid_excitations
+
+                logger.info(f"✅ Governance filtering: {n_original} → {len(valid_excitations)} valid excitations")
+                logger.info(f"   Protocol: {type(protocol).__name__}")
+            else:
+                logger.debug(f"Ansatz {ansatz_type} does not have excitations - skipping governance filtering")
+
         # Store ansatz type after creation
         self.ansatz_type = ansatz_type
 
@@ -1224,6 +1265,153 @@ class VQESolver(HiVQESolverMixin, BaseSolver):
 
         return best_params, best_energy
 
+    def _compute_quantum_rdm1_from_statevector(self, statevector: np.ndarray) -> np.ndarray:
+        """
+        Compute 1-particle reduced density matrix (1-RDM) from VQE statevector.
+
+        The statevector is |ψ⟩ = Σ_i c_i |i⟩ where |i⟩ are computational basis states.
+        Each computational basis state is a Slater determinant.
+
+        For a wavefunction |ψ⟩, the 1-RDM is:
+            ρ_pq = ⟨ψ| a†_p a_q |ψ⟩ = Σ_ij c*_i c_j ⟨i| a†_p a_q |j⟩
+
+        Args:
+            statevector: Quantum state amplitudes (2^n_qubits,) in computational basis
+
+        Returns:
+            Quantum 1-RDM in spatial orbital basis (n_orbitals, n_orbitals)
+        """
+        n_orbitals = self.hamiltonian.n_orbitals
+        n_qubits = 2 * n_orbitals
+        hilbert_dim = 2 ** n_qubits
+
+        # Ensure statevector is the right size
+        if len(statevector) != hilbert_dim:
+            logger.warning(f"Statevector size {len(statevector)} != expected {hilbert_dim}")
+            # Try to handle this gracefully
+            if len(statevector) < hilbert_dim:
+                # Pad with zeros
+                padded = np.zeros(hilbert_dim, dtype=complex)
+                padded[:len(statevector)] = statevector
+                statevector = padded
+            else:
+                # Truncate
+                statevector = statevector[:hilbert_dim]
+
+        # Initialize 1-RDM (spin-summed in spatial orbital basis)
+        rdm1 = np.zeros((n_orbitals, n_orbitals), dtype=complex)
+
+        # For each pair of spatial orbitals p, q
+        for p in range(n_orbitals):
+            for q in range(n_orbitals):
+                rdm_element = 0.0 + 0.0j
+
+                # Alpha spin contribution: a†_{p,α} a_{q,α}
+                p_alpha = p
+                q_alpha = q
+
+                # Beta spin contribution: a†_{p,β} a_{q,β}
+                p_beta = p + n_orbitals
+                q_beta = q + n_orbitals
+
+                # Sum over all pairs of computational basis states
+                for i in range(hilbert_dim):
+                    c_i = statevector[i]
+                    if np.abs(c_i) < 1e-12:
+                        continue  # Skip negligible amplitudes
+
+                    for j in range(hilbert_dim):
+                        c_j = statevector[j]
+                        if np.abs(c_j) < 1e-12:
+                            continue
+
+                        # Alpha contribution
+                        matrix_element_alpha = self._slater_condon_1body(i, j, p_alpha, q_alpha)
+                        rdm_element += c_i.conj() * c_j * matrix_element_alpha
+
+                        # Beta contribution
+                        matrix_element_beta = self._slater_condon_1body(i, j, p_beta, q_beta)
+                        rdm_element += c_i.conj() * c_j * matrix_element_beta
+
+                rdm1[p, q] = rdm_element
+
+        return rdm1.real
+
+    def _slater_condon_1body(self, occ_I: int, occ_J: int, p: int, q: int) -> float:
+        """
+        Compute ⟨φ_I| a†_p a_q |φ_J⟩ using Slater-Condon rules.
+
+        (Same implementation as SQD solver)
+
+        Args:
+            occ_I: Occupation bitstring for |φ_I⟩
+            occ_J: Occupation bitstring for |φ_J⟩
+            p: Creation orbital (spin-orbital index)
+            q: Annihilation orbital (spin-orbital index)
+
+        Returns:
+            Matrix element (0, +1, or -1)
+        """
+        # Check if q is occupied in J and p is unoccupied in J
+        q_occ_J = (occ_J >> q) & 1
+        p_occ_J = (occ_J >> p) & 1
+
+        if q == p:
+            # Number operator: a†_p a_p = n_p
+            if occ_I == occ_J:
+                return float(q_occ_J)
+            else:
+                return 0.0
+
+        # For p != q
+        if q_occ_J == 0:  # Can't annihilate from unoccupied
+            return 0.0
+
+        # Apply a_q: remove electron from q
+        occ_after_aq = occ_J ^ (1 << q)
+
+        # Check if p is occupied after removing q
+        p_occ_after_aq = (occ_after_aq >> p) & 1
+        if p_occ_after_aq == 1:  # Can't create in occupied
+            return 0.0
+
+        # Apply a†_p: add electron to p
+        occ_final = occ_after_aq ^ (1 << p)
+
+        # Check if we got |φ_I⟩
+        if occ_final != occ_I:
+            return 0.0
+
+        # Compute fermion sign
+        sign = self._fermion_sign_1body(occ_J, p, q)
+        return float(sign)
+
+    def _fermion_sign_1body(self, occ: int, p: int, q: int) -> int:
+        """
+        Compute fermion sign for a†_p a_q acting on occupation occ.
+
+        Args:
+            occ: Initial occupation bitstring
+            p: Creation index
+            q: Annihilation index
+
+        Returns:
+            +1 or -1
+        """
+        if p == q:
+            return 1
+
+        # Count occupied orbitals between p and q (exclusive)
+        min_idx = min(p, q)
+        max_idx = max(p, q)
+
+        count = 0
+        for i in range(min_idx + 1, max_idx):
+            if (occ >> i) & 1:
+                count += 1
+
+        return 1 if count % 2 == 0 else -1
+
     def solve(self, initial_parameters: Optional[np.ndarray] = None, callback: Optional[callable] = None) -> Dict[str, Any]:
         """
         Solve for ground state energy using VQE or Hi-VQE.
@@ -1388,10 +1576,53 @@ class VQESolver(HiVQESolverMixin, BaseSolver):
         if self.enable_analysis:
             logger.info(f"✅ Analysis enabled - generating analysis data...")
             try:
-                # Use HF density matrix for analysis (VQE doesn't give us density matrix directly)
-                density_matrix, _ = self.hamiltonian.solve_scf(max_iterations=50, conv_tol=1e-6)
-                self._add_analysis_to_results(result.fun, density_matrix)
-                logger.info(f"✅ Analysis data added to results")
+                # CRITICAL FIX: Extract quantum density from VQE statevector
+                # Build circuit with optimal parameters
+                if self._use_statevector:
+                    from qiskit.quantum_info import Statevector
+
+                    # Build circuit with optimal parameters (proper UCCAnsatz handling)
+                    # Build circuit if not already built
+                    if self.ansatz.circuit is None:
+                        self.ansatz.build_circuit()
+
+                    # Bind parameters to internal circuit
+                    self.ansatz.circuit.bind_parameters(result.x)
+
+                    # Convert to Qiskit circuit
+                    qiskit_circuit = self.ansatz.circuit.to_qiskit()
+
+                    # Bind parameters to Qiskit circuit
+                    if qiskit_circuit.num_parameters > 0:
+                        param_dict = {qiskit_circuit.parameters[i]: result.x[i] for i in range(len(result.x))}
+                        bound_circuit = qiskit_circuit.assign_parameters(param_dict)
+                    else:
+                        bound_circuit = qiskit_circuit
+
+                    # Get statevector
+                    statevector = Statevector.from_instruction(bound_circuit)
+                    statevector_array = statevector.data
+
+                    logger.info("Computing quantum 1-RDM from VQE statevector...")
+                    quantum_density = self._compute_quantum_rdm1_from_statevector(statevector_array)
+                    logger.info(f"✅ Quantum density computed (includes correlation effects)")
+
+                    # Store quantum density in results
+                    self.results['quantum_rdm1'] = quantum_density
+
+                    # CRITICAL FIX: Store quantum density in hamiltonian
+                    if hasattr(self.hamiltonian, 'set_quantum_density_matrix'):
+                        self.hamiltonian.set_quantum_density_matrix(quantum_density)
+
+                    # Use quantum density for analysis
+                    self._add_analysis_to_results(result.fun, quantum_density)
+                    logger.info(f"✅ Analysis data added to results (using quantum density)")
+                else:
+                    # For non-statevector backends, fall back to HF for now
+                    # TODO: Extract density from sampling results
+                    logger.warning("Non-statevector backend: using HF density for analysis")
+                    density_matrix, _ = self.hamiltonian.solve_scf(max_iterations=50, conv_tol=1e-6)
+                    self._add_analysis_to_results(result.fun, density_matrix)
             except Exception as e:
                 logger.error(f"❌ Analysis generation failed: {e}")
                 import traceback
@@ -1429,14 +1660,18 @@ class VQESolver(HiVQESolverMixin, BaseSolver):
             if hasattr(self.hamiltonian, 'nuclear_repulsion'):
                 self.results['nuclear_repulsion'] = float(self.hamiltonian.nuclear_repulsion)
 
-            # Try to get density matrix from HF reference
+            # Try to get density matrix - prefer quantum, fallback to HF
             try:
-                if hasattr(self.hamiltonian, 'mf'):
-                    # PySCF mean-field object has density matrix
+                if 'quantum_rdm1' in self.results:
+                    # Use quantum density if available (includes correlation)
+                    self.results['rdm1'] = self.results['quantum_rdm1'].tolist()
+                    logger.info(f"✅ Stored QUANTUM RDM1 for bonding analysis (correlated)")
+                elif hasattr(self.hamiltonian, 'mf'):
+                    # Fallback to HF density if quantum not available
                     if hasattr(self.hamiltonian.mf, 'make_rdm1'):
                         rdm1 = self.hamiltonian.mf.make_rdm1()
                         self.results['rdm1'] = rdm1.tolist()
-                        logger.info(f"✅ Stored RDM1 for bonding analysis")
+                        logger.info(f"⚠️  Stored HF RDM1 (quantum density not computed)")
             except Exception as e:
                 logger.warning(f"Could not extract RDM1: {e}")
 
@@ -1457,14 +1692,20 @@ class VQESolver(HiVQESolverMixin, BaseSolver):
             except Exception as e:
                 logger.debug(f"Could not extract orbital energies: {e}")
 
-            # Try to get dipole moment
+            # Try to get dipole moment - prefer quantum density
             try:
                 if hasattr(self.hamiltonian, 'mf'):
                     from pyscf import scf
                     if hasattr(scf, 'hf') and hasattr(scf.hf, 'dip_moment'):
-                        dipole = scf.hf.dip_moment(self.hamiltonian.mf.mol, self.hamiltonian.mf.make_rdm1())
-                        self.results['dipole'] = dipole.tolist()
-                        logger.info(f"✅ Stored dipole moment")
+                        # Use quantum density if available
+                        if 'quantum_rdm1' in self.results:
+                            dipole = scf.hf.dip_moment(self.hamiltonian.mf.mol, self.results['quantum_rdm1'])
+                            self.results['dipole'] = dipole.tolist()
+                            logger.info(f"✅ Stored dipole moment (using quantum density)")
+                        else:
+                            dipole = scf.hf.dip_moment(self.hamiltonian.mf.mol, self.hamiltonian.mf.make_rdm1())
+                            self.results['dipole'] = dipole.tolist()
+                            logger.info(f"⚠️  Stored dipole moment (using HF density)")
             except Exception as e:
                 logger.warning(f"Could not calculate dipole: {e}")
 

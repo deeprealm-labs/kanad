@@ -9,6 +9,8 @@ import logging
 from typing import Dict, Any, Optional, List, Union
 import numpy as np
 
+from kanad.backends.ibm.error_mitigation import ErrorMitigationStrategy
+
 logger = logging.getLogger(__name__)
 
 
@@ -210,19 +212,23 @@ class IBMBackend:
                     # Set options (V2 primitives)
                     estimator.options.default_shots = shots
 
-                    # Apply error mitigation (resilience_level sets baseline)
-                    estimator.options.resilience_level = resilience_level
+                    # CRITICAL FIX (Issue #8): Use auto_configure() for error mitigation
+                    error_mitigation = ErrorMitigationStrategy.auto_configure(self.backend.name)
 
-                    # Enhanced error mitigation options for Qiskit Runtime
-                    if resilience_level >= 1:
-                        estimator.options.resilience.measure_mitigation = True
-                        logger.info(f"  Error mitigation enabled (level {resilience_level})")
+                    # Apply auto-configured error mitigation strategy
+                    estimator.options.resilience_level = error_mitigation.resilience_level
+                    resilience_options = error_mitigation.get_resilience_options()
 
-                    if resilience_level >= 2:
-                        estimator.options.resilience.zne_mitigation = True
-                        estimator.options.resilience.zne.noise_factors = [1.0, 1.5, 2.0]
-                        estimator.options.resilience.zne.extrapolator = 'exponential'
-                        logger.info(f"  ZNE enabled: exponential extrapolation")
+                    # Set resilience options if any
+                    if resilience_options:
+                        for key, value in resilience_options.items():
+                            setattr(estimator.options.resilience, key, value)
+                        logger.info(f"  ✅ Auto-configured error mitigation applied")
+                        logger.info(f"     Resilience level: {error_mitigation.resilience_level}")
+                        if error_mitigation.zne_extrapolation:
+                            logger.info(f"     ZNE: {error_mitigation.zne_extrapolation}")
+                        if error_mitigation.dynamical_decoupling:
+                            logger.info(f"     DD: {error_mitigation.dynamical_decoupling}")
 
                     logger.info("Using Estimator primitive (session mode)")
 
@@ -337,19 +343,23 @@ class IBMBackend:
                     # Set options (V2 primitives)
                     estimator.options.default_shots = shots
 
-                    # Apply error mitigation (resilience_level sets baseline)
-                    estimator.options.resilience_level = resilience_level
+                    # CRITICAL FIX (Issue #8): Use auto_configure() for error mitigation
+                    error_mitigation = ErrorMitigationStrategy.auto_configure(self.backend.name)
 
-                    # Enhanced error mitigation options for Qiskit Runtime
-                    if resilience_level >= 1:
-                        estimator.options.resilience.measure_mitigation = True
-                        logger.info(f"  Error mitigation enabled (level {resilience_level})")
+                    # Apply auto-configured error mitigation strategy
+                    estimator.options.resilience_level = error_mitigation.resilience_level
+                    resilience_options = error_mitigation.get_resilience_options()
 
-                    if resilience_level >= 2:
-                        estimator.options.resilience.zne_mitigation = True
-                        estimator.options.resilience.zne.noise_factors = [1.0, 1.5, 2.0]
-                        estimator.options.resilience.zne.extrapolator = 'exponential'
-                        logger.info(f"  ZNE enabled: exponential extrapolation")
+                    # Set resilience options if any
+                    if resilience_options:
+                        for key, value in resilience_options.items():
+                            setattr(estimator.options.resilience, key, value)
+                        logger.info(f"  ✅ Auto-configured error mitigation applied")
+                        logger.info(f"     Resilience level: {error_mitigation.resilience_level}")
+                        if error_mitigation.zne_extrapolation:
+                            logger.info(f"     ZNE: {error_mitigation.zne_extrapolation}")
+                        if error_mitigation.dynamical_decoupling:
+                            logger.info(f"     DD: {error_mitigation.dynamical_decoupling}")
 
                     logger.info("Using Estimator primitive (batch mode)")
 

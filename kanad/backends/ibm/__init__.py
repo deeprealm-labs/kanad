@@ -31,5 +31,13 @@ Usage:
 from kanad.backends.ibm.backend import IBMBackend
 from kanad.backends.ibm.preparation import IBMPreparation
 from kanad.backends.ibm.runner import IBMRunner
+from kanad.backends.ibm.error_mitigation import ErrorMitigationStrategy
+from kanad.backends.ibm.governance_error_mitigation import GovernanceAwareErrorMitigation
 
-__all__ = ['IBMBackend', 'IBMPreparation', 'IBMRunner']
+__all__ = [
+    'IBMBackend',
+    'IBMPreparation',
+    'IBMRunner',
+    'ErrorMitigationStrategy',
+    'GovernanceAwareErrorMitigation'
+]

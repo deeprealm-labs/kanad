@@ -336,8 +336,14 @@ class SolventModulator:
         elif hasattr(bond_or_molecule, '_cached_energy'):
             return bond_or_molecule._cached_energy
         else:
-            logger.warning("No cached energy - returning 0.0")
-            return 0.0
+            # CRITICAL FIX: Compute HF energy if not cached (don't return 0.0!)
+            if hasattr(bond_or_molecule, 'hamiltonian'):
+                logger.info("Computing HF energy (not cached) for solvent calculation")
+                rdm1_hf, E_hf = bond_or_molecule.hamiltonian.solve_scf()
+                bond_or_molecule._cached_energy = E_hf
+                return E_hf
+            else:
+                raise ValueError("Cannot compute energy - no hamiltonian available and no cached energy")
 
     def _compute_pcm_electrostatic(
         self,

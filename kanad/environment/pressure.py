@@ -322,7 +322,14 @@ class PressureModulator:
         elif hasattr(bond_or_molecule, '_cached_energy'):
             return bond_or_molecule._cached_energy
         else:
-            return 0.0
+            # CRITICAL FIX: Compute HF energy if not cached (don't return 0.0!)
+            if hasattr(bond_or_molecule, 'hamiltonian'):
+                logger.info("Computing HF energy (not cached) for pressure calculation")
+                rdm1_hf, E_hf = bond_or_molecule.hamiltonian.solve_scf()
+                bond_or_molecule._cached_energy = E_hf
+                return E_hf
+            else:
+                raise ValueError("Cannot compute energy - no hamiltonian available and no cached energy")
 
     def _estimate_bulk_modulus(self, bond_or_molecule) -> float:
         """
@@ -356,6 +363,54 @@ class PressureModulator:
                 K = 10.0  # Default
 
         return K
+
+    def compute_volume_change(
+        self,
+        pressure: float,
+        bulk_modulus: float,
+        pressure_unit: str = 'GPa'
+    ) -> float:
+        """
+        Compute volume change under pressure using equation of state.
+
+        Formula: ΔV/V₀ = -P/B (linear regime)
+                 or V/V₀ = (1 + K'P/K)^(-1/K') (Murnaghan EOS)
+
+        where B is bulk modulus and K' is its pressure derivative (~4).
+
+        Args:
+            pressure: Applied pressure (default in GPa)
+            bulk_modulus: Bulk modulus in GPa
+            pressure_unit: 'GPa' or 'bar' (default: GPa)
+
+        Returns:
+            Volume compression ratio V/V₀ (dimensionless, ≤ 1.0)
+                1.0 = no compression
+                0.5 = compressed to 50% of original volume
+
+        Example:
+            >>> pressure_mod = PressureModulator()
+            >>> # 10 GPa on material with K=100 GPa
+            >>> ratio = pressure_mod.compute_volume_change(10.0, 100.0)
+            >>> print(f"Compressed to {ratio*100:.1f}% of original volume")
+        """
+        # Convert pressure to GPa if needed
+        if pressure_unit.lower() == 'bar':
+            P_GPa = pressure * self.bar_to_GPa
+        elif pressure_unit.lower() == 'gpa':
+            P_GPa = pressure
+        else:
+            raise ValueError(f"Unknown pressure unit: {pressure_unit}. Use 'GPa' or 'bar'")
+
+        if bulk_modulus <= 0:
+            raise ValueError(f"Bulk modulus must be positive, got {bulk_modulus} GPa")
+
+        # Use internal method for calculation
+        compression_ratio = self._compute_compression_ratio(P_GPa, bulk_modulus)
+
+        logger.debug(f"Volume change: P={P_GPa:.2f} GPa, K={bulk_modulus:.1f} GPa → V/V₀ = {compression_ratio:.4f}")
+
+        return compression_ratio
 
     def _compute_compression_ratio(self, P_GPa: float, K: float) -> float:
         """

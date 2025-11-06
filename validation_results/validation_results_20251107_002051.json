@@ -1,0 +1,100 @@
+{
+  "timestamp": "2025-11-07T00:20:45.081587",
+  "tests": [
+    {
+      "name": "Quantum Solvers",
+      "subtests": [
+        {
+          "name": "VQE H2",
+          "energy": -1.116759307396415,
+          "hf_energy": -1.1167593073964255,
+          "correlation": 1.0436096431476471e-14,
+          "converged": true,
+          "status": "PASS"
+        },
+        {
+          "name": "SQD H2",
+          "energy": -1.1372838344885023,
+          "converged": true,
+          "status": "PASS"
+        },
+        {
+          "name": "Governance Speedup",
+          "time_with_governance": 0.09742212295532227,
+          "time_without_governance": 0.09535670280456543,
+          "speedup": 0.9787992697335898,
+          "energy_difference": 1.1102230246251565e-15,
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "name": "Analysis Modules",
+      "subtests": [
+        {
+          "name": "Property Calculator",
+          "has_dipole": false,
+          "has_energy": true,
+          "status": "PASS"
+        },
+        {
+          "name": "DOS",
+          "status": "ERROR",
+          "error": "Must run solve_scf() on PeriodicHamiltonian first"
+        }
+      ]
+    },
+    {
+      "name": "Molecular Dynamics",
+      "subtests": [
+        {
+          "name": "Classical MD",
+          "status": "ERROR",
+          "error": "'MDResult' object has no attribute 'initial_energy'"
+        },
+        {
+          "name": "Quantum MD",
+          "status": "ERROR",
+          "error": "integer modulo by zero"
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "subtests": [
+        {
+          "name": "Drug Discovery",
+          "status": "ERROR",
+          "error": "'DrugDiscoveryPlatform' object has no attribute 'evaluate_molecule'"
+        },
+        {
+          "name": "Materials Scout",
+          "status": "ERROR",
+          "error": "'MaterialsScout' object has no attribute 'evaluate_material'"
+        }
+      ]
+    },
+    {
+      "name": "Quantum vs Classical",
+      "subtests": [
+        {
+          "name": "Energy Comparison",
+          "hf_energy": -1.1167593073964255,
+          "vqe_energy": -1.1167593073964146,
+          "correlation_energy": 1.0880185641326534e-14,
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "name": "Full Stack Integration",
+      "subtests": [
+        {
+          "name": "Full Workflow",
+          "status": "ERROR",
+          "error": "integer modulo by zero"
+        }
+      ]
+    }
+  ]
+}

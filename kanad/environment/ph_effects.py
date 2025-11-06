@@ -209,11 +209,93 @@ class pHModulator:
 
         Args:
             molecule: Molecule object with atom types and connectivity
+
+        Note:
+            Automatic site detection requires SMARTS pattern matching.
+            For now, users must manually add sites using add_site().
+
+        Example:
+            >>> ph_model = pHEffectsModel()
+            >>> ph_model.add_site(site_id=0, pka=4.76, site_type='carboxyl')
+            >>> ph_model.add_site(site_id=1, pka=9.25, site_type='amine')
         """
-        # This would require molecular structure analysis
-        # For now, placeholder - in real implementation would use SMARTS patterns
-        logger.warning("Automatic site detection not yet implemented")
+        logger.info("Automatic site detection not yet implemented")
+        logger.info("Please add protonatable sites manually using add_site()")
+        logger.info("  Example: model.add_site(site_id=0, pka=4.76, site_type='carboxyl')")
+
+        # Future implementation would:
+        # 1. Parse molecular structure
+        # 2. Identify functional groups using SMARTS patterns
+        # 3. Assign pKa values from database
+        # 4. Add sites automatically
         pass
+
+    def determine_protonation_state(
+        self,
+        molecule,
+        pH: float,
+        return_detailed: bool = False
+    ) -> Dict[int, bool]:
+        """
+        Determine protonation state based on pKa values using Henderson-Hasselbalch.
+
+        For each protonatable site:
+            pH = pKa + log([A⁻]/[HA])
+
+        Rearranging:
+            fraction_protonated = 1 / (1 + 10^(pH - pKa))
+
+        If fraction > 0.5, site is protonated; otherwise deprotonated.
+
+        Args:
+            molecule: Molecular system (can be bond or molecule object)
+            pH: Solution pH (0-14)
+            return_detailed: If True, return detailed state info; if False, return bool only
+
+        Returns:
+            Dictionary mapping site index → protonation state
+                If return_detailed=False: {site_idx: True/False}
+                If return_detailed=True:  {site_idx: {'protonated': bool,
+                                                       'fraction': float,
+                                                       'pKa': float,
+                                                       'group_type': str}}
+
+        Example:
+            >>> ph_mod = pHModulator()
+            >>> ph_mod.add_site(atom_index=0, group_type='carboxylic_acid')  # pKa=4.8
+            >>> state = ph_mod.determine_protonation_state(molecule, pH=7.0)
+            >>> print(state)  # {0: False} - deprotonated at pH 7
+            >>>
+            >>> state = ph_mod.determine_protonation_state(molecule, pH=2.0)
+            >>> print(state)  # {0: True} - protonated at pH 2
+        """
+        if not self.sites:
+            logger.warning("No protonation sites defined - returning empty state")
+            return {}
+
+        protonation_state = {}
+
+        for site in self.sites:
+            # Compute protonated fraction using Henderson-Hasselbalch
+            f_prot = site.get_protonated_fraction(pH)
+
+            # Determine discrete state (>50% = protonated)
+            is_protonated = f_prot > 0.5
+
+            if return_detailed:
+                protonation_state[site.atom_index] = {
+                    'protonated': is_protonated,
+                    'fraction': f_prot,
+                    'pKa': site.pKa,
+                    'group_type': site.group_type,
+                    'is_acid': site.is_acid
+                }
+            else:
+                protonation_state[site.atom_index] = is_protonated
+
+        logger.debug(f"Protonation state at pH {pH:.1f}: {protonation_state}")
+
+        return protonation_state
 
     def apply_pH(
         self,
@@ -383,7 +465,14 @@ class pHModulator:
         elif hasattr(bond_or_molecule, '_cached_energy'):
             return bond_or_molecule._cached_energy
         else:
-            return 0.0
+            # CRITICAL FIX: Compute HF energy if not cached (don't return 0.0!)
+            if hasattr(bond_or_molecule, 'hamiltonian'):
+                logger.info("Computing HF energy (not cached) for pH calculation")
+                rdm1_hf, E_hf = bond_or_molecule.hamiltonian.solve_scf()
+                bond_or_molecule._cached_energy = E_hf
+                return E_hf
+            else:
+                raise ValueError("Cannot compute energy - no hamiltonian available and no cached energy")
 
     def _compute_charging_energy(
         self,

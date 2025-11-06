@@ -147,6 +147,66 @@ class ErrorMitigationStrategy:
 
         return options
 
+    @staticmethod
+    def auto_configure(backend_name: str) -> 'ErrorMitigationStrategy':
+        """
+        Automatically configure error mitigation based on backend type.
+
+        **Automatic Strategy:**
+        - Simulators (aer_simulator, statevector): No mitigation (not needed)
+        - Real hardware (ibm_*): Full mitigation stack
+
+        This eliminates the need for manual configuration and ensures optimal
+        settings for each backend type.
+
+        Args:
+            backend_name: Name of the quantum backend
+
+        Returns:
+            Configured ErrorMitigationStrategy instance
+
+        Examples:
+            >>> # Simulator - no mitigation
+            >>> strategy = ErrorMitigationStrategy.auto_configure('aer_simulator')
+            >>> strategy.readout_mitigation  # False
+
+            >>> # Real hardware - full mitigation
+            >>> strategy = ErrorMitigationStrategy.auto_configure('ibm_kyoto')
+            >>> strategy.readout_mitigation  # True
+            >>> strategy.zne_extrapolation  # 'exponential'
+        """
+        backend_lower = backend_name.lower()
+
+        # Check if simulator
+        is_simulator = any(sim in backend_lower for sim in [
+            'simulator', 'statevector', 'aer', 'fake'
+        ])
+
+        if is_simulator:
+            # Simulators: No mitigation needed (noiseless or noise model already applied)
+            logger.info(f"Auto-config: Simulator detected ({backend_name}) - disabling error mitigation")
+            return ErrorMitigationStrategy(
+                resilience_level=0,
+                readout_mitigation=False,
+                zne_extrapolation=None,
+                dynamical_decoupling=None,
+                twirling=False,
+                measure_mitigation=False
+            )
+
+        else:
+            # Real hardware: Enable full mitigation stack
+            logger.info(f"Auto-config: Real hardware detected ({backend_name}) - enabling full mitigation")
+            return ErrorMitigationStrategy(
+                resilience_level=2,  # Level 2: ZNE + readout mitigation
+                readout_mitigation=True,
+                zne_extrapolation='exponential',  # Exponential extrapolation works best
+                zne_noise_factors=[1.0, 3.0, 5.0],  # Standard ZNE noise scaling
+                dynamical_decoupling='XY4',  # XY4 sequence for coherence protection
+                twirling=True,  # Pauli twirling for gate errors
+                measure_mitigation=True  # M3 measurement mitigation
+            )
+
     def estimate_mitigation_overhead(self, n_circuits: int) -> Dict[str, Any]:
         """
         Estimate computational overhead from error mitigation.

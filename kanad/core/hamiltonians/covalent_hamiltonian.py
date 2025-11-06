@@ -756,8 +756,51 @@ class CovalentHamiltonian(MolecularHamiltonian):
         self._scf_iterations = iterations
         self._mo_energies = mo_energies_final
         self._mo_coefficients = mo_coefficients
+        self._density_matrix = density_matrix  # Store for get_density_matrix()
+        self._scf_energy = total_energy
 
         return density_matrix, total_energy
+
+    def set_quantum_density_matrix(self, quantum_rdm1: np.ndarray):
+        """
+        Store quantum-correlated density matrix from a quantum solver.
+
+        This allows property calculators to use quantum density instead of HF.
+
+        Args:
+            quantum_rdm1: Quantum 1-RDM (n_orbitals, n_orbitals) from VQE/SQD/etc.
+        """
+        self._quantum_density_matrix = quantum_rdm1
+        logger.info("✅ Stored quantum density matrix (includes correlation effects)")
+
+    def get_density_matrix(self) -> np.ndarray:
+        """
+        Get density matrix, preferring quantum over HF.
+
+        Priority:
+        1. Quantum density (from VQE/SQD if set via set_quantum_density_matrix())
+        2. HF density (from solve_scf())
+
+        Returns:
+            rdm1: One-particle density matrix (n_orbitals, n_orbitals)
+                  in atomic orbital basis
+
+        Raises:
+            ValueError: If no density matrix is available
+        """
+        # Try quantum density first (includes correlation)
+        if hasattr(self, '_quantum_density_matrix') and self._quantum_density_matrix is not None:
+            logger.debug("Using quantum density matrix (correlated)")
+            return self._quantum_density_matrix
+
+        # Fall back to HF density
+        if hasattr(self, '_density_matrix') and self._density_matrix is not None:
+            logger.debug("Using HF density matrix (no correlation)")
+            return self._density_matrix
+
+        raise ValueError(
+            "Density matrix not available. Must run solve_scf() or quantum solver first."
+        )
 
     def _solve_hartree_fock(self, max_iter=100, conv_tol=1e-8, use_diis=True) -> Tuple[np.ndarray, np.ndarray, bool, int]:
         """

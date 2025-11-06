@@ -65,7 +65,9 @@ class FrequencyCalculator:
         self.n_atoms = len(molecule.atoms)
         self.n_coords = 3 * self.n_atoms
 
-        logger.info(f"FrequencyCalculator initialized for {molecule.formula}")
+        # Get molecule name (handle different molecule types)
+        mol_name = getattr(molecule, 'formula', None) or getattr(molecule, 'name', 'Unknown')
+        logger.info(f"FrequencyCalculator initialized for {mol_name}")
         logger.info(f"  {self.n_atoms} atoms, {self.n_coords} coordinates")
 
     def _is_linear(self) -> bool:
@@ -403,10 +405,11 @@ class FrequencyCalculator:
         n_imaginary = np.sum(frequencies < 0)
 
         if verbose:
+            mol_name = getattr(self.molecule, 'formula', None) or getattr(self.molecule, 'name', 'Unknown')
             print("\n" + "=" * 70)
             print("VIBRATIONAL ANALYSIS RESULTS")
             print("=" * 70)
-            print(f"Molecule: {self.molecule.formula}")
+            print(f"Molecule: {mol_name}")
             print(f"Method: {method}")
             print(f"Number of atoms: {self.n_atoms}")
             print(f"Linear: {self._is_linear()}")

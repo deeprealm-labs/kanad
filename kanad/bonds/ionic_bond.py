@@ -120,7 +120,11 @@ class IonicBond(BaseBond):
             # Get convergence info from Hamiltonian
             result['converged'] = getattr(self.hamiltonian, '_scf_converged', False)
             result['iterations'] = getattr(self.hamiltonian, '_scf_iterations', 0)
-            result['density_matrix'] = density_matrix
+            result['density_matrix'] = density_matrix  # Legacy compatibility
+
+            # CRITICAL FIX: Also store in hamiltonian for standardized access
+            if hasattr(self.hamiltonian, 'set_quantum_density_matrix'):
+                self.hamiltonian.set_quantum_density_matrix(density_matrix)
 
         elif method.upper() == 'VQE':
             # VQE with governance-aware ansatz

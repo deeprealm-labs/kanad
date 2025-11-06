@@ -21,6 +21,8 @@ from kanad.analysis.bond_scanner import BondLengthScanner
 from kanad.analysis.thermochemistry import ThermochemistryCalculator
 from kanad.analysis.vibrational_analysis import FrequencyCalculator
 from kanad.analysis.spectroscopy import UVVisCalculator, ExcitedStateSolver, VibronicCalculator
+from kanad.analysis.nmr_calculator import NMRCalculator
+from kanad.analysis.raman_calculator import RamanIRCalculator
 from kanad.analysis.dos_calculator import DOSCalculator
 from kanad.analysis.uncertainty import UncertaintyAnalyzer
 from kanad.analysis.adme_calculator import ADMECalculator, MolecularDescriptors, ADMEProperties
@@ -37,6 +39,8 @@ __all__ = [
     'UVVisCalculator',
     'ExcitedStateSolver',
     'VibronicCalculator',
+    'NMRCalculator',
+    'RamanIRCalculator',
     'DOSCalculator',
     'UncertaintyAnalyzer',
     'ADMECalculator',

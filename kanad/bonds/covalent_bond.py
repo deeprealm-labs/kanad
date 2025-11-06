@@ -159,7 +159,11 @@ class CovalentBond(BaseBond):
             # Get convergence info from Hamiltonian
             result['converged'] = converged
             result['iterations'] = getattr(self.hamiltonian, '_scf_iterations', 0)
-            result['density_matrix'] = density_matrix
+            result['density_matrix'] = density_matrix  # Legacy compatibility
+
+            # CRITICAL FIX: Also store in hamiltonian for standardized access
+            if hasattr(self.hamiltonian, 'set_quantum_density_matrix'):
+                self.hamiltonian.set_quantum_density_matrix(density_matrix)
 
             # Get molecular orbitals
             mo_energies, mo_coeffs = self.hamiltonian.compute_molecular_orbitals()

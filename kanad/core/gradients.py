@@ -60,13 +60,69 @@ class GradientCalculator:
             ValueError: If method is not supported
         """
         self.molecule = molecule
-        self.hamiltonian = molecule.hamiltonian  # MolecularHamiltonian with mf
+        if hasattr(molecule, 'hamiltonian'):
+            self.hamiltonian = molecule.hamiltonian
+        else:
+            self.hamiltonian = None
         self.method = method.upper()
+        self._mf_cache = None  # Cache for mean-field object
 
         if self.method not in ['HF', 'MP2']:
             raise ValueError(f"Method '{method}' not supported. Use 'HF' or 'MP2'.")
 
         logger.debug(f"GradientCalculator initialized: {self.method}")
+
+    def _get_pyscf_mf(self):
+        """
+        Get or create PySCF mean-field object.
+
+        Returns:
+            PySCF mean-field object (RHF or RKS)
+        """
+        # Try to get from hamiltonian if available
+        if self.hamiltonian is not None and hasattr(self.hamiltonian, 'mf'):
+            return self.hamiltonian.mf
+
+        # Create fresh PySCF calculation
+        from pyscf import gto, scf
+
+        # Build PySCF molecule
+        atoms = []
+        if hasattr(self.molecule, 'atoms'):
+            # Full molecule
+            for atom in self.molecule.atoms:
+                pos = atom.position  # Already in Bohr
+                atoms.append([atom.symbol, pos])
+        elif hasattr(self.molecule, 'atom_1') and hasattr(self.molecule, 'atom_2'):
+            # Bond (diatomic)
+            atoms.append([self.molecule.atom_1.symbol, self.molecule.atom_1.position])
+            atoms.append([self.molecule.atom_2.symbol, self.molecule.atom_2.position])
+        else:
+            raise ValueError("Cannot extract atoms from molecule/bond object")
+
+        # Determine charge and spin
+        charge = getattr(self.molecule, 'charge', 0)
+        multiplicity = getattr(self.molecule, 'multiplicity', 1)
+
+        # Create PySCF molecule
+        mol = gto.Mole()
+        mol.atom = atoms
+        mol.basis = getattr(self.molecule, 'basis_set', 'sto-3g')
+        mol.charge = charge
+        mol.spin = multiplicity - 1
+        mol.unit = 'Bohr'
+        mol.verbose = 0
+        mol.build()
+
+        # Run HF
+        mf = scf.RHF(mol)
+        mf.verbose = 0
+        mf.kernel()
+
+        # Cache it
+        self._mf_cache = mf
+
+        return mf
 
     def compute_gradient(self) -> Dict[str, Any]:
         """
@@ -90,13 +146,16 @@ class GradientCalculator:
         """
         logger.info(f"Computing analytical gradient ({self.method})...")
 
+        # Get PySCF mean-field object
+        mf = self._get_pyscf_mf()
+
         # Get PySCF gradient object
         if self.method == 'HF':
-            grad_obj = self.hamiltonian.mf.Gradients()
+            grad_obj = mf.Gradients()
         elif self.method == 'MP2':
             from pyscf import mp
             # Run MP2 if not already done
-            mp2_solver = mp.MP2(self.hamiltonian.mf)
+            mp2_solver = mp.MP2(mf)
             mp2_solver.verbose = 0
             mp2_solver.kernel()
             grad_obj = mp2_solver.Gradients()
@@ -120,9 +179,20 @@ class GradientCalculator:
         logger.info(f"Max force: {max_force:.6f} Ha/Bohr (atom {max_force_atom})")
         logger.info(f"RMS force: {rms_force:.6f} Ha/Bohr")
 
+        # Get energy from mean-field object
+        if self.method == 'HF':
+            energy = mf.e_tot
+        elif self.method == 'MP2':
+            energy = mp2_solver.e_tot
+        else:
+            energy = mf.e_tot
+
+        logger.info(f"Energy: {energy:.6f} Ha")
+
         return {
             'gradient': gradient,
             'forces': forces,
+            'energy': energy,
             'max_force': max_force,
             'rms_force': rms_force,
             'max_force_atom': max_force_atom,
